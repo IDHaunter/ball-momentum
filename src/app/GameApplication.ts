@@ -133,6 +133,7 @@ export class GameApplication {
       'drag.groundHorizontalDragPerSecond', 'drag.airHorizontalDragPerSecond',
       'jump.baseVelocity', 'airBoost.velocityDelta', 'airBoost.sweetSpotAfterTakeoffMs',
       'ball.radiusPx',
+      'wallBounce.restitution', 'wallBounce.tangentRetention', 'wallBounce.minimumImpactSpeed',
     ];
     for (const path of paths) {
       const [section, property] = path.split('.') as [keyof typeof defaults, string];
@@ -152,6 +153,7 @@ export class GameApplication {
       airBoost: { velocityDelta: 210, minStrengthMultiplier: 0.8, maxStrengthMultiplier: 1.2, earliestAfterTakeoffMs: 60, latestAfterTakeoffMs: 1000, sweetSpotAfterTakeoffMs: 440, sweetSpotToleranceMs: 180, edgeTimingMultiplier: 0.65, maxUpwardSpeed: 900 },
       limits: { maxHorizontalSpeed: 840, maxUpwardSpeed: 900, maxDownwardSpeed: 1100 },
       groundContact: { maxGroundAngleDegrees: 55, supportGraceMs: 35 },
+      wallBounce: { restitution: 0.62, tangentRetention: 0.94, minimumImpactSpeed: 90 },
     };
   }
 }

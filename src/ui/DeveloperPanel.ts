@@ -14,6 +14,9 @@ const FIELDS: TuningField[] = [
   { label: 'Air boost delta', path: 'airBoost.velocityDelta', min: 50, max: 500, step: 10 },
   { label: 'Boost sweet spot (ms)', path: 'airBoost.sweetSpotAfterTakeoffMs', min: 100, max: 900, step: 10 },
   { label: 'Ball radius (rebuild)', path: 'ball.radiusPx', min: 8, max: 32, step: 1 },
+  { label: 'Wall bounce restitution', path: 'wallBounce.restitution', min: 0.1, max: 0.95, step: 0.05 },
+  { label: 'Wall tangential retention', path: 'wallBounce.tangentRetention', min: 0.6, max: 1, step: 0.02 },
+  { label: 'Wall min impact speed', path: 'wallBounce.minimumImpactSpeed', min: 20, max: 250, step: 5 },
 ];
 
 export class DeveloperPanel {

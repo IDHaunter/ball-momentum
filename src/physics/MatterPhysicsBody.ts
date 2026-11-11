@@ -7,6 +7,7 @@ export interface MatterBodyLike {
   velocity: Vector2;
   angle: number;
   angularVelocity: number;
+  circleRadius?: number;
   label?: string;
   parent?: MatterBodyLike;
 }

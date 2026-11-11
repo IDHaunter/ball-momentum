@@ -77,3 +77,36 @@ npm run test:e2e
 ```
 
 For manual gameplay verification, check the level start platform, both ends of the first ramp, the sandbox ramp, and the checkpoint/goal sequence. On flat ground, use Space or S, or swipe down. W / Up / swipe up is an air boost and only works after takeoff.
+
+
+## Wall bounce and dust impact patch — 2026-11-11
+
+- Core TypeScript typecheck (physics/controller dependencies): passed using the globally available `tsc`.
+- Focused runtime harness: passed (`MatterCollisionMapper` wall impact capture, controller reflection, tangential velocity retention, and minimum-speed filtering).
+- Repository TypeScript syntax transpilation: 84 files, 0 syntax errors.
+- Added five Vitest regression cases in `MatterCollisionMapper.test.ts` and `BallController.test.ts`; Vitest itself was not run in this environment because project dependencies are absent.
+- Production build and Playwright E2E were not run in this environment for the same dependency/browser limitation.
+
+Suggested local verification:
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e
+```
+
+
+## Follow-up corrections from owner validation — 2026-11-11
+
+The owner reported these results from the prior wall-bounce archive:
+
+- `npm run typecheck` reported two `SolidDefinition.width` errors in `TerrainFactory.ts`.
+- `npm run test` reported 40 passing tests and one failed `polygonCentroid` expectation.
+
+Corrections in this archive:
+
+1. Added explicit `BoxSolidDefinition` type predicates to both neighbor lookups in `TerrainFactory.ts`. This was checked using the global TypeScript compiler with `strict: true` against the actual `TerrainFactory.ts` and matching project type interfaces; the focused typecheck passed.
+2. Corrected the centroid test expectation to match the actual test polygon. A direct execution of the project's transpiled `polygonCentroid` and `getCollisionVertices` functions confirmed the centroid `(868.7157894736843, 1046.8240923163523)` and the expected 24 px side overlap.
+
+The full project `npm run typecheck` and `npm run test` were not run in this packaging environment because `node_modules` and cached Vitest dependencies are absent. Please rerun them locally after extracting this archive. The corrected test suite should still contain 41 tests; this report does not claim a full Vitest pass.

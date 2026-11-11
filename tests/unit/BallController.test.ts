@@ -84,6 +84,49 @@ describe('BallController', () => {
     ball.dispose();
   });
 
+  it('bounces away from a vertical wall while preserving part of the tangential speed', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, clock, { x: 20, y: 20 });
+    ball.currentBody.setVelocity({ x: 600, y: 120 });
+
+    world.emit({
+      type: 'BALL_WALL_IMPACT',
+      terrainId: 'wall',
+      normal: { x: -1, y: 0 },
+      incomingVelocity: { x: 600, y: 120 },
+      contactPoint: { x: 118, y: 100 },
+      impactSpeed: 600,
+    });
+    ball.stepAfterPhysics();
+
+    expect(ball.snapshot.velocity.x).toBeCloseTo(-600 * config.wallBounce.restitution);
+    expect(ball.snapshot.velocity.y).toBeCloseTo(120 * config.wallBounce.tangentRetention);
+    ball.dispose();
+  });
+
+  it('does not bounce on a low-speed wall touch', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, clock, { x: 20, y: 20 });
+    ball.currentBody.setVelocity({ x: 70, y: 0 });
+
+    world.emit({
+      type: 'BALL_WALL_IMPACT',
+      terrainId: 'wall',
+      normal: { x: -1, y: 0 },
+      incomingVelocity: { x: 70, y: 0 },
+      contactPoint: { x: 118, y: 100 },
+      impactSpeed: 70,
+    });
+    ball.stepAfterPhysics();
+
+    expect(ball.snapshot.velocity.x).toBe(70);
+    ball.dispose();
+  });
+
   it('clears velocity and transient jump state after a reset', () => {
     const world = new FakeWorld();
     const clock = new GameClock();

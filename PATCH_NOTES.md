@@ -35,3 +35,25 @@ This archive includes the earlier Phaser typecheck fixes and the gameplay fixes 
 - Runtime gravity scale is still applied through `Matter.World.setGravity(x, y, scale)`.
 
 See `VERIFICATION.md` for the exact checks run and their limitations.
+
+## Wall bounce and dust impact (2026-11-11)
+
+- Added `BALL_WALL_IMPACT`, emitted only for incoming collisions against near-vertical terrain normals.
+- Captures the ball velocity during Matter.js `collisionstart`, before the velocity solver removes the incoming normal component.
+- Applies a controlled bounce after the physics step: default normal restitution is `0.62`, tangential velocity retention is `0.94`, and impacts below `90 px/s` are ignored.
+- Added short-lived directional dust particles at the wall contact point. The effect respects the reduced-motion preference.
+- Added developer-panel tuning for wall restitution, tangential retention, and minimum impact speed.
+- Added regression tests for both Matter body orders, contact point mapping, vertical-wall-only detection, impact direction, tangential retention, and low-speed filtering.
+
+Validation in the packaging environment:
+- Core physics modules compile with the globally available TypeScript compiler.
+- A focused runtime harness passed wall-event mapping, horizontal reflection, tangential retention, and low-speed filtering.
+- All TypeScript files passed syntax transpilation.
+- Full Vitest/Vite build was not run because npm dependencies are not present in this environment and the npm cache has no required packages.
+
+
+## Follow-up corrections from local validation — 2026-11-11
+
+- Fixed strict TypeScript narrowing in `src/level/TerrainFactory.ts`. The `Array.find` predicates for left/right neighboring platforms are now explicit type guards (`candidate is BoxSolidDefinition`), so `.width` is only accessed after TypeScript has narrowed the candidate to a box.
+- Corrected the ramp centroid regression test in `tests/unit/GeometryUtils.test.ts`. For the test's actual vertices `[(700,760), (1050,850), (1074,1280), (676,1280)]`, the area-weighted centroid is `(868.7157894736843, 1046.8240923163523)`. The old expected pair `(863.0533944, 1044.1364717)` did not correspond to those vertices; the centroid implementation itself was mathematically correct.
+- No gameplay geometry or wall-bounce behavior was changed by this follow-up.

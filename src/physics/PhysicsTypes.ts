@@ -35,5 +35,6 @@ export interface SensorOptions {
 export type PhysicsEvent =
   | { type: 'BALL_TERRAIN_CONTACT_STARTED' | 'BALL_TERRAIN_CONTACT_ACTIVE'; terrainId: string; supportNormal: Vector2; impactSpeed: number }
   | { type: 'BALL_TERRAIN_CONTACT_ENDED'; terrainId: string }
+  | { type: 'BALL_WALL_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number }
   | { type: 'BALL_ENTERED_TRIGGER'; triggerId: string; triggerType: 'hazard' | 'checkpoint' | 'goal' }
   | { type: 'BALL_EXITED_TRIGGER'; triggerId: string };

@@ -3,6 +3,7 @@ import type { GameClock } from '../core/GameClock';
 import type { PlayerAction } from '../input/PlayerAction';
 import type { IPhysicsBody } from '../physics/IPhysicsBody';
 import type { IPhysicsWorld } from '../physics/IPhysicsWorld';
+import type { PhysicsEvent } from '../physics/PhysicsTypes';
 import { GroundContactTracker } from '../physics/GroundContactTracker';
 import { clamp, exponentialDecay, isFiniteVector, lerp } from '../utils/MathUtils';
 import { FIXED_STEP_SECONDS } from '../utils/TimeUtils';
@@ -17,6 +18,7 @@ export class BallController {
   private readonly jump: JumpController;
   private readonly airBoost: AirBoostController;
   private lastGrounded = false;
+  private pendingWallImpact: Extract<PhysicsEvent, { type: 'BALL_WALL_IMPACT' }> | null = null;
   private readonly unsubscribePhysicsEvents: () => void;
 
   constructor(
@@ -26,7 +28,10 @@ export class BallController {
     spawn: { x: number; y: number },
   ) {
     this.contacts = new GroundContactTracker(config);
-    this.unsubscribePhysicsEvents = this.world.onPhysicsEvent((event) => this.contacts.handle(event, this.clock.nowMs));
+    this.unsubscribePhysicsEvents = this.world.onPhysicsEvent((event) => {
+      this.contacts.handle(event, this.clock.nowMs);
+      if (event.type === 'BALL_WALL_IMPACT') this.pendingWallImpact = event;
+    });
     this.jump = new JumpController(config, this.state);
     this.airBoost = new AirBoostController(config, this.state);
     this.body = this.createBody(spawn);
@@ -64,6 +69,7 @@ export class BallController {
   }
 
   stepAfterPhysics(): { landed: boolean; grounded: boolean } {
+    this.applyPendingWallBounce();
     const now = this.clock.nowMs;
     const snapshot = this.body.getSnapshot();
     const grounded = this.contacts.isGrounded(now);
@@ -90,6 +96,7 @@ export class BallController {
     this.body.setAngularVelocity(0);
     this.body.setAwake();
     this.contacts.clear();
+    this.pendingWallImpact = null;
     this.jump.reset();
     this.state.grounded = false;
     this.state.lastGroundedAtMs = -Infinity;
@@ -106,6 +113,27 @@ export class BallController {
   }
 
   dispose(): void { this.unsubscribePhysicsEvents(); this.body.destroy(); this.contacts.clear(); }
+
+  private applyPendingWallBounce(): void {
+    const impact = this.pendingWallImpact;
+    this.pendingWallImpact = null;
+    if (!impact || impact.impactSpeed < this.config.wallBounce.minimumImpactSpeed) return;
+
+    const { x: nx, y: ny } = impact.normal;
+    const incoming = impact.incomingVelocity;
+    const normalVelocity = incoming.x * nx + incoming.y * ny;
+    if (normalVelocity >= 0) return;
+
+    const normalX = normalVelocity * nx;
+    const normalY = normalVelocity * ny;
+    const tangentX = incoming.x - normalX;
+    const tangentY = incoming.y - normalY;
+    this.body.setVelocity({
+      x: tangentX * this.config.wallBounce.tangentRetention - normalX * this.config.wallBounce.restitution,
+      y: tangentY * this.config.wallBounce.tangentRetention - normalY * this.config.wallBounce.restitution,
+    });
+    this.body.setAwake();
+  }
 
   private applyHorizontal(action: Extract<PlayerAction, { type: 'MOVE_LEFT' | 'MOVE_RIGHT' }>, nowMs: number): void {
     if (nowMs < this.state.horizontalActionReadyAtMs) return;

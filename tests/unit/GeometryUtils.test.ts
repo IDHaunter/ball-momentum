@@ -22,8 +22,8 @@ describe('polygonCentroid', () => {
       { x: 676, y: 1280 },
     ];
 
-    expect(polygonCentroid(ramp).x).toBeCloseTo(863.0533944, 5);
-    expect(polygonCentroid(ramp).y).toBeCloseTo(1044.1364717, 5);
+    expect(polygonCentroid(ramp).x).toBeCloseTo(868.7157895, 5);
+    expect(polygonCentroid(ramp).y).toBeCloseTo(1046.8240923, 5);
     expect(polygonCentroid(ramp).y).not.toBeCloseTo(1020, 0);
   });
 

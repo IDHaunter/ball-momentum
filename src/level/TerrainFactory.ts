@@ -1,5 +1,5 @@
 import type { IPhysicsWorld } from '../physics/IPhysicsWorld';
-import type { LevelDefinition, PolygonSolidDefinition, SolidDefinition, TerrainMaterialDefinition } from './LevelTypes';
+import type { BoxSolidDefinition, LevelDefinition, PolygonSolidDefinition, SolidDefinition, TerrainMaterialDefinition } from './LevelTypes';
 import type { TerrainRenderer } from '../rendering/TerrainRenderer';
 
 const DEFAULT_MATERIAL: TerrainMaterialDefinition = { friction: 0.35, frictionStatic: 0.55, restitution: 0.02 };
@@ -44,13 +44,13 @@ export function getCollisionVertices(
 
   const [surfaceStart, surfaceEnd, lowerRight, lowerLeft] = vertices;
   const epsilon = 0.5;
-  const leftNeighbor = allSolids.find((candidate) =>
+  const leftNeighbor = allSolids.find((candidate): candidate is BoxSolidDefinition =>
     candidate.type === 'box'
       && Math.abs(candidate.x + candidate.width - surfaceStart.x) <= epsilon
       && Math.abs(candidate.y - surfaceStart.y) <= epsilon
       && candidate.y + candidate.height >= lowerLeft.y - epsilon,
   );
-  const rightNeighbor = allSolids.find((candidate) =>
+  const rightNeighbor = allSolids.find((candidate): candidate is BoxSolidDefinition =>
     candidate.type === 'box'
       && Math.abs(candidate.x - surfaceEnd.x) <= epsilon
       && Math.abs(candidate.y - surfaceEnd.y) <= epsilon

@@ -275,6 +275,12 @@ export class GameplayScene extends Phaser.Scene {
     const events = this.physicsEvents;
     this.physicsEvents = [];
     for (const event of events) {
+      if (event.type === 'BALL_WALL_IMPACT') {
+        if (this.gameRegistry.flow.state === 'PLAYING' && event.impactSpeed >= this.physicsConfig.wallBounce.minimumImpactSpeed) {
+          this.effects.wallImpact(event.contactPoint.x, event.contactPoint.y, event.normal, event.impactSpeed);
+        }
+        continue;
+      }
       if (event.type !== 'BALL_ENTERED_TRIGGER' || this.gameRegistry.flow.state !== 'PLAYING') continue;
       if (event.triggerType === 'hazard') this.die(`hazard:${event.triggerId}`);
       else if (event.triggerType === 'checkpoint' && this.checkpoint && this.level) {

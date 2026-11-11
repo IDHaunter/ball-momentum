@@ -10,6 +10,7 @@ export const PHYSICS_DEFAULTS: PhysicsConfig = {
   airBoost: { velocityDelta: 210, minStrengthMultiplier: 0.8, maxStrengthMultiplier: 1.2, earliestAfterTakeoffMs: 60, latestAfterTakeoffMs: 1000, sweetSpotAfterTakeoffMs: 440, sweetSpotToleranceMs: 180, edgeTimingMultiplier: 0.65, maxUpwardSpeed: 900 },
   limits: { maxHorizontalSpeed: 840, maxUpwardSpeed: 900, maxDownwardSpeed: 1100 },
   groundContact: { maxGroundAngleDegrees: 55, supportGraceMs: 35 },
+  wallBounce: { restitution: 0.62, tangentRetention: 0.94, minimumImpactSpeed: 90 },
 };
 
 export function createPhysicsConfig(): PhysicsConfig {
