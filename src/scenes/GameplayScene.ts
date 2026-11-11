@@ -30,7 +30,7 @@ import type { GameState } from '../core/GameState';
 import { FIXED_STEP_MS } from '../utils/TimeUtils';
 
 export class GameplayScene extends Phaser.Scene {
-  private readonly registry: GameRegistry;
+  private readonly gameRegistry: GameRegistry;
   private readonly physicsConfig: PhysicsConfig = createPhysicsConfig();
   private readonly clock = new GameClock();
   private readonly inputQueue = new InputQueue();
@@ -63,8 +63,8 @@ export class GameplayScene extends Phaser.Scene {
 
   constructor(registry: GameRegistry) {
     super({ key: 'GameplayScene' });
-    this.registry = registry;
-    this.registry.gameplayScene = this;
+    this.gameRegistry = registry;
+    this.gameRegistry.gameplayScene = this;
   }
 
   create(): void {
@@ -81,20 +81,20 @@ export class GameplayScene extends Phaser.Scene {
       INPUT_DEFAULTS,
       (action) => this.inputQueue.push(action),
       (shortcut) => this.handleShortcut(shortcut),
-      () => this.registry.flow.state === 'PLAYING',
+      () => this.gameRegistry.flow.state === 'PLAYING',
     );
     this.debugRenderer.setVisible(this.debugEnabled);
-    if (this.registry.flow.state === 'BOOT') this.registry.flow.transition('MAIN_MENU');
-    if (this.debugEnabled) this.registry.events.emit('debugChanged', { enabled: true });
+    if (this.gameRegistry.flow.state === 'BOOT') this.gameRegistry.flow.transition('MAIN_MENU');
+    if (this.debugEnabled) this.gameRegistry.events.emit('debugChanged', { enabled: true });
     this.resolveSceneReady();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdown());
   }
 
   async startLevel(id: string): Promise<void> {
     await this.sceneReady;
-    let currentState = this.registry.flow.state;
-    if (currentState === 'BOOT') { this.registry.flow.transition('MAIN_MENU'); currentState = 'MAIN_MENU'; }
-    if (currentState !== 'LOADING_LEVEL') this.registry.flow.transition('LOADING_LEVEL');
+    let currentState = this.gameRegistry.flow.state;
+    if (currentState === 'BOOT') { this.gameRegistry.flow.transition('MAIN_MENU'); currentState = 'MAIN_MENU'; }
+    if (currentState !== 'LOADING_LEVEL') this.gameRegistry.flow.transition('LOADING_LEVEL');
     this.currentLevelId = id;
     this.accumulator = 0;
     this.inputManager?.clear();
@@ -127,33 +127,33 @@ export class GameplayScene extends Phaser.Scene {
       this.cameraController.configure(level);
       this.cameraController.snap(level.spawn.x, level.spawn.y);
       this.levelStartedAtMs = this.clock.nowMs;
-      this.registry.events.emit('levelLoaded', { id: level.id, title: level.title });
-      this.registry.flow.transition('PLAYING');
+      this.gameRegistry.events.emit('levelLoaded', { id: level.id, title: level.title });
+      this.gameRegistry.flow.transition('PLAYING');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.registry.events.emit('error', { message });
-      this.registry.flow.transition('MAIN_MENU');
+      this.gameRegistry.events.emit('error', { message });
+      this.gameRegistry.flow.transition('MAIN_MENU');
     }
   }
 
   pauseGame(): void {
-    if (this.registry.flow.state !== 'PLAYING') return;
-    this.registry.flow.transition('PAUSED');
+    if (this.gameRegistry.flow.state !== 'PLAYING') return;
+    this.gameRegistry.flow.transition('PAUSED');
     this.inputManager.clear();
     this.inputQueue.clear();
     this.accumulator = 0;
   }
 
   resumeGame(): void {
-    if (this.registry.flow.state !== 'PAUSED') return;
-    this.registry.flow.transition('PLAYING');
+    if (this.gameRegistry.flow.state !== 'PAUSED') return;
+    this.gameRegistry.flow.transition('PLAYING');
     this.inputManager.clear();
     this.accumulator = 0;
   }
 
   togglePause(): void {
-    if (this.registry.flow.state === 'PLAYING') this.pauseGame();
-    else if (this.registry.flow.state === 'PAUSED') this.resumeGame();
+    if (this.gameRegistry.flow.state === 'PLAYING') this.pauseGame();
+    else if (this.gameRegistry.flow.state === 'PAUSED') this.resumeGame();
   }
 
   async restartLevel(): Promise<void> {
@@ -167,22 +167,22 @@ export class GameplayScene extends Phaser.Scene {
   }
 
   returnToMenu(): void {
-    const state = this.registry.flow.state;
+    const state = this.gameRegistry.flow.state;
     if (state === 'MAIN_MENU') return;
     this.inputManager?.clear();
     this.inputQueue.clear();
     this.accumulator = 0;
-    this.registry.flow.transition('MAIN_MENU');
+    this.gameRegistry.flow.transition('MAIN_MENU');
   }
 
   toggleDebug(): void {
     this.debugEnabled = !this.debugEnabled;
     this.debugRenderer.setVisible(this.debugEnabled);
-    this.registry.events.emit('debugChanged', { enabled: this.debugEnabled });
+    this.gameRegistry.events.emit('debugChanged', { enabled: this.debugEnabled });
   }
 
   update(_time: number, delta: number): void {
-    const state = this.registry.flow.state;
+    const state = this.gameRegistry.flow.state;
     if (state !== 'PLAYING' && state !== 'RESPAWNING') {
       this.accumulator = 0;
       return;
@@ -193,8 +193,8 @@ export class GameplayScene extends Phaser.Scene {
     const stepMs = 1000 / this.physicsConfig.timestep.hz;
     while (this.accumulator >= stepMs && steps < this.physicsConfig.timestep.maxSubStepsPerFrame) {
       this.clock.advance(stepMs);
-      if (this.registry.flow.state === 'PLAYING') this.simulatePlayingStep(stepMs);
-      else if (this.registry.flow.state === 'RESPAWNING') this.simulateRespawnStep(stepMs);
+      if (this.gameRegistry.flow.state === 'PLAYING') this.simulatePlayingStep(stepMs);
+      else if (this.gameRegistry.flow.state === 'RESPAWNING') this.simulateRespawnStep(stepMs);
       this.accumulator -= stepMs;
       steps += 1;
     }
@@ -206,7 +206,7 @@ export class GameplayScene extends Phaser.Scene {
       this.ballVisual?.update(delta / 1000, snapshot.position.x, snapshot.position.y, snapshot.angle);
       this.cameraController.update(snapshot.position.x, snapshot.position.y);
     }
-    this.debugRenderer.update(this.registry.flow.state, this.currentLevelId, this.ball, stepMs, this.lastSubsteps);
+    this.debugRenderer.update(this.gameRegistry.flow.state, this.currentLevelId, this.ball, stepMs, this.lastSubsteps);
   }
 
   applyDebugSetting(path: string, value: number): void {
@@ -228,9 +228,9 @@ export class GameplayScene extends Phaser.Scene {
     }
   }
 
-  get currentState(): GameState { return this.registry.flow.state; }
+  get currentState(): GameState { return this.gameRegistry.flow.state; }
   get currentTitle(): string { return this.level?.title ?? ''; }
-  get physics(): PhysicsConfig { return this.physicsConfig; }
+  get physicsSettings(): PhysicsConfig { return this.physicsConfig; }
 
   private simulatePlayingStep(stepMs: number): void {
     if (!this.ball || !this.level) return;
@@ -248,7 +248,7 @@ export class GameplayScene extends Phaser.Scene {
       this.effects.landing(this.ball.snapshot.position.x, this.ball.snapshot.position.y + this.physicsConfig.ball.radiusPx, Math.hypot(preVelocity.x, preVelocity.y));
     }
     this.processPhysicsEvents();
-    if (this.registry.flow.state === 'PLAYING' && this.ball.snapshot.position.y > this.level.world.killPlaneY) this.die('fall');
+    if (this.gameRegistry.flow.state === 'PLAYING' && this.ball.snapshot.position.y > this.level.world.killPlaneY) this.die('fall');
   }
 
   private emitBoostState(): void {
@@ -258,7 +258,7 @@ export class GameplayScene extends Phaser.Scene {
     const signature = `${available}:${used}`;
     if (signature === this.lastBoostIndicator) return;
     this.lastBoostIndicator = signature;
-    this.registry.events.emit('boostChanged', { available, used });
+    this.gameRegistry.events.emit('boostChanged', { available, used });
   }
 
   private simulateRespawnStep(stepMs: number): void {
@@ -268,41 +268,41 @@ export class GameplayScene extends Phaser.Scene {
     this.ballRenderer?.setVisible(true);
     this.emitBoostState();
     this.inputQueue.clear();
-    this.registry.flow.transition('PLAYING');
+    this.gameRegistry.flow.transition('PLAYING');
   }
 
   private processPhysicsEvents(): void {
     const events = this.physicsEvents;
     this.physicsEvents = [];
     for (const event of events) {
-      if (event.type !== 'BALL_ENTERED_TRIGGER' || this.registry.flow.state !== 'PLAYING') continue;
+      if (event.type !== 'BALL_ENTERED_TRIGGER' || this.gameRegistry.flow.state !== 'PLAYING') continue;
       if (event.triggerType === 'hazard') this.die(`hazard:${event.triggerId}`);
       else if (event.triggerType === 'checkpoint' && this.checkpoint && this.level) {
         const trigger = this.level.triggers.find((item) => item.id === event.triggerId);
         if (trigger && trigger.respawnX !== undefined && trigger.respawnY !== undefined && this.checkpoint.activate(trigger.id, trigger.respawnX, trigger.respawnY)) {
           this.levelBuilder.activateCheckpoint(trigger.id);
-          this.registry.events.emit('checkpoint', { id: trigger.id });
+          this.gameRegistry.events.emit('checkpoint', { id: trigger.id });
         }
       } else if (event.triggerType === 'goal') this.completeLevel();
     }
   }
 
   private die(reason: string): void {
-    if (this.registry.flow.state !== 'PLAYING' || !this.ball || !this.checkpoint) return;
-    this.registry.flow.transition('RESPAWNING');
+    if (this.gameRegistry.flow.state !== 'PLAYING' || !this.ball || !this.checkpoint) return;
+    this.gameRegistry.flow.transition('RESPAWNING');
     this.inputManager.clear();
     this.inputQueue.clear();
     this.respawn.start(this.checkpoint.getRespawnPoint());
     this.ballRenderer?.setVisible(false);
-    this.registry.events.emit('died', { reason });
+    this.gameRegistry.events.emit('died', { reason });
   }
 
   private completeLevel(): void {
-    if (this.registry.flow.state !== 'PLAYING' || !this.level || !this.completion.complete()) return;
-    this.registry.flow.transition('LEVEL_COMPLETE');
+    if (this.gameRegistry.flow.state !== 'PLAYING' || !this.level || !this.completion.complete()) return;
+    this.gameRegistry.flow.transition('LEVEL_COMPLETE');
     const elapsed = this.clock.nowMs - this.levelStartedAtMs;
     this.progress.markLevelCompleted(this.level.id, elapsed);
-    this.registry.events.emit('completed', { id: this.level.id, title: this.level.title, hasNext: this.progression.next(this.currentLevelId) !== null });
+    this.gameRegistry.events.emit('completed', { id: this.level.id, title: this.level.title, hasNext: this.progression.next(this.currentLevelId) !== null });
     this.inputManager.clear();
     this.inputQueue.clear();
   }

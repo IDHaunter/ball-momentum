@@ -27,7 +27,6 @@ export function createGame(parent: HTMLElement): { game: Phaser.Game; registry: 
         gravity: {
           x: PHYSICS_DEFAULTS.world.gravityX,
           y: PHYSICS_DEFAULTS.world.gravityY,
-          scale: PHYSICS_DEFAULTS.world.gravityScale,
         },
         autoUpdate: false,
         debug: false,

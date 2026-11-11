@@ -61,7 +61,7 @@ export class GameApplication {
       change: (path, value) => this.registry.gameplayScene?.applyDebugSetting(path, value),
       reset: () => this.resetPhysicsDefaults(),
       close: () => this.developer.hide(),
-      getConfig: () => this.registry.gameplayScene?.physics ?? this.defaultPhysicsFallback(),
+      getConfig: () => this.registry.gameplayScene?.physicsSettings ?? this.defaultPhysicsFallback(),
     });
 
     this.unsubscribers.push(
@@ -70,7 +70,7 @@ export class GameApplication {
       this.registry.events.on('completed', ({ title, hasNext }) => { this.complete.setTitle(title); this.complete.setNextAvailable(hasNext); }),
       this.registry.events.on('boostChanged', ({ available, used }) => this.hud.setBoost(available, used)),
       this.registry.events.on('debugChanged', ({ enabled }) => {
-        if (enabled) { this.developer.setValues(this.registry.gameplayScene?.physics ?? this.defaultPhysicsFallback()); this.developer.show(); }
+        if (enabled) { this.developer.setValues(this.registry.gameplayScene?.physicsSettings ?? this.defaultPhysicsFallback()); this.developer.show(); }
         else this.developer.hide();
       }),
       this.registry.events.on('error', ({ message }) => this.showError(message)),
@@ -89,7 +89,7 @@ export class GameApplication {
     });
     this.renderState('MAIN_MENU');
     if (new URLSearchParams(window.location.search).get('debug') === '1') {
-      this.developer.setValues(this.registry.gameplayScene?.physics ?? this.defaultPhysicsFallback());
+      this.developer.setValues(this.registry.gameplayScene?.physicsSettings ?? this.defaultPhysicsFallback());
       this.developer.show();
     }
   }
@@ -138,7 +138,7 @@ export class GameApplication {
       const [section, property] = path.split('.') as [keyof typeof defaults, string];
       scene.applyDebugSetting(path, (defaults[section] as unknown as Record<string, number>)[property]);
     }
-    this.developer.setValues(scene.physics);
+    this.developer.setValues(scene.physicsSettings);
   }
 
   private defaultPhysicsFallback() {
