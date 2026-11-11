@@ -33,7 +33,13 @@ export class MatterCollisionMapper {
     if (otherMeta.kind === 'terrain') {
       if (phase === 'end') return [{ type: 'BALL_TERRAIN_CONTACT_ENDED', terrainId: otherMeta.id }];
       const n = pair.collision.normal;
-      const supportNormal = ballIsA ? { x: -n.x, y: -n.y } : { x: n.x, y: n.y };
+      // Matter's collision.normal points in the direction bodyA must move to
+      // separate from bodyB. Convert it to the outward support normal for the
+      // ball, regardless of whether the ball is bodyA or bodyB.
+      const supportNormal = {
+        x: (ballIsA ? n.x : -n.x) || 0,
+        y: (ballIsA ? n.y : -n.y) || 0,
+      };
       const speed = Math.hypot(ballIsA ? pair.bodyA.velocity.x : pair.bodyB.velocity.x, ballIsA ? pair.bodyA.velocity.y : pair.bodyB.velocity.y) * 60;
       return [{
         type: phase === 'start' ? 'BALL_TERRAIN_CONTACT_STARTED' : 'BALL_TERRAIN_CONTACT_ACTIVE',

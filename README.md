@@ -16,10 +16,10 @@ npm run dev
 
 Open the local URL printed by Vite. Use mouse/touch swipes or the keyboard:
 
-- Left / A: add leftward momentum
-- Right / D: add rightward momentum
-- Down / S / Space: jump (or buffer a jump)
-- Up / W: one timed mid-air boost
+- Swipe left / Left / A: add leftward momentum
+- Swipe right / Right / D: add rightward momentum
+- Swipe down / Down / S / Space: jump (or buffer a jump)
+- Swipe up / Up / W: one timed mid-air boost after takeoff
 - Escape / P: pause or resume
 - R: restart the current level
 - F3: toggle the developer panel

@@ -25,8 +25,10 @@ export class KeyboardInputAdapter implements Disposable {
   private onDown(event: KeyboardEvent): void {
     const key = event.key.toLowerCase();
     const target = event.target as HTMLElement | null;
-    const isUiControl = Boolean(target?.closest('button, input, select, textarea, a, [contenteditable="true"]'));
-    if (isUiControl && key !== 'escape' && key !== 'f3') return;
+    const isTextEntry = Boolean(target?.closest('input, select, textarea, [contenteditable="true"]'));
+    if (isTextEntry) return;
+    const isUiButtonOrLink = Boolean(target?.closest('button, a'));
+    if (isUiButtonOrLink && !this.enabled() && key !== 'escape' && key !== 'f3') return;
     if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'escape'].includes(key)) event.preventDefault();
     if (this.pressed.has(key)) return;
     this.pressed.add(key);

@@ -23,3 +23,35 @@ export function isConvexPolygon(points: Point[]): boolean {
   }
   return sign !== 0;
 }
+
+/**
+ * Calculates the area-weighted centroid (centre of mass for uniform density)
+ * of a simple polygon. Matter.js positions `fromVertices` bodies at this point.
+ */
+export function polygonCentroid(points: Point[]): Point {
+  if (points.length < 3) {
+    throw new Error('A polygon must contain at least three vertices.');
+  }
+
+  let twiceArea = 0;
+  let centroidX = 0;
+  let centroidY = 0;
+
+  for (let i = 0; i < points.length; i += 1) {
+    const current = points[i];
+    const next = points[(i + 1) % points.length];
+    const cross = current.x * next.y - next.x * current.y;
+    twiceArea += cross;
+    centroidX += (current.x + next.x) * cross;
+    centroidY += (current.y + next.y) * cross;
+  }
+
+  if (Math.abs(twiceArea) < 1e-8) {
+    throw new Error('Cannot calculate the centroid of a zero-area polygon.');
+  }
+
+  return {
+    x: centroidX / (3 * twiceArea),
+    y: centroidY / (3 * twiceArea),
+  };
+}

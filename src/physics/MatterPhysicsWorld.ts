@@ -4,6 +4,7 @@ import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
 import type { BallPhysicsOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from './PhysicsTypes';
+import { polygonCentroid } from '../utils/GeometryUtils';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -92,18 +93,21 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   }
 
   createStaticPolygon(definition: StaticPolygonOptions): void {
-    const xs = definition.vertices.map((p) => p.x);
-    const ys = definition.vertices.map((p) => p.y);
-    const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
-    const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
-    const local = definition.vertices.map((p) => ({ x: p.x - centerX, y: p.y - centerY }));
-    const rawBody = this.factory.fromVertices(centerX, centerY, [local], {
+    // Matter re-centres fromVertices geometry around its centre of mass. Passing
+    // the bounding-box centre here shifts asymmetric ramps away from the visible
+    // polygon. Use the true polygon centroid as body.position instead.
+    const center = polygonCentroid(definition.vertices);
+    const local = definition.vertices.map((point) => ({
+      x: point.x - center.x,
+      y: point.y - center.y,
+    }));
+    const rawBody = this.factory.fromVertices(center.x, center.y, [local], {
       label: definition.id, isStatic: true,
       friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
       collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL },
     }, true);
     rawBody.label = definition.id;
-    const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(centerX, centerY, 1, 1), rawBody, true);
+    const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(center.x, center.y, 1, 1), rawBody, true);
     object.body.label = definition.id;
     this.registerLevelObject(object, { kind: 'terrain', id: definition.id });
   }

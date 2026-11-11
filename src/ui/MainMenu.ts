@@ -19,7 +19,7 @@ export class MainMenu {
       createButton('Physics sandbox', callbacks.sandbox, 'button button-secondary'),
       createButton('Settings', callbacks.settings, 'button button-ghost'),
     );
-    const help = createElement('p', 'control-hint', 'Swipe or drag on the playfield. Keyboard: A / D, S / Space, W.');
+    const help = createElement('p', 'control-hint', 'Swipe down to jump, swipe up for an air boost. Keyboard: A / D, S / Space to jump, W to boost.');
     this.panel.append(eyebrow, title, description, actions, help);
   }
   show(): void { this.panel.hidden = false; }

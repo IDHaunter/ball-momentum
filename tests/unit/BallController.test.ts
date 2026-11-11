@@ -35,6 +35,7 @@ class FakeWorld implements IPhysicsWorld {
   setGravity(): void {}
   setTimeScale(): void {}
   onPhysicsEvent(listener: (event: PhysicsEvent) => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+  emit(event: PhysicsEvent): void { for (const listener of this.listeners) listener(event); }
 }
 
 const action = (type: 'MOVE_LEFT' | 'MOVE_RIGHT', strength: number): PlayerAction => ({
@@ -52,6 +53,34 @@ describe('BallController', () => {
     clock.advance(100);
     ball.stepBeforePhysics([action('MOVE_LEFT', 1)]);
     expect(ball.snapshot.velocity.x).toBeLessThan(0);
+    ball.dispose();
+  });
+
+  it('launches a jump after receiving an upward terrain support contact', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const ball = new BallController(world, createPhysicsConfig(), clock, { x: 20, y: 20 });
+    world.emit({
+      type: 'BALL_TERRAIN_CONTACT_ACTIVE',
+      terrainId: 'floor',
+      supportNormal: { x: 0, y: -1 },
+      impactSpeed: 0,
+    });
+    ball.stepAfterPhysics();
+    expect(ball.state.grounded).toBe(true);
+
+    const jump: PlayerAction = { type: 'JUMP', strength: 1, source: 'keyboard', timestamp: 0 };
+    clock.advance(1000 / 60);
+    ball.stepBeforePhysics([jump]);
+    let launched = false;
+    for (let i = 0; i < 4; i += 1) {
+      clock.advance(1000 / 60);
+      launched = ball.stepBeforePhysics([]) || launched;
+    }
+
+    expect(launched).toBe(true);
+    expect(ball.snapshot.velocity.y).toBeLessThan(0);
+    expect(ball.state.airBoostAvailable).toBe(true);
     ball.dispose();
   });
 

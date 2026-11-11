@@ -9,38 +9,71 @@ Date: 2026-11-11
 - Preserved the directory layout, level JSON files, configuration, source modules, and supplied tests.
 - Applied the supplied Air Boost boundary correction in `src/player/AirBoostController.ts`: the latest boost boundary is exclusive (`elapsedMs >= latestAfterTakeoffMs` is rejected), matching the supplied unit-test expectation.
 
-## Follow-up fixes for reported Phaser type errors
+## Follow-up fixes
 
-Applied after receiving the user's `npm run typecheck` output:
+### Phaser typecheck fixes
 
-1. `src/app/createGame.ts`: removed `scale` from the Matter `gravity` object. Phaser's `MatterWorldConfig.gravity` is a 2D vector (`x`, `y`); the gravity scale is a separate argument to `Matter.World.setGravity(x, y, scale)`. The game continues to apply `PHYSICS_DEFAULTS.world.gravityScale` from `GameplayScene.create()` and when loading a level.
-2. `src/scenes/GameplayScene.ts`: renamed the custom private `registry` field to `gameRegistry`. `Phaser.Scene` already owns a `registry` member, so the custom field shadowed an inherited property and made the scene incompatible with its base type.
-3. `src/scenes/GameplayScene.ts`: renamed the custom `physics` getter to `physicsSettings`. `Phaser.Scene` already defines `physics` for its Arcade Physics system; the custom getter had an incompatible type and could not override that member.
-4. `src/app/GameApplication.ts`: updated all accesses to the renamed `physicsSettings` getter.
+1. Removed the unsupported `gravity.scale` property from the Matter gravity vector in `src/app/createGame.ts`. The gravity scale is passed separately through `Matter.World.setGravity(x, y, scale)`.
+2. Renamed the custom `GameplayScene.registry` member to `gameRegistry` to avoid shadowing `Phaser.Scene.registry`.
+3. Renamed the custom `GameplayScene.physics` getter to `physicsSettings` to avoid overriding `Phaser.Scene.physics`.
+4. Updated the relevant consumers in `src/app/GameApplication.ts`.
 
-## Checks completed in this environment
+### Gameplay fixes
+
+1. Corrected the support-normal orientation in `src/physics/MatterCollisionMapper.ts`. Matter's raw collision normal is the minimum-translation direction for `bodyA`; the mapper now converts it to the normal pointing outward from terrain toward the ball.
+2. Updated `src/input/KeyboardInputAdapter.ts` so a focused button does not swallow gameplay keystrokes. Text inputs, selects, textareas, and editable content still retain keyboard focus behavior.
+3. Updated `src/level/TerrainFactory.ts` to bury the side faces of sloped polygon colliders 24 px inside adjacent platform boxes. The source level vertices remain unchanged, so the visible ramp profile is preserved.
+4. Clarified keyboard and swipe directions in the main menu and README.
+5. Added nine unit regression cases across `BallController`, `MatterCollisionMapper`, `GroundContactTracker`, and `TerrainFactory`.
+
+## Checks completed in this environment for this gameplay patch
 
 | Check | Result |
 |---|---|
-| TypeScript syntax parsing (81 `.ts` files; global TypeScript 5.8.3) | Passed; zero parse diagnostics |
-| Static checks for all reported collision names and call sites | Passed |
-| Runtime gravity-scale call retained | Passed; the scale is passed as the third `setGravity` argument |
-| JSON parsing (`package.json`, two levels, two tsconfigs) | Passed in the previous assembly verification |
-| Relative local import resolution | Passed in the previous assembly verification |
-| Level JSON semantic validation | Passed for both supplied levels in the previous assembly verification |
-| Unit test cases via a temporary local compatibility harness | 23 passed in the previous assembly verification; not rerun after the identifier-only follow-up changes |
+| TypeScript syntax parsing (87 `.ts` files; global TypeScript compiler API) | Passed; zero syntax diagnostics |
+| Manual regression harness: Matter normal orientation in both body orders | Passed |
+| Manual regression harness: floor vs. underside contact detection and grace interval | Passed |
+| Manual regression harness: grounded jump launches and enables Air Boost | Passed |
+| Manual regression harness: collider side overlap and untouched triangle geometry | Passed |
+| Manual regression harness: Space key works while a UI button has focus | Passed |
+| Manual regression harness: swipe direction mapping | Passed |
+| JSON parsing for both level files and package configuration | Passed |
+| ZIP archive integrity | Passed |
 
-## Checks not completed
+The manual harness ran 10 focused checks. It is not a substitute for running Vitest or the browser physics simulation against the actual Phaser runtime.
 
-A full dependency-backed `npm run typecheck`, `npm test`, `npm run build`, and Playwright e2e run have not been completed for this corrected archive. `npm install` and a direct registry request could not resolve `registry.npmjs.org` (`EAI_AGAIN` / DNS resolution failure), and `node_modules` is therefore absent here. The current source was syntax-parsed, but this is not a substitute for the project's full `tsc --noEmit` check.
+## User-reported checks on the previous gameplay build
 
-On a machine with npm registry access, run:
+The project owner reported that, before this gameplay patch, their local Mac environment passed:
+
+- `npm run typecheck`
+- `npm run test` — 8 test files, 23 tests passed
+- `npm run build` — passed (with non-fatal Zod/Rollup annotation and chunk-size warnings)
+
+Their Playwright run did not start because the Chromium executable was not installed. This report does not claim those commands have been rerun after the current gameplay changes.
+
+## Ramp floating-contact follow-up fix
+
+- Corrected `MatterPhysicsWorld.createStaticPolygon` to position each `fromVertices` collider at the polygon's area-weighted centroid, not its bounding-box centre. Matter's `Bodies.fromVertices` re-centres vertices around the body centre of mass; the previous mismatch shifted asymmetric ramp and triangle colliders away from the visible geometry.
+- Added four `polygonCentroid` regression tests covering the adjusted tutorial ramp, the triangle ramp, winding direction, and zero-area input.
+- Manual geometry regression checked all 4 polygon colliders across both level JSON files. Reconstructed world vertices matched their source coordinates with zero offset. The former bounding-box placement would have shifted the colliders vertically by 26.82 px (tutorial ramp), 36.67 px (tutorial triangle), 47.82 px (sandbox slope), and 40 px (sandbox triangle).
+- TypeScript syntax parsing passed for all 84 source and test `.ts` files. The standalone `GeometryUtils.ts` strict typecheck also passed. ZIP integrity check passed.
+- The existing 24 px overlap at ramp side walls remains in place to avoid seam catching.
+- Dependency-backed Vitest, full project typecheck, Vite build, and browser E2E were not rerun in this environment because project dependencies are not installed here.
+
+## Checks not completed for this archive
+
+A dependency-backed `npm run typecheck`, `npm run test`, `npm run build`, and `npm run test:e2e` could not be rerun in this environment: `npm install` timed out while attempting to reach the npm registry, and project `node_modules` is absent.
+
+After extracting this archive on the development machine, run:
 
 ```bash
 npm install
 npm run typecheck
-npm test
+npm run test
 npm run build
 npx playwright install chromium
 npm run test:e2e
 ```
+
+For manual gameplay verification, check the level start platform, both ends of the first ramp, the sandbox ramp, and the checkpoint/goal sequence. On flat ground, use Space or S, or swipe down. W / Up / swipe up is an air boost and only works after takeoff.
