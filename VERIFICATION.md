@@ -110,3 +110,52 @@ Corrections in this archive:
 2. Corrected the centroid test expectation to match the actual test polygon. A direct execution of the project's transpiled `polygonCentroid` and `getCollisionVertices` functions confirmed the centroid `(868.7157894736843, 1046.8240923163523)` and the expected 24 px side overlap.
 
 The full project `npm run typecheck` and `npm run test` were not run in this packaging environment because `node_modules` and cached Vitest dependencies are absent. Please rerun them locally after extracting this archive. The corrected test suite should still contain 41 tests; this report does not claim a full Vitest pass.
+
+## Reliable wall-bounce follow-up — 2026-11-11
+
+The project now includes 43 unit-test cases. Two new regression cases cover a wall impact detected during an already-active contact and a single bounce per contact with re-arming after separation. The previous low-speed test now asserts a visible reverse velocity and outward position separation.
+
+Checks performed for this follow-up:
+
+| Check | Result |
+|---|---|
+| Strict TypeScript check of physics, mapper, controller, and EffectsRenderer modules (using a lightweight Phaser type declaration shim) | Passed |
+| Integrated compiled runtime harness for `MatterPhysicsWorld` + `MatterCollisionMapper` + `BallController`, including active contact after solver velocity zeroing | Passed |
+| Impact velocities tested: 35, 70, 600, and 840 px/s | All reversed direction; low-speed impacts met the configured minimum rebound speed |
+| Separation from wall after bounce | Passed |
+| TypeScript syntax transpilation (84 files) | Passed; zero syntax diagnostics |
+| Full Vitest / Vite build / Playwright E2E | Not run; project dependencies and Chromium are absent in this environment |
+
+The integrated harness used the actual compiled project classes with a mock Matter world; it verifies the adapter/controller event flow and configured velocity math, but it does not replace a browser run against Phaser's real Matter engine. Re-run `npm run typecheck`, `npm run test`, `npm run build`, and `npm run test:e2e` locally after extracting the archive.
+
+## Wall spin reversal and damped landing hops — 2026-11-13
+
+Changes included in this archive:
+
+1. Vertical wall bounces reverse angular velocity and retain 85% of the previous spin magnitude by default. The new `wallBounce.spinRetention` property is available in F3.
+2. Jump landings produce up to three damped rebounds along the detected support normal. Defaults: restitution 0.52, tangential retention 0.96, minimum impact 45 px/s, minimum outgoing speed 35 px/s, three rebounds, and 1.5 px support separation.
+3. Ground support normals are now available from `GroundContactTracker`, including averaged normals for simultaneous support contacts.
+4. A lingering active contact while the ball is moving away from the ground is not interpreted as a landing. This is important for preserving the hop sequence after Matter's solver has resolved the first contact.
+5. F3 and Reset Defaults include the new settings.
+
+Checks performed:
+
+| Check | Result |
+|---|---|
+| Strict TypeScript compilation of core physics/controller/config/UI modules | Passed |
+| Strict TypeScript compilation of changed unit test files with a minimal Vitest declaration shim | Passed |
+| Runtime check: wall horizontal velocity reverses | Passed |
+| Runtime check: wall angular velocity reverses at configured retention | Passed |
+| Runtime check: three landing hops decay (500 px/s input produced 260, 135.2, 70.3 px/s) | Passed |
+| Runtime check: stale separating contact is ignored | Passed |
+| Runtime check: landing sequence settles after the third hop | Passed |
+| ZIP integrity | Passed |
+
+There are 47 unit-test cases in `tests/unit`. The actual Vitest runner, full project `npm run typecheck`, Vite build, and Playwright E2E were not run here because the package dependencies and Chromium executable are not installed in this environment. Run the following on the development machine after extracting the archive:
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e
+```

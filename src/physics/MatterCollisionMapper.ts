@@ -18,7 +18,7 @@ export interface PhysicsBodyMetadata {
 export class MatterCollisionMapper {
   constructor(private readonly metadata: Map<MatterBodyLike, PhysicsBodyMetadata>) {}
 
-  mapPair(pair: CollisionPairLike, phase: 'start' | 'active' | 'end'): PhysicsEvent[] {
+  mapPair(pair: CollisionPairLike, phase: 'start' | 'active' | 'end', preStepBallVelocity?: Vector2 | null): PhysicsEvent[] {
     const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
     const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
     const metaA = this.metadata.get(bodyA);
@@ -36,11 +36,25 @@ export class MatterCollisionMapper {
       // Convert Matter's pair normal to the outward normal for the ball.
       const sign = ballIsA ? 1 : -1;
       const length = Math.hypot(n.x, n.y) || 1;
-      const normalX = sign * n.x / length;
-      const normalY = sign * n.y / length;
-      const supportNormal = { x: normalX || 0, y: normalY || 0 };
+      let normalX = sign * n.x / length;
+      let normalY = sign * n.y / length;
       const ballBody = ballIsA ? bodyA : bodyB;
-      const incomingVelocity = {
+      const terrainBody = ballIsA ? bodyB : bodyA;
+      // Keep the normal pointing from the terrain toward the ball. This also
+      // guards against body-order changes and reversed SAT normals.
+      const centerDeltaX = ballBody.position.x - terrainBody.position.x;
+      const centerDeltaY = ballBody.position.y - terrainBody.position.y;
+      if (normalX * centerDeltaX + normalY * centerDeltaY < 0) {
+        normalX *= -1;
+        normalY *= -1;
+      }
+      const supportNormal = { x: normalX || 0, y: normalY || 0 };
+      // Phaser/Matter body.velocity is the velocity at the start of the
+      // current fixed step, before the solver can cancel the wall-directed
+      // component. During a sustained contact, collisionActive needs this
+      // pre-step sample too; reading velocity from the resolved contact would
+      // incorrectly report zero and suppress the bounce.
+      const incomingVelocity = preStepBallVelocity ? { ...preStepBallVelocity } : {
         x: ballBody.velocity.x * 60,
         y: ballBody.velocity.y * 60,
       };
@@ -52,13 +66,13 @@ export class MatterCollisionMapper {
         impactSpeed: speed,
       }];
 
-      // Wall impacts are captured on collisionstart, before Matter's velocity
-      // solver removes the incoming normal velocity. The controller applies a
-      // deliberate bounce after the physics step has resolved penetration.
+      // Detect a wall-directed approach on both collisionStart and
+      // collisionActive. A low-speed first touch must not hide a later,
+      // stronger push while the pair remains active.
       const normalImpactSpeed = -(
         incomingVelocity.x * supportNormal.x + incomingVelocity.y * supportNormal.y
       );
-      if (phase === 'start' && Math.abs(supportNormal.x) >= 0.88 && normalImpactSpeed > 0) {
+      if (Math.abs(supportNormal.x) >= 0.88 && normalImpactSpeed > 0.1) {
         const supports = pair.collision.supports ?? [];
         const activeSupports = supports.slice(0, pair.collision.supportCount ?? supports.length);
         const contactPoint = activeSupports.length > 0
@@ -74,6 +88,7 @@ export class MatterCollisionMapper {
           incomingVelocity,
           contactPoint,
           impactSpeed: normalImpactSpeed,
+          penetrationDepth: Math.max(0, pair.collision.depth ?? 0),
         });
       }
       return events;

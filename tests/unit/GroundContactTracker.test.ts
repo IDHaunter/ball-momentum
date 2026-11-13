@@ -23,6 +23,18 @@ describe('GroundContactTracker', () => {
     expect(tracker.isGrounded(100)).toBe(false);
   });
 
+  it('exposes the active support normal for landing response', () => {
+    const tracker = new GroundContactTracker(createPhysicsConfig());
+    tracker.handle({
+      type: 'BALL_TERRAIN_CONTACT_ACTIVE', terrainId: 'ramp',
+      supportNormal: { x: -0.35, y: -0.9367496998 }, impactSpeed: 0,
+    }, 100);
+
+    const normal = tracker.getSupportNormal(100);
+    expect(normal?.x).toBeCloseTo(-0.35, 5);
+    expect(normal?.y).toBeCloseTo(-0.9367496998, 5);
+  });
+
   it('retains support only for the configured grace interval', () => {
     const tracker = new GroundContactTracker(createPhysicsConfig());
     tracker.handle({

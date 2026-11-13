@@ -43,6 +43,9 @@ Edit JSON files in `public/levels/`. `level-01.json` is the tutorial course and 
 
 Defaults live in `src/config/physics.defaults.ts`. Use `?debug=1` or press F3 while playing to open the developer panel. Runtime tuning is temporary and does not modify source files.
 
+- Vertical wall impacts reverse both horizontal movement and the ball's angular spin.
+- A jump landing produces up to three damped follow-up hops, with each hop smaller than the previous one. Rebounds follow the contacted surface normal, including slopes.
+
 ## Architecture boundaries
 
 - Input adapters produce `PlayerAction` values only.

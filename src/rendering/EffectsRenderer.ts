@@ -1,12 +1,17 @@
 import type Phaser from 'phaser';
 
 export class EffectsRenderer {
+  private lastWallImpactAt = -Infinity;
+
   constructor(private readonly scene: Phaser.Scene, private reducedMotion = false) {}
 
   setReducedMotion(enabled: boolean): void { this.reducedMotion = enabled; }
 
   wallImpact(x: number, y: number, normal: { x: number; y: number }, intensity: number): void {
     if (this.reducedMotion) return;
+    const now = this.scene.time.now;
+    if (now - this.lastWallImpactAt < 120) return;
+    this.lastWallImpactAt = now;
 
     const strength = Math.max(0, Math.min(1, (intensity - 80) / 720));
     const count = 4 + Math.round(strength * 6);

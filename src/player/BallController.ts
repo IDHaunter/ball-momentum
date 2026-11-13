@@ -19,6 +19,9 @@ export class BallController {
   private readonly airBoost: AirBoostController;
   private lastGrounded = false;
   private pendingWallImpact: Extract<PhysicsEvent, { type: 'BALL_WALL_IMPACT' }> | null = null;
+  private readonly wallBounceContacts = new Set<string>();
+  private prePhysicsVelocity: { x: number; y: number } | null = null;
+  private landingBouncesRemaining = 0;
   private readonly unsubscribePhysicsEvents: () => void;
 
   constructor(
@@ -30,7 +33,13 @@ export class BallController {
     this.contacts = new GroundContactTracker(config);
     this.unsubscribePhysicsEvents = this.world.onPhysicsEvent((event) => {
       this.contacts.handle(event, this.clock.nowMs);
-      if (event.type === 'BALL_WALL_IMPACT') this.pendingWallImpact = event;
+      if (event.type === 'BALL_TERRAIN_CONTACT_ENDED') this.wallBounceContacts.delete(event.terrainId);
+      if (event.type === 'BALL_WALL_IMPACT'
+        && !this.wallBounceContacts.has(event.terrainId)
+        && event.impactSpeed >= this.config.wallBounce.minimumImpactSpeed) {
+        this.pendingWallImpact = event;
+        this.wallBounceContacts.add(event.terrainId);
+      }
     });
     this.jump = new JumpController(config, this.state);
     this.airBoost = new AirBoostController(config, this.state);
@@ -49,7 +58,10 @@ export class BallController {
     }
 
     const launched = this.jump.updateBeforePhysics(now, this.body);
-    if (launched) this.contacts.clear();
+    if (launched) {
+      this.contacts.clear();
+      this.landingBouncesRemaining = 0;
+    }
 
     const snapshot = this.body.getSnapshot();
     const drag = this.state.grounded
@@ -64,6 +76,7 @@ export class BallController {
       this.resetAt(snapshot.position.x || 0, snapshot.position.y || 0);
       return launched;
     }
+    this.prePhysicsVelocity = { x: vx, y: vy };
     this.body.setVelocity({ x: vx, y: vy });
     return launched;
   }
@@ -71,22 +84,52 @@ export class BallController {
   stepAfterPhysics(): { landed: boolean; grounded: boolean } {
     this.applyPendingWallBounce();
     const now = this.clock.nowMs;
-    const snapshot = this.body.getSnapshot();
-    const grounded = this.contacts.isGrounded(now);
+    const contactGrounded = this.contacts.isGrounded(now);
+    const supportNormal = contactGrounded ? this.contacts.getSupportNormal(now) : null;
+    const incomingVelocity = this.prePhysicsVelocity ?? this.body.getSnapshot().velocity;
+    const supportVelocity = supportNormal
+      ? incomingVelocity.x * supportNormal.x + incomingVelocity.y * supportNormal.y
+      : 0;
+    // Matter can keep a pair active for a frame after we have kicked the ball
+    // away from the surface. Do not mistake that separating contact for a new
+    // landing, otherwise the solver cancels the next hop in the sequence.
+    let grounded = contactGrounded && supportVelocity <= 2;
     const landed = grounded && !this.lastGrounded;
+
+    if (landed) {
+      // Only a jump landing starts a new hop sequence. The following smaller
+      // contacts consume the remaining count even though takeoffAtMs is reset.
+      if (this.state.takeoffAtMs !== null) {
+        this.landingBouncesRemaining = this.config.landingBounce.maxBounces;
+      }
+      const bounced = this.landingBouncesRemaining > 0
+        && supportNormal !== null
+        && this.applyLandingBounce(supportNormal);
+      if (bounced) {
+        this.landingBouncesRemaining -= 1;
+        this.contacts.clear();
+        grounded = false;
+      } else {
+        this.landingBouncesRemaining = 0;
+      }
+      this.jump.onLanding(now);
+    } else if (grounded) {
+      this.state.lastGroundedAtMs = now;
+    }
+
     this.state.grounded = grounded;
-    if (landed) this.jump.onLanding(now);
-    else if (grounded) this.state.lastGroundedAtMs = now;
     if (!grounded && this.state.pendingJumpUntilMs !== null && this.state.pendingJumpUntilMs < now) {
       this.state.pendingJumpUntilMs = null;
       this.state.pendingJumpStrength = 0.5;
     }
+    const snapshot = this.body.getSnapshot();
     const capped = {
       x: clamp(snapshot.velocity.x, -this.config.limits.maxHorizontalSpeed, this.config.limits.maxHorizontalSpeed),
       y: clamp(snapshot.velocity.y, -this.config.limits.maxUpwardSpeed, this.config.limits.maxDownwardSpeed),
     };
     if (capped.x !== snapshot.velocity.x || capped.y !== snapshot.velocity.y) this.body.setVelocity(capped);
     this.lastGrounded = grounded;
+    this.prePhysicsVelocity = null;
     return { landed, grounded };
   }
 
@@ -97,6 +140,9 @@ export class BallController {
     this.body.setAwake();
     this.contacts.clear();
     this.pendingWallImpact = null;
+    this.wallBounceContacts.clear();
+    this.prePhysicsVelocity = null;
+    this.landingBouncesRemaining = 0;
     this.jump.reset();
     this.state.grounded = false;
     this.state.lastGroundedAtMs = -Infinity;
@@ -128,11 +174,56 @@ export class BallController {
     const normalY = normalVelocity * ny;
     const tangentX = incoming.x - normalX;
     const tangentY = incoming.y - normalY;
+    const outgoingNormalSpeed = Math.max(
+      impact.impactSpeed * this.config.wallBounce.restitution,
+      this.config.wallBounce.minimumOutgoingSpeed,
+    );
+
+    // Move a few pixels away from the contact manifold. Without this small
+    // separation, Matter can keep the ball in the same active pair and its
+    // solver may cancel the rebound on the next frame.
+    const position = this.body.getSnapshot().position;
+    const separation = Math.max(
+      this.config.wallBounce.separationDistancePx,
+      Math.min(8, impact.penetrationDepth + this.config.wallBounce.separationDistancePx),
+    );
+    this.body.setPosition({ x: position.x + nx * separation, y: position.y + ny * separation });
     this.body.setVelocity({
-      x: tangentX * this.config.wallBounce.tangentRetention - normalX * this.config.wallBounce.restitution,
-      y: tangentY * this.config.wallBounce.tangentRetention - normalY * this.config.wallBounce.restitution,
+      x: tangentX * this.config.wallBounce.tangentRetention + nx * outgoingNormalSpeed,
+      y: tangentY * this.config.wallBounce.tangentRetention + ny * outgoingNormalSpeed,
+    });
+    // A wall collision reverses the ball's spin as well as its travel
+    // direction, preventing the old rolling spin from driving it back into
+    // the wall after the next ground contact.
+    const angularVelocity = this.body.getSnapshot().angularVelocity;
+    this.body.setAngularVelocity(-angularVelocity * this.config.wallBounce.spinRetention);
+    this.body.setAwake();
+  }
+
+  private applyLandingBounce(normal: { x: number; y: number }): boolean {
+    const incoming = this.prePhysicsVelocity ?? this.body.getSnapshot().velocity;
+    const normalVelocity = incoming.x * normal.x + incoming.y * normal.y;
+    const impactSpeed = -normalVelocity;
+    if (impactSpeed < this.config.landingBounce.minimumImpactSpeed) return false;
+
+    const outgoingNormalSpeed = impactSpeed * this.config.landingBounce.restitution;
+    if (outgoingNormalSpeed < this.config.landingBounce.minimumOutgoingSpeed) return false;
+
+    const normalX = normalVelocity * normal.x;
+    const normalY = normalVelocity * normal.y;
+    const tangentX = incoming.x - normalX;
+    const tangentY = incoming.y - normalY;
+    const position = this.body.getSnapshot().position;
+    this.body.setPosition({
+      x: position.x + normal.x * this.config.landingBounce.separationDistancePx,
+      y: position.y + normal.y * this.config.landingBounce.separationDistancePx,
+    });
+    this.body.setVelocity({
+      x: tangentX * this.config.landingBounce.tangentRetention + normal.x * outgoingNormalSpeed,
+      y: tangentY * this.config.landingBounce.tangentRetention + normal.y * outgoingNormalSpeed,
     });
     this.body.setAwake();
+    return true;
   }
 
   private applyHorizontal(action: Extract<PlayerAction, { type: 'MOVE_LEFT' | 'MOVE_RIGHT' }>, nowMs: number): void {

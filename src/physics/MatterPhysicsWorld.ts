@@ -5,6 +5,7 @@ import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadat
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
 import type { BallPhysicsOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
+import { PhysicsAdapter } from './PhysicsAdapter';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -37,6 +38,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private readonly collisionEnd = (event: CollisionEventLike) => this.handleCollision(event, 'end');
   private readonly world: MatterWorldLike;
   private readonly factory: MatterFactoryLike;
+  private preStepBallVelocity: Vector2 | null = null;
 
   constructor(private readonly scene: Phaser.Scene) {
     const matter = (scene as unknown as MatterSceneLike).matter;
@@ -48,7 +50,15 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.world.on('collisionend', this.collisionEnd);
   }
 
-  step(fixedStepMs: number): void { this.world.step(fixedStepMs); }
+  step(fixedStepMs: number): void {
+    const velocity = this.ballObject?.body.velocity;
+    this.preStepBallVelocity = velocity ? PhysicsAdapter.fromMatterVelocity(velocity) : null;
+    try {
+      this.world.step(fixedStepMs);
+    } finally {
+      this.preStepBallVelocity = null;
+    }
+  }
   setGravity(x: number, y: number, scale: number): void { this.world.setGravity(x, y, scale); }
   setTimeScale(value: number): void { this.world.engine.timing.timeScale = Math.max(0, value); }
 
@@ -163,7 +173,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
 
   private handleCollision(event: CollisionEventLike, phase: 'start' | 'active' | 'end'): void {
     for (const pair of event.pairs ?? []) {
-      const mapped = this.mapper.mapPair(pair, phase);
+      const mapped = this.mapper.mapPair(pair, phase, this.preStepBallVelocity);
       for (const item of mapped) {
         if (item.type === 'BALL_ENTERED_TRIGGER') {
           if (this.activeTriggers.has(item.triggerId)) continue;

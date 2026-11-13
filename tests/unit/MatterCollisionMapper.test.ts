@@ -115,4 +115,31 @@ describe('MatterCollisionMapper wall impacts', () => {
     expect(movingAway.some((event) => event.type === 'BALL_WALL_IMPACT')).toBe(false);
     expect(floor.some((event) => event.type === 'BALL_WALL_IMPACT')).toBe(false);
   });
+
+
+  it('detects a wall impact during an already-active contact using pre-step velocity', () => {
+    const ball = body(100, 100);
+    // Matter may have resolved the previous frame to nearly zero velocity.
+    ball.velocity = { x: 0, y: 0 };
+    const wall = body(130, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball' }],
+      [wall, { kind: 'terrain', id: 'right-wall' }],
+    ]));
+    const events = mapper.mapPair({
+      bodyA: ball,
+      bodyB: wall,
+      collision: { normal: { x: -1, y: 0 }, depth: 3 },
+    }, 'active', { x: 55, y: 0 });
+
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'BALL_WALL_IMPACT',
+        incomingVelocity: { x: 55, y: 0 },
+        impactSpeed: 55,
+        penetrationDepth: 3,
+      }),
+    ]));
+  });
+
 });

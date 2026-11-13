@@ -98,6 +98,7 @@ describe('BallController', () => {
       incomingVelocity: { x: 600, y: 120 },
       contactPoint: { x: 118, y: 100 },
       impactSpeed: 600,
+      penetrationDepth: 2,
     });
     ball.stepAfterPhysics();
 
@@ -106,7 +107,116 @@ describe('BallController', () => {
     ball.dispose();
   });
 
-  it('does not bounce on a low-speed wall touch', () => {
+  it('reverses the ball spin when it bounces off a vertical wall', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, clock, { x: 20, y: 20 });
+    ball.currentBody.setVelocity({ x: 500, y: 0 });
+    ball.currentBody.setAngularVelocity(8);
+
+    world.emit({
+      type: 'BALL_WALL_IMPACT',
+      terrainId: 'wall',
+      normal: { x: -1, y: 0 },
+      incomingVelocity: { x: 500, y: 0 },
+      contactPoint: { x: 118, y: 100 },
+      impactSpeed: 500,
+      penetrationDepth: 1,
+    });
+    ball.stepAfterPhysics();
+
+    expect(ball.snapshot.angularVelocity).toBeCloseTo(-8 * config.wallBounce.spinRetention);
+    ball.dispose();
+  });
+
+  it('performs three progressively smaller hops after landing from a jump', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, clock, { x: 20, y: 20 });
+    ball.state.takeoffAtMs = 0;
+
+    const landWithDownwardSpeed = (speed: number) => {
+      ball.currentBody.setVelocity({ x: 0, y: speed });
+      ball.stepBeforePhysics([]);
+      // Matter's collision solver has stopped the inward velocity by the time
+      // BallController processes the contact event.
+      ball.currentBody.setVelocity({ x: 0, y: 0 });
+      world.emit({
+        type: 'BALL_TERRAIN_CONTACT_ACTIVE',
+        terrainId: 'floor',
+        supportNormal: { x: 0, y: -1 },
+        impactSpeed: speed,
+      });
+      clock.advance(1000 / 60);
+      return ball.stepAfterPhysics();
+    };
+
+    const firstLanding = landWithDownwardSpeed(500);
+    const firstHopSpeed = Math.abs(ball.snapshot.velocity.y);
+    expect(firstLanding.landed).toBe(true);
+    expect(firstLanding.grounded).toBe(false);
+    expect(ball.snapshot.velocity.y).toBeLessThan(0);
+
+    // Matter may report one more active contact immediately after takeoff.
+    // A separating (upward) frame must not consume or cancel the next hop.
+    ball.currentBody.setVelocity({ x: 0, y: -firstHopSpeed });
+    ball.stepBeforePhysics([]);
+    world.emit({
+      type: 'BALL_TERRAIN_CONTACT_ACTIVE', terrainId: 'floor',
+      supportNormal: { x: 0, y: -1 }, impactSpeed: firstHopSpeed,
+    });
+    clock.advance(1000 / 60);
+    const separatingContact = ball.stepAfterPhysics();
+    expect(separatingContact.landed).toBe(false);
+    expect(separatingContact.grounded).toBe(false);
+
+    const secondLanding = landWithDownwardSpeed(firstHopSpeed);
+    const secondHopSpeed = Math.abs(ball.snapshot.velocity.y);
+    expect(secondLanding.landed).toBe(true);
+    expect(secondHopSpeed).toBeLessThan(firstHopSpeed);
+
+    const thirdLanding = landWithDownwardSpeed(secondHopSpeed);
+    const thirdHopSpeed = Math.abs(ball.snapshot.velocity.y);
+    expect(thirdLanding.landed).toBe(true);
+    expect(thirdHopSpeed).toBeLessThan(secondHopSpeed);
+    expect(thirdHopSpeed).toBeGreaterThan(config.landingBounce.minimumOutgoingSpeed);
+
+    const finalLanding = landWithDownwardSpeed(thirdHopSpeed);
+    expect(finalLanding.landed).toBe(true);
+    expect(finalLanding.grounded).toBe(true);
+    expect(ball.snapshot.velocity.y).toBeCloseTo(0);
+    ball.dispose();
+  });
+
+  it('bounces along an inclined support normal after a jump landing', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const ball = new BallController(world, createPhysicsConfig(), clock, { x: 20, y: 20 });
+    const normal = { x: -0.4, y: -Math.sqrt(1 - 0.4 ** 2) };
+    const incoming = { x: -normal.x * 400, y: -normal.y * 400 };
+    ball.state.takeoffAtMs = 0;
+    ball.currentBody.setVelocity(incoming);
+    ball.stepBeforePhysics([]);
+    ball.currentBody.setVelocity({ x: 0, y: 0 });
+    world.emit({
+      type: 'BALL_TERRAIN_CONTACT_ACTIVE',
+      terrainId: 'ramp',
+      supportNormal: normal,
+      impactSpeed: 400,
+    });
+    clock.advance(1000 / 60);
+    const result = ball.stepAfterPhysics();
+    const outgoing = ball.snapshot.velocity;
+
+    expect(result.landed).toBe(true);
+    expect(outgoing.x * normal.x + outgoing.y * normal.y).toBeGreaterThan(0);
+    expect(outgoing.y).toBeLessThan(0);
+    ball.dispose();
+  });
+
+  it('bounces visibly even on a low-speed wall touch', () => {
     const world = new FakeWorld();
     const clock = new GameClock();
     const config = createPhysicsConfig();
@@ -120,10 +230,45 @@ describe('BallController', () => {
       incomingVelocity: { x: 70, y: 0 },
       contactPoint: { x: 118, y: 100 },
       impactSpeed: 70,
+      penetrationDepth: 1,
     });
     ball.stepAfterPhysics();
 
-    expect(ball.snapshot.velocity.x).toBe(70);
+    expect(ball.snapshot.velocity.x).toBeLessThan(0);
+    expect(Math.abs(ball.snapshot.velocity.x)).toBeGreaterThanOrEqual(config.wallBounce.minimumOutgoingSpeed);
+    expect(ball.snapshot.position.x).toBeLessThan(20);
+    ball.dispose();
+  });
+
+  it('bounces only once while a wall contact remains active, then re-arms after separation', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, clock, { x: 20, y: 20 });
+    const impact = {
+      type: 'BALL_WALL_IMPACT' as const,
+      terrainId: 'wall',
+      normal: { x: -1, y: 0 },
+      incomingVelocity: { x: 500, y: 0 },
+      contactPoint: { x: 118, y: 100 },
+      impactSpeed: 500,
+      penetrationDepth: 1,
+    };
+
+    world.emit(impact);
+    ball.stepAfterPhysics();
+    const firstBounce = ball.snapshot.velocity.x;
+    expect(firstBounce).toBeLessThan(0);
+
+    ball.currentBody.setVelocity({ x: 300, y: 0 });
+    world.emit(impact);
+    ball.stepAfterPhysics();
+    expect(ball.snapshot.velocity.x).toBe(300);
+
+    world.emit({ type: 'BALL_TERRAIN_CONTACT_ENDED', terrainId: 'wall' });
+    world.emit({ ...impact, incomingVelocity: { x: 300, y: 0 }, impactSpeed: 300 });
+    ball.stepAfterPhysics();
+    expect(ball.snapshot.velocity.x).toBeLessThan(0);
     ball.dispose();
   });
 
