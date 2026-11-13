@@ -295,7 +295,8 @@ describe('BallController', () => {
     ball.currentBody.setPosition({ x: 120, y: 100 });
     ball.breakThroughTerrain({ x: 700, y: -120 }, { x: -1, y: 0 }, 0.7, 5);
     expect(ball.snapshot.position).toEqual({ x: 115, y: 100 });
-    expect(ball.snapshot.velocity).toEqual({ x: 490, y: -84 });
+    expect(ball.snapshot.velocity.x).toBeCloseTo(490, 10);
+    expect(ball.snapshot.velocity.y).toBeCloseTo(-84, 10);
     ball.dispose();
   });
 

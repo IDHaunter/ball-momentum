@@ -197,3 +197,35 @@ npm run test:e2e
 ```
 
 In the sandbox, test the vertical wall with both a weak and a strong direct hit, the triangular glass with a direct and a glancing hit, breaking only the top block, and breaking the lower block of the stack.
+
+
+## Unit-test expectation fixes — 2026-11-13
+
+The user reported 3 failing assertions out of 60 unit tests while `npm run typecheck` and `npm run build` passed:
+
+- Two `TerrainFactory.test.ts` assertions used exact deep equality against objects containing only `id` and `breakable`, while the factory correctly passes complete collider definitions including geometry and glass material properties. The tests now assert the relevant fields using `toMatchObject` and also verify geometry/material propagation.
+- One `BallController.test.ts` assertion used exact equality for `700 * 0.7`. IEEE-754 represents this as `489.99999999999994`; the test now uses `toBeCloseTo` for both velocity components.
+
+No production code was changed. Full Vitest and build were not rerun in this packaging environment because dependencies are not installed here. The user's prior successful typecheck/build logs remain applicable because this patch only modifies tests and documentation.
+
+## User-reported Vitest assertion fixes — 2026-11-13
+
+The user reported the following results on the breakable-glass build: TypeScript typecheck passed, Vite production build passed, and 57/60 unit tests passed. The 3 failures were test assertion issues rather than gameplay failures:
+
+1. Two `TerrainFactory.test.ts` tests captured the complete collider definition but expected an object containing only `{ id, breakable }`. The factory correctly forwards geometry and glass material properties too. The assertions now use `toMatchObject` and verify the collider dimensions/vertices, glass friction/restitution, and `breakable: true`. Capture arrays now use the actual `IPhysicsWorld` method parameter types.
+2. `BallController.test.ts` expected exact equality for `700 * 0.7`. JavaScript floating-point arithmetic returns `489.99999999999994`, so the assertion now uses `toBeCloseTo(490, 10)`; the y component is checked with the same tolerance.
+
+No production source, game behavior, level data, or physics parameters changed.
+
+Checks performed for this test-only patch:
+
+| Check | Result |
+|---|---|
+| Focused strict TypeScript check for both modified tests and their dependencies (with minimal external type declarations for unavailable Phaser/Vitest packages) | Passed |
+| TypeScript syntax transpilation (`src` + `tests`, 88 files) | Passed, zero syntax diagnostics |
+| Executed actual compiled `TerrainFactory.test.ts` test cases using a lightweight local Vitest-compatible assertion runner | 4 passed, 0 failed |
+| Executed actual compiled `BallController.test.ts` test cases using the same runner | 10 passed, 0 failed |
+| `package.json` and both level JSON files parse | Passed |
+| ZIP integrity | Passed |
+
+The lightweight runner executes the test bodies and supported assertions but is not the Vitest runtime. Full `npm test` was not rerun here because Vitest and project dependencies are not installed in this packaging environment. The user's prior log showed the other 57 cases passing before this test-only correction; rerun `npm run test` locally to confirm the complete 60-test suite.

@@ -107,3 +107,10 @@ Validation performed in this environment:
 Validation in the packaging environment:
 - Syntax transpilation and pure-module strict TypeScript checks are performed on the new logic.
 - Full Vitest, Vite production build, and Playwright E2E require the project dependencies, which are not installed in this environment; npm registry access currently fails with `EAI_AGAIN`.
+
+
+## Unit test expectation fixes — 2026-11-13
+
+- Updated `TerrainFactory.test.ts` to assert the breakable flag together with the actual static collider contract (geometry and glass material properties). The factory correctly passes the full collider definition; the former exact-array expectations incorrectly required the captured objects to contain only `id` and `breakable`.
+- Updated the breakthrough velocity assertion in `BallController.test.ts` to use floating-point tolerance. Multiplying `700 * 0.7` is represented by JavaScript as `489.99999999999994`, which is numerically equivalent to the expected `490` within machine precision.
+- No gameplay code, level data, physics constants, or runtime behavior were changed in this patch.

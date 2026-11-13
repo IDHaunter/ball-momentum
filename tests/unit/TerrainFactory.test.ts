@@ -32,9 +32,9 @@ describe('getCollisionVertices', () => {
 
 describe('TerrainFactory breakable solids', () => {
   it('marks a glass collider as breakable for impact event mapping', () => {
-    const captured: Array<{ id: string; breakable?: boolean }> = [];
+    const captured: Array<Parameters<IPhysicsWorld['createStaticBox']>[0]> = [];
     const world = {
-      createStaticBox: (definition: { id: string; breakable?: boolean }) => captured.push(definition),
+      createStaticBox: (definition: Parameters<IPhysicsWorld['createStaticBox']>[0]) => captured.push(definition),
       createStaticPolygon: () => undefined,
       removeTerrainBody: () => undefined,
       createSensor: () => undefined,
@@ -58,14 +58,25 @@ describe('TerrainFactory breakable solids', () => {
       materials: { glass: { friction: 0.08, frictionStatic: 0.12, restitution: 0.34 } },
     });
 
-    expect(captured).toEqual([{ id: 'glass-wall', breakable: true }]);
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({
+      id: 'glass-wall',
+      x: 100,
+      y: 100,
+      width: 40,
+      height: 200,
+      friction: 0.08,
+      frictionStatic: 0.12,
+      restitution: 0.34,
+      breakable: true,
+    });
   });
 
   it('marks a breakable polygon collider as breakable too', () => {
-    const captured: Array<{ id: string; breakable?: boolean }> = [];
+    const captured: Array<Parameters<IPhysicsWorld['createStaticPolygon']>[0]> = [];
     const world = {
       createStaticBox: () => undefined,
-      createStaticPolygon: (definition: { id: string; breakable?: boolean }) => captured.push(definition),
+      createStaticPolygon: (definition: Parameters<IPhysicsWorld['createStaticPolygon']>[0]) => captured.push(definition),
       removeTerrainBody: () => undefined,
       createSensor: () => undefined,
       removeLevelBodies: () => undefined,
@@ -94,6 +105,18 @@ describe('TerrainFactory breakable solids', () => {
       materials: { glass: { friction: 0.08, frictionStatic: 0.12, restitution: 0.34 } },
     });
 
-    expect(captured).toEqual([{ id: 'glass-triangle', breakable: true }]);
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({
+      id: 'glass-triangle',
+      vertices: [
+        { x: 50, y: 100 },
+        { x: 100, y: 30 },
+        { x: 150, y: 100 },
+      ],
+      friction: 0.08,
+      frictionStatic: 0.12,
+      restitution: 0.34,
+      breakable: true,
+    });
   });
 });
