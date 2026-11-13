@@ -142,4 +142,26 @@ describe('MatterCollisionMapper wall impacts', () => {
     ]));
   });
 
+
+  it('reports normal impact speed for an angled polygon surface', () => {
+    const ball = body(100, 100);
+    const ramp = body(130, 130);
+    ball.velocity = { x: 8, y: 0 };
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball' }],
+      [ramp, { kind: 'terrain', id: 'glass-ramp', breakable: true }],
+    ]));
+    const events = mapper.mapPair({
+      bodyA: ball,
+      bodyB: ramp,
+      collision: { normal: { x: -Math.SQRT1_2, y: -Math.SQRT1_2 }, supports: [{ x: 116, y: 116 }], supportCount: 1 },
+    }, 'start');
+    const impact = events.find((event) => event.type === 'BALL_TERRAIN_IMPACT');
+    expect(impact?.type).toBe('BALL_TERRAIN_IMPACT');
+    if (impact?.type === 'BALL_TERRAIN_IMPACT') {
+      expect(impact.terrainId).toBe('glass-ramp');
+      expect(impact.impactSpeed).toBeCloseTo(8 * Math.SQRT1_2 * 60, 5);
+    }
+  });
+
 });

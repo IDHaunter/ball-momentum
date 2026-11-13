@@ -10,6 +10,7 @@ export interface PhysicsConfig {
   groundContact: { maxGroundAngleDegrees: number; supportGraceMs: number };
   wallBounce: { restitution: number; tangentRetention: number; spinRetention: number; minimumImpactSpeed: number; minimumOutgoingSpeed: number; separationDistancePx: number };
   landingBounce: { restitution: number; tangentRetention: number; minimumImpactSpeed: number; minimumOutgoingSpeed: number; maxBounces: number; separationDistancePx: number };
+  breakableTerrain: { velocityRetention: number; separationDistancePx: number };
 }
 
 export interface InputConfig {

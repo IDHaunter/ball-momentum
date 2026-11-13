@@ -12,6 +12,7 @@ export const PHYSICS_DEFAULTS: PhysicsConfig = {
   groundContact: { maxGroundAngleDegrees: 55, supportGraceMs: 35 },
   wallBounce: { restitution: 0.86, tangentRetention: 0.98, spinRetention: 0.85, minimumImpactSpeed: 10, minimumOutgoingSpeed: 125, separationDistancePx: 3 },
   landingBounce: { restitution: 0.52, tangentRetention: 0.96, minimumImpactSpeed: 45, minimumOutgoingSpeed: 35, maxBounces: 3, separationDistancePx: 1.5 },
+  breakableTerrain: { velocityRetention: 0.72, separationDistancePx: 5 },
 };
 
 export function createPhysicsConfig(): PhysicsConfig {

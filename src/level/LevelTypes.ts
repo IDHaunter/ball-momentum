@@ -4,15 +4,23 @@ export interface TerrainMaterialDefinition {
   restitution: number;
 }
 
+export interface BreakableDefinition {
+  /** Required impact energy measured as 0.5 * ballMass * normalImpactSpeed^2. */
+  thresholdEnergy: number;
+  /** Fraction of incoming velocity retained after the solid is pierced. */
+  velocityRetention?: number;
+}
+
 export interface BoxSolidDefinition {
-  id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string;
+  id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string; breakable?: BreakableDefinition;
 }
 
 export interface PolygonSolidDefinition {
-  id: string; type: 'polygon'; vertices: [number, number][]; material?: string;
+  id: string; type: 'polygon'; vertices: [number, number][]; material?: string; breakable?: BreakableDefinition;
 }
 
 export type SolidDefinition = BoxSolidDefinition | PolygonSolidDefinition;
+export type BreakableSolidDefinition = SolidDefinition & { breakable: BreakableDefinition };
 export type TriggerType = 'hazard' | 'checkpoint' | 'goal';
 
 export interface TriggerDefinition {

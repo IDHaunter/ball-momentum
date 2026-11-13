@@ -28,6 +28,7 @@ import { LocalStorageProgressRepository } from '../platform/Storage/LocalStorage
 import type { GameRegistry } from '../app/GameRegistry';
 import type { GameState } from '../core/GameState';
 import { FIXED_STEP_MS } from '../utils/TimeUtils';
+import { calculateNormalImpactEnergy } from '../physics/ImpactEnergy';
 
 export class GameplayScene extends Phaser.Scene {
   private readonly gameRegistry: GameRegistry;
@@ -275,8 +276,26 @@ export class GameplayScene extends Phaser.Scene {
     const events = this.physicsEvents;
     this.physicsEvents = [];
     for (const event of events) {
+      if (event.type === 'BALL_TERRAIN_IMPACT') {
+        if (this.gameRegistry.flow.state !== 'PLAYING' || !this.ball || !this.levelBuilder) continue;
+        const breakable = this.levelBuilder.getBreakable(event.terrainId);
+        if (!breakable) continue;
+        const impactEnergy = calculateNormalImpactEnergy(event.impactSpeed, this.physicsConfig.ball.mass);
+        if (impactEnergy < breakable.breakable.thresholdEnergy) continue;
+        const broken = this.levelBuilder.breakSolid(event.terrainId);
+        if (broken.length === 0) continue;
+        const velocityRetention = breakable.breakable.velocityRetention ?? this.physicsConfig.breakableTerrain.velocityRetention;
+        this.ball.breakThroughTerrain(
+          event.incomingVelocity,
+          event.normal,
+          velocityRetention,
+          this.physicsConfig.breakableTerrain.separationDistancePx,
+        );
+        for (const solid of broken) this.effects.glassShatter(solid);
+        continue;
+      }
       if (event.type === 'BALL_WALL_IMPACT') {
-        if (this.gameRegistry.flow.state === 'PLAYING' && event.impactSpeed >= this.physicsConfig.wallBounce.minimumImpactSpeed) {
+        if (!event.breakable && this.gameRegistry.flow.state === 'PLAYING' && event.impactSpeed >= this.physicsConfig.wallBounce.minimumImpactSpeed) {
           this.effects.wallImpact(event.contactPoint.x, event.contactPoint.y, event.normal, event.impactSpeed);
         }
         continue;

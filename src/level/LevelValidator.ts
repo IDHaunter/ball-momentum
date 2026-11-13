@@ -28,6 +28,7 @@ export class LevelValidator {
     for (const solid of level.solids) {
       addId(solid.id, `solids.${solid.id}`);
       if (solid.material && !level.materials?.[solid.material]) errors.push(`solids.${solid.id}.material: unknown material "${solid.material}"`);
+      if (solid.breakable && solid.material !== 'glass') errors.push(`solids.${solid.id}.breakable: breakable solids must use material "glass"`);
       if (solid.type === 'polygon') {
         const points = solid.vertices.map(([x, y]) => ({ x, y }));
         const unique = new Set(points.map((p) => `${p.x}:${p.y}`));

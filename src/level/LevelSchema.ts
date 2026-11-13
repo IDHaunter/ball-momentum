@@ -6,16 +6,23 @@ const materialSchema = z.object({
   restitution: z.number().min(0).max(1),
 });
 
+const breakableSchema = z.object({
+  thresholdEnergy: z.number().finite().positive(),
+  velocityRetention: z.number().min(0.1).max(1).optional(),
+});
+
 const boxSchema = z.object({
   id: z.string().min(1), type: z.literal('box'),
   x: z.number().finite(), y: z.number().finite(),
   width: z.number().finite().positive(), height: z.number().finite().positive(), material: z.string().optional(),
+  breakable: breakableSchema.optional(),
 });
 
 const polygonSchema = z.object({
   id: z.string().min(1), type: z.literal('polygon'),
   vertices: z.array(z.tuple([z.number().finite(), z.number().finite()])).min(3),
   material: z.string().optional(),
+  breakable: breakableSchema.optional(),
 });
 
 const triggerSchema = z.object({

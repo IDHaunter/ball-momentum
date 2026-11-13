@@ -91,3 +91,19 @@ Validation performed in this environment:
 - Strict TypeScript compilation of the changed controller, contact tracker, configuration, Developer Panel, and the two changed unit-test files (using a lightweight Vitest type shim): passed.
 - Runtime harness using the actual compiled project classes: wall velocity and angular velocity both reverse; landing hops were 260, 135.2, and 70.3 px/s for a 500 px/s initial impact; stale separating contact was ignored; the next landing settled without a fourth hop.
 - Full Vitest, Vite production build, and Playwright E2E were not run because project dependencies and Chromium are not installed in this environment.
+
+
+## Breakable glass terrain and sandbox obstacles — 2026-11-13
+
+- Added an optional `breakable` definition to box and polygon solids. Each definition specifies `thresholdEnergy` and may override `velocityRetention`.
+- Collision mapping now emits a general `BALL_TERRAIN_IMPACT` for contacts on any face, not only vertical walls. Impact energy is calculated from the incoming velocity component along the contact normal (`0.5 * mass * normalSpeed^2`), so oblique hits naturally require more total speed than perpendicular hits.
+- Glass that does not reach its energy threshold remains a solid obstacle and uses the normal material response / wall rebound. If the threshold is reached, the collider and rendered shape are removed and the ball continues along its original direction with a configurable fraction of its incoming velocity.
+- Added `BreakableTerrainManager`, which detects vertically stacked breakable pieces. Breaking a supporting lower piece cascades through breakable pieces resting on it; breaking only an upper piece leaves its lower support intact.
+- Added a translucent cyan glass rendering style with internal facets and a glass-shard burst animation. Shards are visual-only and fade out after the break.
+- Added a sandbox vertical glass wall, an angled triangular glass piece, and a two-piece glass stack with labels. The thresholds deliberately differ so the user can test direct and glancing impacts.
+- Added Developer Panel controls for breakthrough velocity retention and separation distance. Reset Defaults restores these values too.
+- Added regression tests for squared normal impact energy, glancing-hit energy, angled terrain impact mapping, successful breakthrough velocity preservation, breakable-level validation, and stacked-glass cascade behavior.
+
+Validation in the packaging environment:
+- Syntax transpilation and pure-module strict TypeScript checks are performed on the new logic.
+- Full Vitest, Vite production build, and Playwright E2E require the project dependencies, which are not installed in this environment; npm registry access currently fails with `EAI_AGAIN`.

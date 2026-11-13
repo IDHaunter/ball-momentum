@@ -133,6 +133,30 @@ export class BallController {
     return { landed, grounded };
   }
 
+  /** Pierce a removed breakable solid, retaining the incoming direction. */
+  breakThroughTerrain(
+    incomingVelocity: { x: number; y: number },
+    normal: { x: number; y: number },
+    velocityRetention: number,
+    separationDistancePx = 5,
+  ): void {
+    const normalSpeed = incomingVelocity.x * normal.x + incomingVelocity.y * normal.y;
+    if (normalSpeed >= 0) return;
+    const position = this.body.getSnapshot().position;
+    this.body.setPosition({
+      x: position.x + normal.x * separationDistancePx,
+      y: position.y + normal.y * separationDistancePx,
+    });
+    this.body.setVelocity({
+      x: incomingVelocity.x * velocityRetention,
+      y: incomingVelocity.y * velocityRetention,
+    });
+    this.body.setAwake();
+    this.contacts.clear();
+    this.lastGrounded = false;
+    this.state.grounded = false;
+  }
+
   resetAt(x: number, y: number): void {
     this.body.setPosition({ x, y });
     this.body.setVelocity({ x: 0, y: 0 });

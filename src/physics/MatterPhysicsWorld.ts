@@ -99,7 +99,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(definition.x + definition.width / 2, definition.y + definition.height / 2, 1, 1), rawBody, true);
     object.body.label = definition.id;
-    this.registerLevelObject(object, { kind: 'terrain', id: definition.id });
+    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable });
   }
 
   createStaticPolygon(definition: StaticPolygonOptions): void {
@@ -119,7 +119,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(center.x, center.y, 1, 1), rawBody, true);
     object.body.label = definition.id;
-    this.registerLevelObject(object, { kind: 'terrain', id: definition.id });
+    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable });
   }
 
   createSensor(definition: SensorOptions): void {
@@ -137,6 +137,17 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(definition.x + definition.width / 2, definition.y + definition.height / 2, 1, 1), rawBody, true);
     object.body.label = definition.id;
     this.registerLevelObject(object, { kind: 'trigger', id: definition.id, triggerType: definition.type });
+  }
+
+  removeTerrainBody(id: string): void {
+    const index = this.levelObjects.findIndex((object) => {
+      const meta = this.metadata.get(object.body);
+      return meta?.kind === 'terrain' && meta.id === id;
+    });
+    if (index < 0) return;
+    const [object] = this.levelObjects.splice(index, 1);
+    this.metadata.delete(object.body);
+    object.destroy();
   }
 
   removeLevelBodies(): void {

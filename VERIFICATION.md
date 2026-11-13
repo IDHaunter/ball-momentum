@@ -159,3 +159,41 @@ npm run test
 npm run build
 npm run test:e2e
 ```
+
+## Breakable glass terrain and Physics Sandbox obstacles — 2026-11-13
+
+Implemented in this archive:
+
+1. Added an optional `breakable` definition to box and polygon solids. A solid must use the `glass` material and specify a positive `thresholdEnergy`; an optional per-solid `velocityRetention` overrides the global value.
+2. Added normal-impact energy calculation: `0.5 * ballMass * normalImpactSpeed^2`. Only the velocity component directed into the contacted face contributes, so a glancing impact is less effective than a perpendicular hit at the same overall speed.
+3. A hit below the threshold leaves the complete collider and rendered glass shape in place. A successful hit removes the collider and visual terrain, then sends the ball through along its incoming direction with 72% velocity retention by default.
+4. Added a translucent glass rendering style and a short glass-shard animation. Shards are cosmetic effects and are not independent physical bodies.
+5. Added `BreakableTerrainManager` support dependencies. In the supplied sandbox stack, breaking the lower glass block cascades to the upper breakable glass block; breaking only the upper block leaves the lower block intact. This cascade currently tracks breakable glass pieces, not arbitrary non-breakable rigid bodies.
+6. Added Physics Sandbox obstacles: a vertical wall, a triangular glass obstacle, and a two-piece vertical glass stack.
+7. Added F3 tuning for global glass velocity retention and post-break separation distance.
+
+Checks performed in this packaging environment:
+
+| Check | Result |
+|---|---|
+| TypeScript syntax transpilation (`src` + `tests`, 88 files) | Passed; zero syntax diagnostics |
+| Strict typecheck of changed physics, controller, level, and rendering modules (using a minimal Phaser declaration shim) | Passed |
+| Structural type pass of all source and test files with shims for external packages (non-strict; not a replacement for the project's actual `tsc` command) | Passed |
+| Glass runtime harness using the project's compiled classes: direct and glancing energy, event mapping, ball breakthrough/velocity retention | Passed |
+| Glass stack runtime harness: breaking lower cascades to upper; breaking upper leaves lower intact | Passed |
+| Physics Sandbox JSON validation: 4 breakable shapes, valid thresholds/materials, unique IDs, aligned stack geometry | Passed |
+| ZIP archive integrity | Passed |
+
+The runtime harness uses the actual compiled project classes with a mock Matter world. It checks the impact math, mapped contact-normal speed, cascade decisions, and breakthrough velocity, but it is not a browser simulation with the real Phaser Matter engine.
+
+There are 60 unit-test cases in 13 files under `tests/unit`. The Vitest runner, actual dependency-backed full `npm run typecheck`, Vite production build, and Playwright browser tests were not run in this environment because project `node_modules` and the Chromium executable are not installed. The npm registry has also been unavailable in this environment. Run the full suite on the development machine:
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+In the sandbox, test the vertical wall with both a weak and a strong direct hit, the triangular glass with a direct and a glancing hit, breaking only the top block, and breaking the lower block of the stack.

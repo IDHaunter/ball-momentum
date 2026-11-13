@@ -14,16 +14,22 @@ export class TerrainFactory {
         this.world.createStaticBox({
           id: solid.id, x: solid.x, y: solid.y, width: solid.width, height: solid.height,
           friction: material.friction, frictionStatic: material.frictionStatic, restitution: material.restitution,
+          breakable: Boolean(solid.breakable),
         });
       } else {
         this.world.createStaticPolygon({
           id: solid.id,
           vertices: getCollisionVertices(solid, level.solids),
           friction: material.friction, frictionStatic: material.frictionStatic, restitution: material.restitution,
+          breakable: Boolean(solid.breakable),
         });
       }
     }
     this.renderer.render(level);
+  }
+
+  remove(id: string): void {
+    this.world.removeTerrainBody(id);
   }
 }
 

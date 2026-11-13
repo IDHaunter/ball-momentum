@@ -43,8 +43,22 @@ Edit JSON files in `public/levels/`. `level-01.json` is the tutorial course and 
 
 Defaults live in `src/config/physics.defaults.ts`. Use `?debug=1` or press F3 while playing to open the developer panel. Runtime tuning is temporary and does not modify source files.
 
+## Breakable glass
+
+The Physics Sandbox includes a vertical glass wall, an angled glass triangle, and a two-piece glass stack. Each breakable solid uses a per-shape energy threshold and can override the velocity retained by the ball after piercing:
+
+```json
+{
+  "material": "glass",
+  "breakable": { "thresholdEnergy": 140000, "velocityRetention": 0.72 }
+}
+```
+
+Impact energy is evaluated from the velocity component perpendicular to the contact face: `0.5 * ballMass * normalImpactSpeed^2`. This makes direct hits more effective than glancing hits at the same overall speed. A failed break leaves the glass intact; a successful break removes its collider and plays a shard animation. Stacked breakable glass pieces resting on a broken lower piece shatter as a cascade. Shards are cosmetic effects, not separate physics bodies; the current cascade tracks breakable glass pieces rather than arbitrary non-breakable rigid bodies.
+
 - Vertical wall impacts reverse both horizontal movement and the ball's angular spin.
 - A jump landing produces up to three damped follow-up hops, with each hop smaller than the previous one. Rebounds follow the contacted surface normal, including slopes.
+- Glass solids can be marked with `breakable: { thresholdEnergy, velocityRetention }` in level JSON. The impact check uses the square of the velocity component perpendicular to the contacted face, so glancing hits are harder to break than direct hits. Breakable glass stacks cascade when their lower support is destroyed.
 
 ## Architecture boundaries
 

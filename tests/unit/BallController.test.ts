@@ -30,6 +30,7 @@ class FakeWorld implements IPhysicsWorld {
   createBall(position: Vector2, _options: BallPhysicsOptions): IPhysicsBody { this.body = new FakeBody(position); return this.body; }
   createStaticBox(_definition: StaticBoxOptions): void {}
   createStaticPolygon(_definition: StaticPolygonOptions): void {}
+  removeTerrainBody(_id: string): void {}
   createSensor(_definition: SensorOptions): void {}
   removeLevelBodies(): void {}
   setGravity(): void {}
@@ -286,4 +287,16 @@ describe('BallController', () => {
     expect(ball.state.airBoostAvailable).toBe(false);
     ball.dispose();
   });
+
+  it('keeps the incoming direction while piercing a broken solid', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const ball = new BallController(world, createPhysicsConfig(), clock, { x: 20, y: 20 });
+    ball.currentBody.setPosition({ x: 120, y: 100 });
+    ball.breakThroughTerrain({ x: 700, y: -120 }, { x: -1, y: 0 }, 0.7, 5);
+    expect(ball.snapshot.position).toEqual({ x: 115, y: 100 });
+    expect(ball.snapshot.velocity).toEqual({ x: 490, y: -84 });
+    ball.dispose();
+  });
+
 });

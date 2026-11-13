@@ -6,6 +6,8 @@ import { TriggerFactory } from './TriggerFactory';
 import { TerrainRenderer } from '../rendering/TerrainRenderer';
 import { TriggerRenderer } from '../rendering/TriggerRenderer';
 import { BackgroundRenderer } from '../rendering/BackgroundRenderer';
+import { BreakableTerrainManager } from './BreakableTerrainManager';
+import type { BreakableSolidDefinition } from './LevelTypes';
 
 export class LevelBuilder {
   private readonly terrainRenderer: TerrainRenderer;
@@ -14,6 +16,7 @@ export class LevelBuilder {
   private readonly terrainFactory: TerrainFactory;
   private readonly triggerFactory: TriggerFactory;
   private decorations: Phaser.GameObjects.GameObject[] = [];
+  private breakables = new BreakableTerrainManager([]);
 
   constructor(private readonly scene: Phaser.Scene, world: IPhysicsWorld) {
     this.terrainRenderer = new TerrainRenderer(scene);
@@ -25,6 +28,7 @@ export class LevelBuilder {
 
   build(level: LevelDefinition): void {
     this.clear();
+    this.breakables = new BreakableTerrainManager(level.solids);
     this.backgroundRenderer.render(level);
     this.terrainFactory.build(level);
     this.triggerFactory.build(level);
@@ -47,11 +51,25 @@ export class LevelBuilder {
     this.triggerRenderer.setActiveCheckpoint(id);
   }
 
+  getBreakable(id: string): BreakableSolidDefinition | null {
+    return this.breakables.get(id);
+  }
+
+  breakSolid(id: string): BreakableSolidDefinition[] {
+    const broken = this.breakables.break(id);
+    for (const solid of broken) {
+      this.terrainFactory.remove(solid.id);
+      this.terrainRenderer.removeSolid(solid.id);
+    }
+    return broken;
+  }
+
   clear(): void {
     this.terrainRenderer.clear();
     this.triggerRenderer.render([]);
     for (const item of this.decorations) item.destroy();
     this.decorations = [];
+    this.breakables.reset();
   }
 
   destroy(): void {

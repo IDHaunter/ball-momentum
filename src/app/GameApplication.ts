@@ -137,6 +137,7 @@ export class GameApplication {
       'wallBounce.minimumOutgoingSpeed', 'wallBounce.separationDistancePx', 'wallBounce.spinRetention',
       'landingBounce.restitution', 'landingBounce.tangentRetention', 'landingBounce.minimumImpactSpeed',
       'landingBounce.minimumOutgoingSpeed', 'landingBounce.maxBounces', 'landingBounce.separationDistancePx',
+      'breakableTerrain.velocityRetention', 'breakableTerrain.separationDistancePx',
     ];
     for (const path of paths) {
       const [section, property] = path.split('.') as [keyof typeof defaults, string];
@@ -158,6 +159,7 @@ export class GameApplication {
       groundContact: { maxGroundAngleDegrees: 55, supportGraceMs: 35 },
       wallBounce: { restitution: 0.86, tangentRetention: 0.98, spinRetention: 0.85, minimumImpactSpeed: 10, minimumOutgoingSpeed: 125, separationDistancePx: 3 },
       landingBounce: { restitution: 0.52, tangentRetention: 0.96, minimumImpactSpeed: 45, minimumOutgoingSpeed: 35, maxBounces: 3, separationDistancePx: 1.5 },
+      breakableTerrain: { velocityRetention: 0.72, separationDistancePx: 5 },
     };
   }
 }

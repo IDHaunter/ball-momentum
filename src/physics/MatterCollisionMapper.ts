@@ -13,6 +13,7 @@ export interface PhysicsBodyMetadata {
   kind: 'ball' | 'terrain' | 'trigger';
   id: string;
   triggerType?: 'hazard' | 'checkpoint' | 'goal';
+  breakable?: boolean;
 }
 
 export class MatterCollisionMapper {
@@ -66,21 +67,40 @@ export class MatterCollisionMapper {
         impactSpeed: speed,
       }];
 
-      // Detect a wall-directed approach on both collisionStart and
-      // collisionActive. A low-speed first touch must not hide a later,
-      // stronger push while the pair remains active.
+      // Impact energy is based on velocity along the contact normal. This
+      // naturally makes glancing hits weaker than perpendicular hits.
       const normalImpactSpeed = -(
         incomingVelocity.x * supportNormal.x + incomingVelocity.y * supportNormal.y
       );
+      const supports = pair.collision.supports ?? [];
+      const activeSupports = supports.slice(0, pair.collision.supportCount ?? supports.length);
+      const contactPoint = activeSupports.length > 0
+        ? activeSupports.reduce((sum, point) => ({
+          x: sum.x + point.x / activeSupports.length,
+          y: sum.y + point.y / activeSupports.length,
+        }), { x: 0, y: 0 })
+        : {
+          x: ballBody.position.x - supportNormal.x * (ballBody.circleRadius ?? 0),
+          y: ballBody.position.y - supportNormal.y * (ballBody.circleRadius ?? 0),
+        };
+
+      if (normalImpactSpeed > 0.1) {
+        events.push({
+          type: 'BALL_TERRAIN_IMPACT',
+          terrainId: otherMeta.id,
+          normal: supportNormal,
+          incomingVelocity,
+          contactPoint,
+          impactSpeed: normalImpactSpeed,
+          penetrationDepth: Math.max(0, pair.collision.depth ?? 0),
+        });
+      }
+
+      // Keep the dedicated wall event for the existing bounce and dust effect.
+      // Breakable walls still use the ordinary bounce if their energy is below
+      // the level-defined threshold; a successful break replaces it with a
+      // breakthrough using the original incoming velocity.
       if (Math.abs(supportNormal.x) >= 0.88 && normalImpactSpeed > 0.1) {
-        const supports = pair.collision.supports ?? [];
-        const activeSupports = supports.slice(0, pair.collision.supportCount ?? supports.length);
-        const contactPoint = activeSupports.length > 0
-          ? activeSupports.reduce((sum, point) => ({ x: sum.x + point.x / activeSupports.length, y: sum.y + point.y / activeSupports.length }), { x: 0, y: 0 })
-          : {
-            x: ballBody.position.x - supportNormal.x * (ballBody.circleRadius ?? 0),
-            y: ballBody.position.y - supportNormal.y * (ballBody.circleRadius ?? 0),
-          };
         events.push({
           type: 'BALL_WALL_IMPACT',
           terrainId: otherMeta.id,
@@ -89,6 +109,7 @@ export class MatterCollisionMapper {
           contactPoint,
           impactSpeed: normalImpactSpeed,
           penetrationDepth: Math.max(0, pair.collision.depth ?? 0),
+          breakable: Boolean(otherMeta.breakable),
         });
       }
       return events;

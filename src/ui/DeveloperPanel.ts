@@ -23,6 +23,8 @@ const FIELDS: TuningField[] = [
   { label: 'Landing bounce restitution', path: 'landingBounce.restitution', min: 0.1, max: 0.8, step: 0.02 },
   { label: 'Landing bounce count', path: 'landingBounce.maxBounces', min: 0, max: 5, step: 1 },
   { label: 'Landing minimum impact speed', path: 'landingBounce.minimumImpactSpeed', min: 0, max: 300, step: 5 },
+  { label: 'Glass velocity retention', path: 'breakableTerrain.velocityRetention', min: 0.3, max: 0.95, step: 0.02 },
+  { label: 'Glass separation (px)', path: 'breakableTerrain.separationDistancePx', min: 1, max: 12, step: 0.5 },
 ];
 
 export class DeveloperPanel {

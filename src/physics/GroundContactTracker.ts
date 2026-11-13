@@ -44,5 +44,7 @@ export class GroundContactTracker {
     return { x: x / length, y: y / length };
   }
 
+  forget(terrainId: string): void { this.contacts.delete(terrainId); }
+
   clear(): void { this.contacts.clear(); }
 }
