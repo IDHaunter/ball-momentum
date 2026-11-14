@@ -40,6 +40,28 @@ export function hasPatrolGroundBelow(
   return false;
 }
 
+
+/**
+ * Detects a platform edge using the bot's footprint rather than only its
+ * centre. The rear part of the circle may still be supported after the
+ * centre has crossed the platform boundary; this lets the patrol AI turn
+ * before the body becomes trapped against the platform's vertical side or
+ * starts falling.
+ */
+export function hasPatrolEdgeAhead(
+  x: number,
+  startY: number,
+  radius: number,
+  direction: -1 | 1,
+  geometries: PatrolGeometry[],
+): boolean {
+  const trailingSupportX = x - direction * radius * 0.78;
+  const forwardProbeX = x + direction * (radius + 5);
+  const supportedAtRear = hasPatrolGroundBelow(trailingSupportX, startY, geometries);
+  const supportedAhead = hasPatrolGroundBelow(forwardProbeX, startY, geometries);
+  return supportedAtRear && !supportedAhead;
+}
+
 /** Checks the bot's forward centre corridor for an obstacle, excluding its floor. */
 export function hasPatrolObstacleAhead(
   x: number,
@@ -49,7 +71,10 @@ export function hasPatrolObstacleAhead(
   geometries: PatrolGeometry[],
 ): boolean {
   const probeX = x + direction * (radius + 7);
-  const probeYs = [y - radius * 0.55, y, y + radius * 0.2];
+  // Keep probes in the upper half of the bot. A probe at/under its centre can
+  // fall inside the supporting platform itself and make the bot mistake its
+  // own floor for a wall (especially when a level spawns it slightly low).
+  const probeYs = [y - radius * 0.62, y - radius * 0.12];
   return probeYs.some((probeY) => geometries.some((geometry) =>
     pointInsidePatrolGeometry({ x: probeX, y: probeY }, geometry),
   ));

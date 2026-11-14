@@ -333,6 +333,42 @@ describe('BallController', () => {
     ball.dispose();
   });
 
+  it('arms damped landing bounces after a spring launch onto a movable block', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, clock, { x: 20, y: 20 });
+
+    ball.currentBody.setVelocity({ x: 140, y: 0 });
+    world.emit({
+      type: 'BALL_SPRING_IMPACT', terrainId: 'spring-step', surfaceId: 'spring-step:top',
+      normal: { x: 0, y: -1 }, incomingVelocity: { x: 140, y: 0 },
+      contactPoint: { x: 20, y: 2 }, impactSpeed: 0, impulse: 520,
+    });
+    ball.stepAfterPhysics();
+    expect(ball.snapshot.velocity.y).toBe(-520);
+    expect(ball.state.takeoffAtMs).toBeNull();
+
+    // Simulate the falling ball touching the top of a movable crate. The
+    // mapper reports movable tops as ordinary upward support contacts.
+    ball.currentBody.setVelocity({ x: 140, y: 500 });
+    ball.stepBeforePhysics([]);
+    ball.currentBody.setVelocity({ x: 0, y: 0 });
+    world.emit({
+      type: 'BALL_TERRAIN_CONTACT_ACTIVE',
+      terrainId: 'sandbox-movable-crate',
+      supportNormal: { x: 0, y: -1 },
+      impactSpeed: 500,
+    });
+    clock.advance(1000 / 60);
+    const landing = ball.stepAfterPhysics();
+
+    expect(landing.landed).toBe(true);
+    expect(landing.grounded).toBe(false);
+    expect(ball.snapshot.velocity.y).toBeCloseTo(-500 * config.landingBounce.restitution, 6);
+    ball.dispose();
+  });
+
   it('reverses spin on a vertical spring surface using wall spin retention', () => {
     const world = new FakeWorld();
     const config = createPhysicsConfig();

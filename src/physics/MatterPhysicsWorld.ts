@@ -6,7 +6,7 @@ import type { BallPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGe
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
-import { directionFromVelocity, hasPatrolGroundBelow, hasPatrolObstacleAhead } from './BotPatrol';
+import { directionFromVelocity, hasPatrolEdgeAhead, hasPatrolObstacleAhead } from './BotPatrol';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -401,13 +401,47 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const botA = metaA.kind === 'bot' ? this.bots.get(metaA.id) : undefined;
     const botB = metaB.kind === 'bot' ? this.bots.get(metaB.id) : undefined;
     if (botA && botB) {
-      // Two patrol bots always turn away from one another on a new contact.
-      botA.direction = botA.direction === 1 ? -1 : 1;
-      botB.direction = botB.direction === 1 ? -1 : 1;
-      botA.recoverySteps = 10;
-      botB.recoverySteps = 10;
-      botA.turnCooldownSteps = 8;
-      botB.turnCooldownSteps = 8;
+      const normalLength = Math.hypot(pair.collision.normal.x, pair.collision.normal.y) || 1;
+      if (Math.abs(pair.collision.normal.x / normalLength) < 0.55) return;
+
+      // Resolve head-on bot contacts deterministically by their world positions.
+      // Blindly toggling both directions can leave them facing the same way
+      // after an asymmetric solver correction and pressed together at an edge.
+      const aX = botA.object.body.position.x;
+      const bX = botB.object.body.position.x;
+      const [leftBot, rightBot] = aX < bX || (aX === bX && metaA.id < metaB.id)
+        ? [botA, botB]
+        : [botB, botA];
+
+      leftBot.direction = -1;
+      rightBot.direction = 1;
+      leftBot.recoverySteps = 0;
+      rightBot.recoverySteps = 0;
+      leftBot.turnCooldownSteps = 12;
+      rightBot.turnCooldownSteps = 12;
+
+      // Separate any residual overlap horizontally so the next fixed step can
+      // move the bots apart instead of letting Matter keep them in a jammed pair.
+      const minimumDistance = leftBot.radius + rightBot.radius + 1.5;
+      const leftX = leftBot.object.body.position.x;
+      const rightX = rightBot.object.body.position.x;
+      const currentDistance = rightX - leftX;
+      if (currentDistance < minimumDistance) {
+        const correction = (minimumDistance - currentDistance) / 2;
+        leftBot.object.setPosition(leftX - correction, leftBot.object.body.position.y);
+        rightBot.object.setPosition(rightX + correction, rightBot.object.body.position.y);
+      }
+
+      // The AI takes over immediately and sends the left bot left and the
+      // right bot right. Preserve any vertical velocity from the collision.
+      const leftVertical = PhysicsAdapter.fromMatterVelocity(leftBot.object.body.velocity).y;
+      const rightVertical = PhysicsAdapter.fromMatterVelocity(rightBot.object.body.velocity).y;
+      const leftVelocity = PhysicsAdapter.toMatterVelocity({ x: -leftBot.speed, y: leftVertical });
+      const rightVelocity = PhysicsAdapter.toMatterVelocity({ x: rightBot.speed, y: rightVertical });
+      leftBot.object.setVelocity(leftVelocity.x, leftVelocity.y);
+      leftBot.object.setAwake();
+      rightBot.object.setVelocity(rightVelocity.x, rightVelocity.y);
+      rightBot.object.setAwake();
       return;
     }
 
@@ -458,22 +492,26 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
 
       const currentX = body.position.x;
       const currentY = body.position.y;
-      const nextX = currentX + bot.direction * (bot.radius + 9);
       const patrolGeometries = [...this.metadata.entries()]
         .filter(([, meta]) => (meta.kind === 'terrain' || meta.kind === 'movable') && !meta.dynamic && meta.patrolGeometry)
         .map(([, meta]) => meta.patrolGeometry as PatrolGeometry);
 
-      if (bot.turnCooldownSteps === 0) {
-        const reachedConfiguredBound = (bot.direction > 0 && bot.patrolMaxX !== undefined && currentX >= bot.patrolMaxX)
-          || (bot.direction < 0 && bot.patrolMinX !== undefined && currentX <= bot.patrolMinX);
-        const hitObstacle = hasPatrolObstacleAhead(currentX, currentY, bot.direction, bot.radius, patrolGeometries);
-        const supportedNow = hasPatrolGroundBelow(currentX, currentY + bot.radius, patrolGeometries);
-        const supportedAhead = hasPatrolGroundBelow(nextX, currentY + bot.radius, patrolGeometries);
-        const reachedEdge = supportedNow && !supportedAhead;
-        if (reachedConfiguredBound || hitObstacle || reachedEdge) {
-          bot.direction = bot.direction === 1 ? -1 : 1;
-          bot.turnCooldownSteps = 9;
-        }
+      const reachedConfiguredBound = (bot.direction > 0 && bot.patrolMaxX !== undefined && currentX >= bot.patrolMaxX)
+        || (bot.direction < 0 && bot.patrolMinX !== undefined && currentX <= bot.patrolMinX);
+      const hitObstacle = hasPatrolObstacleAhead(currentX, currentY, bot.direction, bot.radius, patrolGeometries);
+      const reachedEdge = hasPatrolEdgeAhead(
+        currentX,
+        currentY + bot.radius,
+        bot.radius,
+        bot.direction,
+        patrolGeometries,
+      );
+      // Cooldown suppresses repeated wall detection while a collision pair
+      // settles, but does not suppress configured bounds or a real platform
+      // edge. Otherwise a bot pushed to the edge can remain paused there.
+      if (reachedConfiguredBound || reachedEdge || (bot.turnCooldownSteps === 0 && hitObstacle)) {
+        bot.direction = bot.direction === 1 ? -1 : 1;
+        bot.turnCooldownSteps = 9;
       }
 
       const currentVelocity = PhysicsAdapter.fromMatterVelocity(body.velocity);

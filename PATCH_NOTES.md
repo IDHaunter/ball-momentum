@@ -50,3 +50,12 @@
 - Bots follow terrain and gravity, and their physics bodies/face markers are cleaned up after falling below the level kill plane.
 - Added a raised patrol island over the existing pit in Physics Sandbox with two bots of different masses and speeds.
 - Added geometry, patrol, collision, edge-turnaround, cleanup, and level-validation regression tests.
+
+## Bot patrol and spring landing fixes — 2026-11-14
+
+- Bot-to-bot head-on contacts now assign directions by horizontal ordering: the left bot retreats left and the right bot retreats right. Residual overlap is separated immediately, and their patrol controllers take over without a recovery pause that could leave them pressed together.
+- Edge detection now checks support beneath the rear part of the bot's circular footprint, rather than relying only on the centre point. A bot can therefore turn back even if solver correction has already moved its centre a little beyond the platform edge.
+- Obstacle probes stay in the upper half of the bot so the platform directly underneath a low-spawned bot is not misclassified as a wall. Edge detection is not suppressed by the wall-contact cooldown.
+- Spring launches now arm the same finite, damped landing-bounce sequence as a manual jump. Since movable-block top contacts are already mapped as ordinary ground-support contacts, the bounce sequence also works when the spring-launched ball lands on a pushable crate.
+- Applied the user's updated Physics Sandbox layout. The bot island top is at y=400; bot y positions are 386 so their circle centres sit one radius above the platform instead of starting embedded halfway inside it.
+- Added regression tests for bot footprint edge detection, low-spawn floor probing, deterministic bot separation, movable-block support contacts, and spring-launched landing bounces.

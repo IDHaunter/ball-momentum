@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   directionFromVelocity,
   hasPatrolGroundBelow,
+  hasPatrolEdgeAhead,
   hasPatrolObstacleAhead,
   pointInsidePatrolGeometry,
 } from '../../src/physics/BotPatrol';
@@ -24,6 +25,17 @@ describe('BotPatrol geometry', () => {
   it('finds support below the current position but not beyond a platform edge', () => {
     expect(hasPatrolGroundBelow(180, 200, [platform])).toBe(true);
     expect(hasPatrolGroundBelow(215, 200, [platform])).toBe(false);
+  });
+
+  it('detects an edge while the rear footprint is still supported even after the centre crossed it', () => {
+    expect(hasPatrolEdgeAhead(205, 200, 16, 1, [platform])).toBe(true);
+    expect(hasPatrolEdgeAhead(95, 200, 16, -1, [platform])).toBe(true);
+  });
+
+  it('does not mistake the supporting platform for a wall when a bot spawns slightly low', () => {
+    expect(hasPatrolObstacleAhead(1400, 400, 1, 14, [
+      { type: 'box', x: 1000, y: 400, width: 600, height: 24 },
+    ])).toBe(false);
   });
 
   it('detects a wall in the direction of travel without treating the floor as a wall', () => {

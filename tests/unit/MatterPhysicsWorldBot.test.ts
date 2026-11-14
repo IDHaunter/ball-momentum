@@ -153,6 +153,37 @@ describe('MatterPhysicsWorld autonomous bots', () => {
     harness.world.dispose();
   });
 
+  it('separates head-on bots and assigns outward directions regardless of their previous directions', () => {
+    const harness = createHarness();
+    harness.world.createBot({ ...botDefinition, id: 'bot-a', x: 120, direction: 1 });
+    harness.world.createBot({ ...botDefinition, id: 'bot-b', x: 150, direction: 1 });
+    const botA = harness.bodies.find((body) => body.label === 'BOT:bot-a')!;
+    const botB = harness.bodies.find((body) => body.label === 'BOT:bot-b')!;
+
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: botB, bodyB: botA, collision: { normal: { x: -1, y: 0 } } }],
+    });
+    expect(botB.position.x - botA.position.x).toBeGreaterThanOrEqual(33.5);
+
+    harness.world.step(1000 / 60);
+    expect(PhysicsAdapter.fromMatterVelocity(botA.velocity).x).toBeCloseTo(-120, 6);
+    expect(PhysicsAdapter.fromMatterVelocity(botB.velocity).x).toBeCloseTo(120, 6);
+    harness.world.dispose();
+  });
+
+  it('turns around using the supported rear footprint when the bot centre has passed the edge', () => {
+    const harness = createHarness();
+    harness.world.createStaticBox({
+      id: 'platform', x: 100, y: 200, width: 100, height: 100,
+      friction: 0.3, frictionStatic: 0.5, restitution: 0,
+    });
+    harness.world.createBot({ ...botDefinition, x: 205, y: 184 });
+    harness.world.step(1000 / 60);
+    const bot = harness.bodies.find((body) => body.label === 'BOT:patrol-bot')!;
+    expect(PhysicsAdapter.fromMatterVelocity(bot.velocity).x).toBeCloseTo(-120, 6);
+    harness.world.dispose();
+  });
+
   it('adopts the direction of the physical push after the player ball hits a bot', () => {
     const harness = createHarness();
     const ball = harness.world.createBall({ x: 100, y: 100 }, {

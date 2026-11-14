@@ -54,6 +54,32 @@ describe('MatterCollisionMapper', () => {
 });
 
 
+describe('MatterCollisionMapper movable support contacts', () => {
+  it('reports an upward support contact when the ball lands on a movable block', () => {
+    const ball = body(100, 100);
+    const movable = body(100, 150);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball', mass: 1 }],
+      [movable, { kind: 'movable', id: 'sandbox-movable-crate', mass: 4, minimumImpactEnergy: 32_000 }],
+    ]));
+
+    const events = mapper.mapPair({
+      bodyA: ball,
+      bodyB: movable,
+      collision: { normal: { x: 0, y: -1 } },
+    }, 'start', { x: 140, y: 500 });
+
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'BALL_TERRAIN_CONTACT_STARTED',
+        terrainId: 'sandbox-movable-crate',
+        supportNormal: { x: 0, y: -1 },
+      }),
+    ]));
+    expect(events.some((event) => event.type === 'BALL_MOVABLE_IMPACT')).toBe(false);
+  });
+});
+
 describe('MatterCollisionMapper wall impacts', () => {
   it('captures an incoming horizontal impact and its contact point', () => {
     const ball = body(100, 100);

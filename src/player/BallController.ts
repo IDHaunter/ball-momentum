@@ -234,7 +234,10 @@ export class BallController {
     this.state.grounded = false;
     this.state.lastGroundedAtMs = -Infinity;
     this.jump.reset();
-    this.landingBouncesRemaining = 0;
+    // A spring launch is an airborne takeoff too. Arm the same finite sequence
+    // of damped landing hops used after a manual jump, including when the ball
+    // later lands on a dynamic/movable block.
+    this.landingBouncesRemaining = this.config.landingBounce.maxBounces;
     return true;
   }
 
