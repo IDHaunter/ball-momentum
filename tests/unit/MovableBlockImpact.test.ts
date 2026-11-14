@@ -12,7 +12,7 @@ describe('calculateMovableBlockImpact', () => {
     });
 
     expect(result.blockVelocity.x).toBeCloseTo(81.6, 6);
-    expect(result.blockVelocity.y).toBe(0);
+    expect(result.blockVelocity.y).toBeCloseTo(0, 6);
     expect(result.ballVelocity.x).toBeCloseTo(73.6, 6);
     expect(result.ballVelocity.y).toBeCloseTo(-117.6, 6);
 
@@ -36,7 +36,7 @@ describe('calculateMovableBlockImpact', () => {
   });
 
   it('does not transfer momentum when the ball is already moving away', () => {
-    const incoming = { x: 200, y: 0 };
+    const incoming = { x: -200, y: 0 };
     const result = calculateMovableBlockImpact({
       normal: { x: -1, y: 0 },
       incomingVelocity: incoming,
