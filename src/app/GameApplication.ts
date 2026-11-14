@@ -54,6 +54,7 @@ export class GameApplication {
       save: (value) => {
         this.progress.savePreferences(value);
         document.documentElement.dataset.reducedMotion = String(value.reducedMotion);
+        this.registry.gameplayScene?.setBallSkin(value.ballSkin);
       },
       close: () => { this.settings.hide(); this.menu.show(); },
     });

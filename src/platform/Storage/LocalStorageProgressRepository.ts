@@ -1,4 +1,5 @@
 import type { ProgressRepository, PlayerPreferences } from './ProgressRepository';
+import { DEFAULT_BALL_SKIN, normalizeBallSkin } from '../../player/BallSkin';
 
 const PROGRESS_KEY = 'ball-momentum.progress.v1';
 const PREFERENCES_KEY = 'ball-momentum.preferences.v1';
@@ -19,8 +20,12 @@ export class LocalStorageProgressRepository implements ProgressRepository {
   }
 
   getPreferences(): PlayerPreferences {
-    const stored = this.read<PlayerPreferences>(PREFERENCES_KEY);
-    return { soundEnabled: stored?.soundEnabled ?? true, reducedMotion: stored?.reducedMotion ?? false };
+    const stored = this.read<Partial<PlayerPreferences>>(PREFERENCES_KEY);
+    return {
+      soundEnabled: stored?.soundEnabled ?? true,
+      reducedMotion: stored?.reducedMotion ?? false,
+      ballSkin: normalizeBallSkin(stored?.ballSkin ?? DEFAULT_BALL_SKIN),
+    };
   }
 
   savePreferences(preferences: PlayerPreferences): void { this.write(PREFERENCES_KEY, preferences); }

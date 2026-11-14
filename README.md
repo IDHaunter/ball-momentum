@@ -153,3 +153,7 @@ A box can be configured as a movable block. It starts as a fixed obstacle and is
 `mass` is the block's Matter mass; the ball-to-block collision transfers momentum according to both masses and the material restitution. `minimumImpactEnergy` is the minimum normal impact energy required to release the block, calculated as `0.5 * ballMass * normalImpactSpeed^2`. This makes glancing hits less effective than direct side hits. The selected material controls friction after the block starts moving. Once released, it can be pushed again by further collisions and it falls under gravity; blocks are removed after their centre passes the level's `world.killPlaneY`. A movable box cannot use glass, also be breakable, or define spring surfaces; these behaviors are intentionally configured independently.
 
 The Physics Sandbox includes a teal, arrow-marked crate before a 150 px pit. Push it sideways repeatedly to move it toward the gap. Landing on its top does not release it; a sufficiently strong side impact does.
+
+## Ball skins
+
+Open **Settings** from the main menu to choose a ball appearance. The built-in skins are Happy face, Football, Basketball, Googly eye, and Tiny alien. The selected skin is stored with the player's local preferences and restored on the next visit. Existing saves that do not contain a `ballSkin` preference automatically use the Happy face skin.

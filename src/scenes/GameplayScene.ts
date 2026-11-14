@@ -11,6 +11,7 @@ import { InputManager } from '../input/InputManager';
 import type { KeyboardShortcut } from '../input/KeyboardInputAdapter';
 import { BallController } from '../player/BallController';
 import { BallRenderer } from '../rendering/BallRenderer';
+import type { BallSkin } from '../player/BallSkin';
 import { BallVisualController } from '../player/BallVisualController';
 import { EffectsRenderer } from '../rendering/EffectsRenderer';
 import { DebugRenderer } from '../rendering/DebugRenderer';
@@ -122,7 +123,7 @@ export class GameplayScene extends Phaser.Scene {
       const preferences = this.progress.getPreferences();
       this.effects.setReducedMotion(preferences.reducedMotion);
       this.ball = new BallController(this.physicsWorld, this.physicsConfig, this.clock, level.spawn);
-      this.ballRenderer = new BallRenderer(this, this.physicsConfig.ball.radiusPx);
+      this.ballRenderer = new BallRenderer(this, this.physicsConfig.ball.radiusPx, preferences.ballSkin);
       this.ballVisual = new BallVisualController(this.ballRenderer, preferences.reducedMotion);
       this.emitBoostState();
       this.cameraController.configure(level);
@@ -224,10 +225,13 @@ export class GameplayScene extends Phaser.Scene {
     if (section === 'ball' && property === 'radiusPx' && this.ball) {
       this.ball.rebuildBody(this.physicsConfig.ball.radiusPx);
       this.ballRenderer?.destroy();
-      this.ballRenderer = new BallRenderer(this, this.physicsConfig.ball.radiusPx);
-      this.ballVisual = new BallVisualController(this.ballRenderer, this.progress.getPreferences().reducedMotion);
+      const preferences = this.progress.getPreferences();
+      this.ballRenderer = new BallRenderer(this, this.physicsConfig.ball.radiusPx, preferences.ballSkin);
+      this.ballVisual = new BallVisualController(this.ballRenderer, preferences.reducedMotion);
     }
   }
+
+  setBallSkin(skin: BallSkin): void { this.ballRenderer?.setSkin(skin); }
 
   get currentState(): GameState { return this.gameRegistry.flow.state; }
   get currentTitle(): string { return this.level?.title ?? ''; }

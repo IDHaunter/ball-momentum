@@ -1,4 +1,10 @@
-export interface PlayerPreferences { soundEnabled: boolean; reducedMotion: boolean; }
+import type { BallSkin } from '../../player/BallSkin';
+
+export interface PlayerPreferences {
+  soundEnabled: boolean;
+  reducedMotion: boolean;
+  ballSkin: BallSkin;
+}
 
 export interface ProgressRepository {
   getCompletedLevelIds(): string[];
