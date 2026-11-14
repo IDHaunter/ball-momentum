@@ -19,8 +19,16 @@ export interface BreakableDefinition {
   velocityRetention?: number;
 }
 
+export interface MovableDefinition {
+  /** Mass of the movable block in Matter world units. */
+  mass: number;
+  /** Minimum normal impact energy (0.5 * ballMass * normalSpeed^2) required to release it. */
+  minimumImpactEnergy: number;
+}
+
 export interface BoxSolidDefinition {
-  id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string; breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[];
+  id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string;
+  breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition;
 }
 
 export interface PolygonSolidDefinition {

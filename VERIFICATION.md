@@ -261,7 +261,7 @@ Implemented per-surface spring behavior for non-glass terrain:
 | JSON parsing for package and both level files; sandbox spring configuration | Passed; 3 solids, 5 surfaces, no glass springs |
 | ZIP integrity | Passed |
 
-There are 73 unit-test cases in 13 files. New Vitest cases cover geometry, mapping, controller response, factory mapping, schema validation, duplicate surfaces, and the glass exclusion rule. The actual Vitest runner, dependency-backed `npm run typecheck`, Vite production build, and Playwright browser E2E were not run here: the project has no `node_modules`, and `npm install --ignore-scripts --no-audit --no-fund` timed out while reaching the npm registry. The strict TypeScript check above used temporary declaration shims and is not represented as the project's full dependency-backed `npm run typecheck`.
+The current suite contains 91 unit-test cases across 15 unit-test files, plus 2 Playwright E2E cases. New Vitest cases cover geometry, mapping, controller response, factory mapping, schema validation, duplicate surfaces, and the glass exclusion rule. The actual Vitest runner, dependency-backed `npm run typecheck`, Vite production build, and Playwright browser E2E were not run here: the project has no `node_modules`, and `npm install --ignore-scripts --no-audit --no-fund` timed out while reaching the npm registry. The strict TypeScript check above used temporary declaration shims and is not represented as the project's full dependency-backed `npm run typecheck`.
 
 Run locally after extracting the archive:
 
@@ -335,3 +335,36 @@ Validation performed in this environment:
 | ZIP archive integrity | Passed |
 
 The full Vitest runner and dependency-backed full project build were not run in this environment because project `node_modules` are not installed here. Expected unit-test total is 76 cases (73 existing + 3 spring-spin regression cases); rerun `npm run typecheck`, `npm run test`, and `npm run build` on the development machine to confirm the complete local toolchain.
+
+## Movable block feature verification — 2026-11-14
+
+Implementation notes:
+
+- Added `movable: { mass, minimumImpactEnergy }` to box level definitions.
+- A movable block is created as a dynamic Matter rectangle and initially held static. A side contact releases it only when the ball's normal impact energy reaches the configured threshold; a top-side support contact does not release it.
+- The first impact is resolved with a two-body collision calculation using ball mass, block mass, and the material restitution. The block then interacts with terrain and other movable blocks using Matter physics; material friction controls its motion after release.
+- The block can be pushed repeatedly and is removed along with its arrow marker after its centre passes `world.killPlaneY`.
+- Glass, breakable, and spring-surface combinations are rejected for movable boxes. This prevents unsupported feature combinations from being silently ignored.
+- Physics Sandbox includes a teal arrow-marked movable crate at the approach to a 150 px pit.
+
+| Check | Result |
+|---|---|
+| Strict TypeScript check of core physics modules | Passed |
+| Strict TypeScript check of Matter world, collision mapper, terrain factory and renderer using a minimal Phaser declaration shim | Passed |
+| Strict TypeScript check of level schema and validator using minimal external declarations | Passed |
+| Strict TypeScript check of changed tests and imported project modules using minimal Phaser/Vitest declarations | Passed |
+| Compiled runtime harness using actual project classes: high-energy release, low-energy hold, top landing, kill-plane cleanup | Passed; 4 checks |
+| Movable-block impact helper: momentum transfer, reverse-side impact, moving-away case | Covered by 3 unit tests; compiled helper included in runtime harness |
+| Physics Sandbox JSON and TerrainFactory mapping | Passed; 1 movable block, 8 static boxes, 3 polygons, 150 px pit gap |
+| TypeScript syntax transpilation (`src` + `tests`) | Passed; 91 files, zero syntax diagnostics |
+| JSON parsing | Passed; 5 files |
+| ZIP archive integrity | Passed |
+
+Full Vitest, dependency-backed `npm run typecheck`, Vite production build, and Playwright browser E2E were not run in this packaging environment. The project has no `node_modules`; `npm install --ignore-scripts --no-audit --no-fund` timed out while reaching the npm registry. Temporary declaration shims were used only for focused TypeScript checks and are not substitutes for the complete project typecheck. The development machine should run:
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e
+```

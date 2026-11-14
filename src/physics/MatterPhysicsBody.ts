@@ -18,6 +18,7 @@ export interface MatterGameObjectLike {
   setVelocity(x: number, y: number): unknown;
   setAngularVelocity(value: number): unknown;
   setAwake(): unknown;
+  setStatic(value: boolean): unknown;
   destroy(): unknown;
 }
 

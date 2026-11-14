@@ -38,12 +38,24 @@ export class TerrainFactory {
     for (const solid of level.solids) {
       const material = level.materials?.[solid.material ?? 'normal'] ?? DEFAULT_MATERIAL;
       if (solid.type === 'box') {
-        this.world.createStaticBox({
-          id: solid.id, x: solid.x, y: solid.y, width: solid.width, height: solid.height,
-          friction: material.friction, frictionStatic: material.frictionStatic, restitution: material.restitution,
-          breakable: Boolean(solid.breakable),
-          springSurfaces: solid.material === 'glass' ? [] : getBoxSpringSurfaces(solid),
-        });
+        if (solid.movable) {
+          this.world.createMovableBox({
+            id: solid.id, x: solid.x, y: solid.y, width: solid.width, height: solid.height,
+            mass: solid.movable.mass,
+            minimumImpactEnergy: solid.movable.minimumImpactEnergy,
+            killPlaneY: level.world.killPlaneY,
+            friction: material.friction,
+            frictionStatic: material.frictionStatic,
+            restitution: material.restitution,
+          });
+        } else {
+          this.world.createStaticBox({
+            id: solid.id, x: solid.x, y: solid.y, width: solid.width, height: solid.height,
+            friction: material.friction, frictionStatic: material.frictionStatic, restitution: material.restitution,
+            breakable: Boolean(solid.breakable),
+            springSurfaces: solid.material === 'glass' ? [] : getBoxSpringSurfaces(solid),
+          });
+        }
       } else {
         const collisionVertices = getCollisionVertices(solid, level.solids);
         this.world.createStaticPolygon({

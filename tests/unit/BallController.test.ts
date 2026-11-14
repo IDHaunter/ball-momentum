@@ -5,7 +5,7 @@ import type { PlayerAction } from '../../src/input/PlayerAction';
 import { BallController } from '../../src/player/BallController';
 import type { IPhysicsBody } from '../../src/physics/IPhysicsBody';
 import type { IPhysicsWorld } from '../../src/physics/IPhysicsWorld';
-import type { BallPhysicsOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from '../../src/physics/PhysicsTypes';
+import type { BallPhysicsOptions, MovableBoxOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from '../../src/physics/PhysicsTypes';
 
 class FakeBody implements IPhysicsBody {
   position: Vector2;
@@ -30,6 +30,7 @@ class FakeWorld implements IPhysicsWorld {
   createBall(position: Vector2, _options: BallPhysicsOptions): IPhysicsBody { this.body = new FakeBody(position); return this.body; }
   createStaticBox(_definition: StaticBoxOptions): void {}
   createStaticPolygon(_definition: StaticPolygonOptions): void {}
+  createMovableBox(_definition: MovableBoxOptions): void {}
   removeTerrainBody(_id: string): void {}
   createSensor(_definition: SensorOptions): void {}
   removeLevelBodies(): void {}

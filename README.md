@@ -35,6 +35,30 @@ npm run test:e2e
 
 Playwright browser tests require the Chromium browser to be installed (`npx playwright install chromium`).
 
+## Movable blocks
+
+A rectangular solid can be released by a sufficiently strong side impact. The box remains fixed until the ball reaches its configured normal-impact energy threshold; then it becomes a dynamic Matter body and can be pushed, rotate, collide with terrain, and fall below the level kill plane. Landing on its top does not release it.
+
+Example level definition:
+
+```json
+{
+  "id": "pushable-crate",
+  "type": "box",
+  "x": 1530,
+  "y": 830,
+  "width": 70,
+  "height": 50,
+  "material": "stone",
+  "movable": {
+    "mass": 4,
+    "minimumImpactEnergy": 32000
+  }
+}
+```
+
+`minimumImpactEnergy` is measured as `0.5 * ballMass * normalImpactSpeed²`; glancing impacts therefore transfer less energy than direct side hits. The material supplies friction and restitution. Movable boxes cannot also be glass breakables.
+
 ## Editing levels
 
 Edit JSON files in `public/levels/`. `level-01.json` is the tutorial course and `physics-sandbox.json` is the movement sandbox. The browser validates each file before building collision bodies. Reload the game after changing a level.
@@ -105,3 +129,27 @@ Polygon example:
 ```
 
 Glass solids ignore `springSurfaces` even if the property is present. Their breakable behavior remains unchanged. The Physics Sandbox includes spring-enabled box sides, polygon slopes, and a horizontal spring floor for testing.
+
+## Movable blocks
+
+A box can be configured as a movable block. It starts as a fixed obstacle and is released by a sufficiently energetic side impact from the ball. A hit from above is treated as an ordinary landing and does not release it.
+
+```json
+{
+  "id": "pushable-crate",
+  "type": "box",
+  "x": 1530,
+  "y": 830,
+  "width": 70,
+  "height": 50,
+  "material": "stone",
+  "movable": {
+    "mass": 4,
+    "minimumImpactEnergy": 32000
+  }
+}
+```
+
+`mass` is the block's Matter mass; the ball-to-block collision transfers momentum according to both masses and the material restitution. `minimumImpactEnergy` is the minimum normal impact energy required to release the block, calculated as `0.5 * ballMass * normalImpactSpeed^2`. This makes glancing hits less effective than direct side hits. The selected material controls friction after the block starts moving. Once released, it can be pushed again by further collisions and it falls under gravity; blocks are removed after their centre passes the level's `world.killPlaneY`. A movable box cannot use glass, also be breakable, or define spring surfaces; these behaviors are intentionally configured independently.
+
+The Physics Sandbox includes a teal, arrow-marked crate before a 150 px pit. Push it sideways repeatedly to move it toward the gap. Landing on its top does not release it; a sufficiently strong side impact does.

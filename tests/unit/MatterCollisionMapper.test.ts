@@ -226,3 +226,67 @@ describe('MatterCollisionMapper spring surfaces', () => {
     expect(separating.some((event) => event.type === 'BALL_SPRING_IMPACT')).toBe(false);
   });
 });
+
+
+describe('MatterCollisionMapper movable blocks', () => {
+  function createMapper(ball: MatterBodyLike, block: MatterBodyLike) {
+    return new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball', mass: 1 }],
+      [block, { kind: 'movable', id: 'push-crate', mass: 4, minimumImpactEnergy: 20_000 }],
+    ]));
+  }
+
+  it('releases a movable block on a sufficiently energetic side impact', () => {
+    const ball = body(100, 100);
+    const block = body(140, 100);
+    const mapper = createMapper(ball, block);
+    const events = mapper.mapPair({
+      bodyA: ball,
+      bodyB: block,
+      collision: { normal: { x: 1, y: 0 } },
+    }, 'start', { x: 250, y: 0 });
+
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'BALL_MOVABLE_IMPACT',
+        movableId: 'push-crate',
+        normal: { x: -1, y: 0 },
+        normalImpactSpeed: 250,
+        impactEnergy: 31_250,
+        ballMass: 1,
+      }),
+    ]));
+    expect(events.some((event) => event.type === 'BALL_WALL_IMPACT')).toBe(false);
+  });
+
+  it('does not release a block on a low-energy side impact', () => {
+    const ball = body(100, 100);
+    const block = body(140, 100);
+    const events = createMapper(ball, block).mapPair({
+      bodyA: ball,
+      bodyB: block,
+      collision: { normal: { x: 1, y: 0 } },
+    }, 'start', { x: 100, y: 0 });
+
+    expect(events.some((event) => event.type === 'BALL_MOVABLE_IMPACT')).toBe(false);
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'BALL_WALL_IMPACT', terrainId: 'push-crate' }),
+    ]));
+  });
+
+  it('keeps a block fixed when the ball lands on its top surface', () => {
+    const ball = body(100, 100);
+    const block = body(100, 160);
+    const events = createMapper(ball, block).mapPair({
+      bodyA: ball,
+      bodyB: block,
+      collision: { normal: { x: 0, y: 1 } },
+    }, 'start', { x: 0, y: 500 });
+
+    expect(events.some((event) => event.type === 'BALL_MOVABLE_IMPACT')).toBe(false);
+    expect(events.some((event) => event.type === 'BALL_WALL_IMPACT')).toBe(false);
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'BALL_TERRAIN_CONTACT_STARTED', terrainId: 'push-crate', supportNormal: { x: 0, y: -1 } }),
+    ]));
+  });
+});

@@ -23,12 +23,18 @@ const breakableSchema = z.object({
   velocityRetention: z.number().min(0.1).max(1).optional(),
 });
 
+const movableSchema = z.object({
+  mass: z.number().finite().positive().max(1000),
+  minimumImpactEnergy: z.number().finite().positive(),
+});
+
 const boxSchema = z.object({
   id: z.string().min(1), type: z.literal('box'),
   x: z.number().finite(), y: z.number().finite(),
   width: z.number().finite().positive(), height: z.number().finite().positive(), material: z.string().optional(),
   breakable: breakableSchema.optional(),
   springSurfaces: z.array(boxSpringSurfaceSchema).optional(),
+  movable: movableSchema.optional(),
 });
 
 const polygonSchema = z.object({

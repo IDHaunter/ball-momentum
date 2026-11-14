@@ -41,7 +41,7 @@ export class TerrainRenderer {
     this.graphics.clear();
     if (!this.currentLevel) return;
     for (const solid of this.currentLevel.solids) {
-      if (this.removed.has(solid.id)) continue;
+      if (this.removed.has(solid.id) || (solid.type === 'box' && solid.movable)) continue;
       const materialName = solid.material ?? 'normal';
       this.draw(solid, this.currentLevel.materials?.[materialName], materialName);
     }

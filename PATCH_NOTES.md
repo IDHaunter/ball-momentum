@@ -23,3 +23,13 @@
 - Vertical and inclined spring surfaces reverse angular velocity using the same `wallBounce.spinRetention` coefficient as ordinary wall impacts.
 - Added controller regression tests for side-wall springs, inclined springs, and horizontal spring surfaces.
 - Updated the Physics Sandbox to the simplified layout supplied by the user: the triangle keeps only edge 1 spring-enabled, `sandbox-floor-d` is no longer spring-enabled, and spring-only hint decorations were removed.
+
+## Movable blocks — 2026-11-14
+
+- Added an optional `movable` definition for rectangular solids with `mass` and `minimumImpactEnergy`.
+- Movable blocks start fixed in place. A side impact releases a block only when the ball's normal kinetic energy reaches the configured threshold; top contacts remain ordinary ground/support contacts.
+- The initial impact is resolved as a two-body collision along the contact normal, accounting for ball mass, block mass, and material restitution while retaining most tangential ball velocity.
+- After release, the block uses its configured material friction, collides with terrain and other movable blocks, can be pushed by subsequent hits, and is removed when it falls past the level kill plane.
+- Glass, breakable, and spring-surface combinations are rejected for movable boxes. Movable boxes are intentionally configured independently from spring surfaces.
+- Added an arrow-marked teal crate and a 150 px pit to Physics Sandbox.
+- Added regression tests for impact energy threshold, top landing, momentum transfer, crate cleanup, incompatible level settings, and sandbox mapping.

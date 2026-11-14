@@ -94,4 +94,55 @@ describe('LevelValidator', () => {
     expect(() => validator.validate(invalid)).toThrow(/must use material "glass"/);
   });
 
+  it('accepts a movable box with positive mass and impact energy threshold', () => {
+    const level = {
+      ...validLevel,
+      solids: [{ ...validLevel.solids[0], movable: { mass: 4, minimumImpactEnergy: 32_000 } }],
+    };
+    const validated = validator.validate(level);
+    const solid = validated.solids[0];
+    expect(solid.type).toBe('box');
+    if (solid.type === 'box') expect(solid.movable?.mass).toBe(4);
+  });
+
+  it('rejects movable boxes with invalid mass or impact energy', () => {
+    const zeroMass = {
+      ...validLevel,
+      solids: [{ ...validLevel.solids[0], movable: { mass: 0, minimumImpactEnergy: 32_000 } }],
+    };
+    const zeroEnergy = {
+      ...validLevel,
+      solids: [{ ...validLevel.solids[0], movable: { mass: 4, minimumImpactEnergy: 0 } }],
+    };
+    expect(() => validator.validate(zeroMass)).toThrow(/mass/);
+    expect(() => validator.validate(zeroEnergy)).toThrow(/minimumImpactEnergy/);
+  });
+
+  it('rejects spring surfaces on movable boxes because the features are configured independently', () => {
+    const level = {
+      ...validLevel,
+      solids: [{
+        ...validLevel.solids[0],
+        movable: { mass: 4, minimumImpactEnergy: 32_000 },
+        springSurfaces: [{ side: 'top', impulse: 620 }],
+      }],
+    };
+    expect(() => validator.validate(level)).toThrow(/movable boxes cannot also define spring surfaces/);
+  });
+
+  it('rejects a movable box configured as glass or breakable', () => {
+    const glass = {
+      ...validLevel,
+      materials: { ...validLevel.materials, glass: { friction: 0.08, frictionStatic: 0.12, restitution: 0.34 } },
+      solids: [{ ...validLevel.solids[0], material: 'glass', movable: { mass: 4, minimumImpactEnergy: 32_000 } }],
+    };
+    const both = {
+      ...validLevel,
+      materials: { ...validLevel.materials, glass: { friction: 0.08, frictionStatic: 0.12, restitution: 0.34 } },
+      solids: [{ ...validLevel.solids[0], material: 'glass', breakable: { thresholdEnergy: 50_000 }, movable: { mass: 4, minimumImpactEnergy: 32_000 } }],
+    };
+    expect(() => validator.validate(glass)).toThrow(/cannot use the glass material/);
+    expect(() => validator.validate(both)).toThrow(/cannot be both movable and breakable/);
+  });
+
 });

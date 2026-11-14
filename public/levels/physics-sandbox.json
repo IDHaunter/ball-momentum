@@ -51,9 +51,22 @@
       "type": "box",
       "x": 1350,
       "y": 880,
-      "width": 450,
+      "width": 300,
       "height": 520,
       "material": "ice"
+    },
+    {
+      "id": "sandbox-movable-crate",
+      "type": "box",
+      "x": 1530,
+      "y": 830,
+      "width": 70,
+      "height": 50,
+      "material": "stone",
+      "movable": {
+        "mass": 4,
+        "minimumImpactEnergy": 32000
+      }
     },
     {
       "id": "sandbox-step",
@@ -258,6 +271,24 @@
       "y": 595,
       "text": "GLASS STACK",
       "color": "#a8f0ff",
+      "depth": 3
+    },
+    {
+      "id": "movable-crate-hint",
+      "type": "text",
+      "x": 1460,
+      "y": 785,
+      "text": "PUSHABLE CRATE → PIT",
+      "color": "#f0c66d",
+      "depth": 3
+    },
+    {
+      "id": "movable-pit-hint",
+      "type": "text",
+      "x": 1665,
+      "y": 900,
+      "text": "PIT",
+      "color": "#f08a6a",
       "depth": 3
     }
   ]

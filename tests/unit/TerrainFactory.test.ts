@@ -122,6 +122,42 @@ describe('TerrainFactory breakable solids', () => {
 });
 
 
+describe('TerrainFactory movable boxes', () => {
+  it('creates a dynamic-capable box with mass, energy threshold, and kill plane', () => {
+    const captured: Array<Parameters<IPhysicsWorld['createMovableBox']>[0]> = [];
+    const world = {
+      createStaticBox: () => undefined,
+      createStaticPolygon: () => undefined,
+      createMovableBox: (definition: Parameters<IPhysicsWorld['createMovableBox']>[0]) => captured.push(definition),
+      removeTerrainBody: () => undefined,
+      createSensor: () => undefined,
+      removeLevelBodies: () => undefined,
+      step: () => undefined,
+      setGravity: () => undefined,
+      setTimeScale: () => undefined,
+      onPhysicsEvent: () => () => undefined,
+      createBall: () => { throw new Error('not used'); },
+    } as unknown as IPhysicsWorld;
+    const renderer = { render: () => undefined } as unknown as TerrainRenderer;
+    new TerrainFactory(world, renderer).build({
+      schemaVersion: 1, id: 'movable-test', title: 'Movable test',
+      world: { width: 500, height: 400, killPlaneY: 360 },
+      spawn: { x: 20, y: 20 }, triggers: [],
+      materials: { stone: { friction: 0.45, frictionStatic: 0.65, restitution: 0.01 } },
+      solids: [{
+        id: 'crate', type: 'box', x: 100, y: 150, width: 60, height: 50, material: 'stone',
+        movable: { mass: 4, minimumImpactEnergy: 32_000 },
+      }],
+    });
+
+    expect(captured).toEqual([{
+      id: 'crate', x: 100, y: 150, width: 60, height: 50,
+      mass: 4, minimumImpactEnergy: 32_000, killPlaneY: 360,
+      friction: 0.45, frictionStatic: 0.65, restitution: 0.01,
+    }]);
+  });
+});
+
 describe('TerrainFactory spring surfaces', () => {
   function makeWorld(captured: {
     boxes: Array<Parameters<IPhysicsWorld['createStaticBox']>[0]>;
@@ -130,6 +166,7 @@ describe('TerrainFactory spring surfaces', () => {
     return {
       createStaticBox: (definition: Parameters<IPhysicsWorld['createStaticBox']>[0]) => { captured.boxes.push(definition); },
       createStaticPolygon: (definition: Parameters<IPhysicsWorld['createStaticPolygon']>[0]) => { captured.polygons.push(definition); },
+      createMovableBox: () => undefined,
       removeTerrainBody: () => undefined,
       createSensor: () => undefined,
       removeLevelBodies: () => undefined,

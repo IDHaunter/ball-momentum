@@ -34,6 +34,15 @@ export class LevelValidator {
       addId(solid.id, `solids.${solid.id}`);
       if (solid.material && !level.materials?.[solid.material]) errors.push(`solids.${solid.id}.material: unknown material "${solid.material}"`);
       if (solid.breakable && solid.material !== 'glass') errors.push(`solids.${solid.id}.breakable: breakable solids must use material "glass"`);
+      if (solid.type === 'box' && solid.movable && solid.material === 'glass') {
+        errors.push(`solids.${solid.id}.movable: movable boxes cannot use the glass material`);
+      }
+      if (solid.type === 'box' && solid.movable && solid.breakable) {
+        errors.push(`solids.${solid.id}: a box cannot be both movable and breakable`);
+      }
+      if (solid.type === 'box' && solid.movable && solid.springSurfaces?.length) {
+        errors.push(`solids.${solid.id}.springSurfaces: movable boxes cannot also define spring surfaces`);
+      }
       // Glass is intentionally non-springy. Its spring assignments are
       // accepted for forward compatibility but ignored by TerrainFactory.
       if (solid.material !== 'glass' && solid.springSurfaces?.length) {

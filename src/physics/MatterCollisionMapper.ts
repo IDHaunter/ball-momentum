@@ -10,8 +10,10 @@ export interface CollisionPairLike {
 export interface CollisionEventLike { pairs: CollisionPairLike[]; }
 
 export interface PhysicsBodyMetadata {
-  kind: 'ball' | 'terrain' | 'trigger';
+  kind: 'ball' | 'terrain' | 'trigger' | 'movable';
   id: string;
+  mass?: number;
+  minimumImpactEnergy?: number;
   triggerType?: 'hazard' | 'checkpoint' | 'goal';
   breakable?: boolean;
   springSurfaces?: Array<{ id: string; normal: Vector2; impulse: number }>;
@@ -32,7 +34,7 @@ export class MatterCollisionMapper {
     const otherMeta = ballIsA ? metaB : metaA;
     if (ballMeta.kind !== 'ball') return [];
 
-    if (otherMeta.kind === 'terrain') {
+    if (otherMeta.kind === 'terrain' || otherMeta.kind === 'movable') {
       if (phase === 'end') return [{ type: 'BALL_TERRAIN_CONTACT_ENDED', terrainId: otherMeta.id }];
       const n = pair.collision.normal;
       // Convert Matter's pair normal to the outward normal for the ball.
@@ -68,11 +70,31 @@ export class MatterCollisionMapper {
         impactSpeed: speed,
       }];
 
-      // Impact energy is based on velocity along the contact normal. This
-      // naturally makes glancing hits weaker than perpendicular hits.
+      // Movable blocks are only released by side impacts. A ball landing on
+      // their top remains a normal support contact and can roll or jump from it.
       const normalImpactSpeed = -(
         incomingVelocity.x * supportNormal.x + incomingVelocity.y * supportNormal.y
       );
+      if (otherMeta.kind === 'movable') {
+        const ballMass = ballMeta.mass ?? 1;
+        const impactEnergy = 0.5 * ballMass * Math.max(0, normalImpactSpeed) ** 2;
+        const isSideImpact = Math.abs(supportNormal.x) >= 0.72;
+        if (isSideImpact && normalImpactSpeed > 0.1
+          && impactEnergy >= (otherMeta.minimumImpactEnergy ?? Number.POSITIVE_INFINITY)) {
+          events.push({
+            type: 'BALL_MOVABLE_IMPACT',
+            movableId: otherMeta.id,
+            normal: supportNormal,
+            incomingVelocity,
+            normalImpactSpeed,
+            impactEnergy,
+            ballMass,
+          });
+        }
+      }
+
+      // Impact energy is based on velocity along the contact normal. This
+      // naturally makes glancing hits weaker than perpendicular hits.
       const supports = pair.collision.supports ?? [];
       const activeSupports = supports.slice(0, pair.collision.supportCount ?? supports.length);
       const contactPoint = activeSupports.length > 0
@@ -128,7 +150,11 @@ export class MatterCollisionMapper {
       // Breakable walls still use the ordinary bounce if their energy is below
       // the level-defined threshold; a successful break replaces it with a
       // breakthrough using the original incoming velocity.
-      if (!springCanActivate && Math.abs(supportNormal.x) >= 0.88 && normalImpactSpeed > 0.1) {
+      const movableImpactAccepted = otherMeta.kind === 'movable'
+        && Math.abs(supportNormal.x) >= 0.72
+        && normalImpactSpeed > 0.1
+        && 0.5 * (ballMeta.mass ?? 1) * normalImpactSpeed ** 2 >= (otherMeta.minimumImpactEnergy ?? Number.POSITIVE_INFINITY);
+      if (!springCanActivate && !movableImpactAccepted && Math.abs(supportNormal.x) >= 0.88 && normalImpactSpeed > 0.1) {
         events.push({
           type: 'BALL_WALL_IMPACT',
           terrainId: otherMeta.id,
