@@ -3,4 +3,5 @@ export const COLLISION_CATEGORIES = {
   TERRAIN: 0x0002,
   TRIGGER: 0x0004,
   MOVABLE: 0x0008,
+  BOT: 0x0010,
 } as const;

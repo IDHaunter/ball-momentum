@@ -157,3 +157,29 @@ The Physics Sandbox includes a teal, arrow-marked crate before a 150 px pit. Pus
 ## Ball skins
 
 Open **Settings** from the main menu to choose a ball appearance. The built-in skins are Happy face, Football, Basketball, Googly eye, and Tiny alien. The selected skin is stored with the player's local preferences and restored on the next visit. Existing saves that do not contain a `ballSkin` preference automatically use the Happy face skin.
+
+## Autonomous patrol bots
+
+Levels can define up to 24 autonomous rolling bots in the optional top-level `bots` array. Each bot is a dynamic circular Matter body with its own mass, radius, horizontal patrol speed, initial direction, restitution, and friction. Bots collide physically with the player ball, terrain, movable blocks, and other bots. They do not consume player input or activate level triggers.
+
+```json
+{
+  "bots": [
+    {
+      "id": "patrol-bot-a",
+      "x": 1687,
+      "y": 736,
+      "radius": 14,
+      "mass": 1.15,
+      "speed": 125,
+      "direction": 1,
+      "restitution": 0.82,
+      "friction": 0.015
+    }
+  ]
+}
+```
+
+`speed` is in pixels per second; `mass` is the Matter body mass. `direction` is `1` (right) or `-1` (left). If `patrolRange: { minX, maxX }` is present, the bot reverses at those horizontal limits. Otherwise, it detects the supporting terrain ahead and reverses before walking off a platform; horizontal collisions with walls also make it turn around. Two bots turn away from one another on contact. A player-ball collision is resolved by Matter using both bodies' masses and restitution; the bot briefly preserves its physical separation velocity before resuming patrol in the direction it was pushed. Bots fall naturally into pits and are removed after crossing `world.killPlaneY`.
+
+The Physics Sandbox includes a small island over a pit with two differently weighted patrol bots, useful for testing edge turnaround, bot-to-bot contact, and player-to-bot impacts.

@@ -26,6 +26,22 @@ export interface MovableDefinition {
   minimumImpactEnergy: number;
 }
 
+export interface BotPatrolRangeDefinition { minX: number; maxX: number; }
+
+/** Autonomous rolling character. Speed is expressed in pixels per second. */
+export interface BotDefinition {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  speed: number;
+  direction?: -1 | 1;
+  restitution?: number;
+  friction?: number;
+  patrolRange?: BotPatrolRangeDefinition;
+}
+
 export interface BoxSolidDefinition {
   id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string;
   breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition;
@@ -59,6 +75,7 @@ export interface LevelDefinition {
   spawn: { x: number; y: number };
   solids: SolidDefinition[];
   triggers: TriggerDefinition[];
+  bots?: BotDefinition[];
   materials?: Record<string, TerrainMaterialDefinition>;
   decorations?: DecorationDefinition[];
   camera?: { followOffsetX?: number; smoothing?: number; minX?: number; maxX?: number };

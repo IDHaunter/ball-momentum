@@ -30,6 +30,25 @@ export interface StaticPolygonOptions {
   friction: number; frictionStatic: number; restitution: number; breakable?: boolean; springSurfaces?: SpringSurfacePhysicsDefinition[];
 }
 
+export interface BotPhysicsOptions {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  speed: number;
+  direction: -1 | 1;
+  restitution: number;
+  friction: number;
+  killPlaneY: number;
+  patrolMinX?: number;
+  patrolMaxX?: number;
+}
+
+export type PatrolGeometry =
+  | { type: 'box'; x: number; y: number; width: number; height: number }
+  | { type: 'polygon'; vertices: Vector2[] };
+
 export interface MovableBoxOptions {
   id: string; x: number; y: number; width: number; height: number;
   mass: number; minimumImpactEnergy: number;

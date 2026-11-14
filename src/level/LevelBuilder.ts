@@ -18,7 +18,7 @@ export class LevelBuilder {
   private decorations: Phaser.GameObjects.GameObject[] = [];
   private breakables = new BreakableTerrainManager([]);
 
-  constructor(private readonly scene: Phaser.Scene, world: IPhysicsWorld) {
+  constructor(private readonly scene: Phaser.Scene, private readonly world: IPhysicsWorld) {
     this.terrainRenderer = new TerrainRenderer(scene);
     this.triggerRenderer = new TriggerRenderer(scene);
     this.backgroundRenderer = new BackgroundRenderer(scene);
@@ -32,6 +32,22 @@ export class LevelBuilder {
     this.backgroundRenderer.render(level);
     this.terrainFactory.build(level);
     this.triggerFactory.build(level);
+    for (const bot of level.bots ?? []) {
+      this.world.createBot({
+        id: bot.id,
+        x: bot.x,
+        y: bot.y,
+        radius: bot.radius,
+        mass: bot.mass,
+        speed: bot.speed,
+        direction: bot.direction ?? 1,
+        restitution: bot.restitution ?? 0.82,
+        friction: bot.friction ?? 0.015,
+        killPlaneY: level.world.killPlaneY,
+        patrolMinX: bot.patrolRange?.minX,
+        patrolMaxX: bot.patrolRange?.maxX,
+      });
+    }
     for (const item of level.decorations ?? []) {
       const color = item.color ?? '#ffffff';
       if (item.type === 'circle') {

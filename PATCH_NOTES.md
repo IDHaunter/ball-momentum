@@ -40,3 +40,13 @@
 - Simplified the in-game basketball to three high-contrast seam systems: two bowed side seams, a centre meridian, and a horizontal equator. Increased the seam width so the pattern remains legible while rolling.
 - Updated the Settings SVG previews to match the revised in-game designs.
 - Kept Smiley, Googly Eye, and Tiny Alien visuals unchanged; no skin IDs, save format, or gameplay behavior changed.
+
+## Autonomous patrol bots — 2026-11-14
+
+- Added an optional top-level `bots` level definition with configurable position, radius, mass, patrol speed, starting direction, friction, restitution, and optional horizontal patrol bounds.
+- Added dynamic Matter circle bodies with a dedicated collision category. Player balls, terrain, movable blocks, and bots now have symmetric collision filters for physical bot interactions; bots do not activate level triggers.
+- Added terrain-shape metadata and point-in-shape probes so unbounded bots detect platform support and reverse before an edge. Side contacts with terrain also reverse patrol direction.
+- Bot-to-bot contacts reverse both patrol directions. Player-ball impacts use Matter's two-body collision response; the bot briefly preserves its post-impact velocity before resuming patrol in the direction it was pushed.
+- Bots follow terrain and gravity, and their physics bodies/face markers are cleaned up after falling below the level kill plane.
+- Added a raised patrol island over the existing pit in Physics Sandbox with two bots of different masses and speeds.
+- Added geometry, patrol, collision, edge-turnaround, cleanup, and level-validation regression tests.

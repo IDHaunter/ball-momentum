@@ -45,6 +45,22 @@ const polygonSchema = z.object({
   springSurfaces: z.array(polygonSpringSurfaceSchema).optional(),
 });
 
+const botSchema = z.object({
+  id: z.string().min(1),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  radius: z.number().finite().positive().max(100),
+  mass: z.number().finite().positive().max(1000),
+  speed: z.number().finite().positive().max(2000),
+  direction: z.union([z.literal(-1), z.literal(1)]).optional(),
+  restitution: z.number().min(0).max(1).optional(),
+  friction: z.number().min(0).max(1).optional(),
+  patrolRange: z.object({
+    minX: z.number().finite(),
+    maxX: z.number().finite(),
+  }).optional(),
+});
+
 const triggerSchema = z.object({
   id: z.string().min(1), type: z.enum(['hazard', 'checkpoint', 'goal']),
   x: z.number().finite(), y: z.number().finite(),
@@ -72,6 +88,7 @@ export const LevelSchema = z.object({
   spawn: z.object({ x: z.number().finite(), y: z.number().finite() }),
   solids: z.array(z.discriminatedUnion('type', [boxSchema, polygonSchema])),
   triggers: z.array(triggerSchema),
+  bots: z.array(botSchema).max(24).optional(),
   materials: z.record(z.string(), materialSchema).optional(),
   decorations: z.array(decorationSchema).optional(),
   camera: z.object({

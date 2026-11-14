@@ -31,6 +31,7 @@ class FakeWorld implements IPhysicsWorld {
   createStaticBox(_definition: StaticBoxOptions): void {}
   createStaticPolygon(_definition: StaticPolygonOptions): void {}
   createMovableBox(_definition: MovableBoxOptions): void {}
+  createBot(): void {}
   removeTerrainBody(_id: string): void {}
   createSensor(_definition: SensorOptions): void {}
   removeLevelBodies(): void {}

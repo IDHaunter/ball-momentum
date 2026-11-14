@@ -1,5 +1,5 @@
 import type { MatterBodyLike } from './MatterPhysicsBody';
-import type { PhysicsEvent, Vector2 } from './PhysicsTypes';
+import type { PatrolGeometry, PhysicsEvent, Vector2 } from './PhysicsTypes';
 
 export interface CollisionPairLike {
   bodyA: MatterBodyLike;
@@ -10,13 +10,15 @@ export interface CollisionPairLike {
 export interface CollisionEventLike { pairs: CollisionPairLike[]; }
 
 export interface PhysicsBodyMetadata {
-  kind: 'ball' | 'terrain' | 'trigger' | 'movable';
+  kind: 'ball' | 'terrain' | 'trigger' | 'movable' | 'bot';
   id: string;
   mass?: number;
   minimumImpactEnergy?: number;
   triggerType?: 'hazard' | 'checkpoint' | 'goal';
   breakable?: boolean;
   springSurfaces?: Array<{ id: string; normal: Vector2; impulse: number }>;
+  patrolGeometry?: PatrolGeometry;
+  dynamic?: boolean;
 }
 
 export class MatterCollisionMapper {

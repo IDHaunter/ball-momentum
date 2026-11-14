@@ -68,6 +68,25 @@ export class LevelValidator {
       }
     }
 
+    for (const bot of level.bots ?? []) {
+      addId(bot.id, `bots.${bot.id}`);
+      if (bot.x - bot.radius < 0 || bot.x + bot.radius > level.world.width
+        || bot.y - bot.radius < 0 || bot.y + bot.radius > level.world.height) {
+        errors.push(`bots.${bot.id}: bot circle must be inside world bounds`);
+      }
+      if (bot.patrolRange) {
+        if (bot.patrolRange.maxX - bot.patrolRange.minX < bot.radius * 2) {
+          errors.push(`bots.${bot.id}.patrolRange: range must be at least the bot diameter`);
+        }
+        if (bot.patrolRange.minX < bot.radius || bot.patrolRange.maxX > level.world.width - bot.radius) {
+          errors.push(`bots.${bot.id}.patrolRange: patrol bounds must leave room for the bot radius inside world bounds`);
+        }
+        if (bot.x < bot.patrolRange.minX || bot.x > bot.patrolRange.maxX) {
+          errors.push(`bots.${bot.id}.x: starting position must be inside patrolRange`);
+        }
+      }
+    }
+
     let goals = 0;
     for (const trigger of level.triggers) {
       addId(trigger.id, `triggers.${trigger.id}`);

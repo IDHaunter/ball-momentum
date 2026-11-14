@@ -145,4 +145,32 @@ describe('LevelValidator', () => {
     expect(() => validator.validate(both)).toThrow(/cannot be both movable and breakable/);
   });
 
+  it('accepts configured autonomous bots with mass, speed, direction, and patrol bounds', () => {
+    const level = {
+      ...validLevel,
+      bots: [{
+        id: 'patrol-bot', x: 300, y: 184, radius: 16, mass: 1.2, speed: 140,
+        direction: -1 as const, restitution: 0.82, friction: 0.015,
+        patrolRange: { minX: 200, maxX: 500 },
+      }],
+    };
+    const validated = validator.validate(level);
+    expect(validated.bots?.[0]).toMatchObject({ id: 'patrol-bot', mass: 1.2, speed: 140, direction: -1 });
+  });
+
+  it('rejects bots outside world bounds and invalid patrol ranges', () => {
+    const outside = { ...validLevel, bots: [{ id: 'outside', x: 990, y: 184, radius: 16, mass: 1, speed: 100 }] };
+    const invalidRange = {
+      ...validLevel,
+      bots: [{ id: 'bad-range', x: 300, y: 184, radius: 16, mass: 1, speed: 100, patrolRange: { minX: 290, maxX: 310 } }],
+    };
+    expect(() => validator.validate(outside)).toThrow(/bot circle must be inside world bounds/);
+    expect(() => validator.validate(invalidRange)).toThrow(/range must be at least the bot diameter/);
+  });
+
+  it('requires bot IDs to be unique across the level', () => {
+    const duplicate = { ...validLevel, bots: [{ id: 'floor', x: 300, y: 184, radius: 16, mass: 1, speed: 100 }] };
+    expect(() => validator.validate(duplicate)).toThrow(/duplicate ID/);
+  });
+
 });
