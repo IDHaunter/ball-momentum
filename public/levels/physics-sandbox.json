@@ -103,10 +103,6 @@
       "material": "rubber",
       "springSurfaces": [
         {
-          "edge": 0,
-          "impulse": 560
-        },
-        {
           "edge": 1,
           "impulse": 560
         }
@@ -119,13 +115,7 @@
       "y": 880,
       "width": 1000,
       "height": 520,
-      "material": "normal",
-      "springSurfaces": [
-        {
-          "side": "top",
-          "impulse": 520
-        }
-      ]
+      "material": "normal"
     },
     {
       "id": "sandbox-glass-wall",
@@ -268,33 +258,6 @@
       "y": 595,
       "text": "GLASS STACK",
       "color": "#a8f0ff",
-      "depth": 3
-    },
-    {
-      "id": "spring-step-hint",
-      "type": "text",
-      "x": 1790,
-      "y": 720,
-      "text": "SPRING TOP \u00b7 620",
-      "color": "#f0d17a",
-      "depth": 3
-    },
-    {
-      "id": "spring-triangle-hint",
-      "type": "text",
-      "x": 2240,
-      "y": 600,
-      "text": "SPRING EDGES \u00b7 560",
-      "color": "#f0d17a",
-      "depth": 3
-    },
-    {
-      "id": "spring-floor-hint",
-      "type": "text",
-      "x": 2630,
-      "y": 845,
-      "text": "SPRING FLOOR \u00b7 520",
-      "color": "#f0d17a",
       "depth": 3
     }
   ]
