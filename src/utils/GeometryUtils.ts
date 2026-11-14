@@ -55,3 +55,29 @@ export function polygonCentroid(points: Point[]): Point {
     y: centroidY / (3 * twiceArea),
   };
 }
+
+/** Returns the outward unit normal of a polygon edge, independent of winding. */
+export function polygonEdgeOutwardNormal(points: Point[], edgeIndex: number): Point {
+  if (points.length < 3 || !Number.isInteger(edgeIndex) || edgeIndex < 0 || edgeIndex >= points.length) {
+    throw new Error(`Invalid polygon edge index: ${edgeIndex}`);
+  }
+  const a = points[edgeIndex];
+  const b = points[(edgeIndex + 1) % points.length];
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const length = Math.hypot(dx, dy);
+  if (length < 1e-8) throw new Error(`Polygon edge ${edgeIndex} has zero length.`);
+
+  const midpoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const center = polygonCentroid(points);
+  let normal = { x: -dy / length, y: dx / length };
+  if (normal.x * (midpoint.x - center.x) + normal.y * (midpoint.y - center.y) < 0) {
+    normal = { x: -normal.x, y: -normal.y };
+  }
+  // Canonicalize signed zero so callers and deep-equality tests receive
+  // stable outward normals regardless of polygon winding direction.
+  return {
+    x: normal.x === 0 ? 0 : normal.x,
+    y: normal.y === 0 ? 0 : normal.y,
+  };
+}

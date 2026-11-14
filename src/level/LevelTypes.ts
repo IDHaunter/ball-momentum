@@ -4,6 +4,14 @@ export interface TerrainMaterialDefinition {
   restitution: number;
 }
 
+export type BoxSurfaceSide = 'top' | 'right' | 'bottom' | 'left';
+
+/** Fixed outgoing normal speed (px/s) applied when the ball hits this surface. */
+export interface BoxSpringSurfaceDefinition { side: BoxSurfaceSide; impulse: number; }
+
+/** Polygon edge index refers to vertices[edge] -> vertices[(edge + 1) % length]. */
+export interface PolygonSpringSurfaceDefinition { edge: number; impulse: number; }
+
 export interface BreakableDefinition {
   /** Required impact energy measured as 0.5 * ballMass * normalImpactSpeed^2. */
   thresholdEnergy: number;
@@ -12,11 +20,11 @@ export interface BreakableDefinition {
 }
 
 export interface BoxSolidDefinition {
-  id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string; breakable?: BreakableDefinition;
+  id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string; breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[];
 }
 
 export interface PolygonSolidDefinition {
-  id: string; type: 'polygon'; vertices: [number, number][]; material?: string; breakable?: BreakableDefinition;
+  id: string; type: 'polygon'; vertices: [number, number][]; material?: string; breakable?: BreakableDefinition; springSurfaces?: PolygonSpringSurfaceDefinition[];
 }
 
 export type SolidDefinition = BoxSolidDefinition | PolygonSolidDefinition;

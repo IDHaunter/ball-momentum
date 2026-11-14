@@ -19,6 +19,7 @@ export class BallController {
   private readonly airBoost: AirBoostController;
   private lastGrounded = false;
   private pendingWallImpact: Extract<PhysicsEvent, { type: 'BALL_WALL_IMPACT' }> | null = null;
+  private pendingSpringImpact: Extract<PhysicsEvent, { type: 'BALL_SPRING_IMPACT' }> | null = null;
   private readonly wallBounceContacts = new Set<string>();
   private prePhysicsVelocity: { x: number; y: number } | null = null;
   private landingBouncesRemaining = 0;
@@ -34,6 +35,9 @@ export class BallController {
     this.unsubscribePhysicsEvents = this.world.onPhysicsEvent((event) => {
       this.contacts.handle(event, this.clock.nowMs);
       if (event.type === 'BALL_TERRAIN_CONTACT_ENDED') this.wallBounceContacts.delete(event.terrainId);
+      if (event.type === 'BALL_SPRING_IMPACT') {
+        if (!this.pendingSpringImpact || event.impulse > this.pendingSpringImpact.impulse) this.pendingSpringImpact = event;
+      }
       if (event.type === 'BALL_WALL_IMPACT'
         && !this.wallBounceContacts.has(event.terrainId)
         && event.impactSpeed >= this.config.wallBounce.minimumImpactSpeed) {
@@ -82,7 +86,9 @@ export class BallController {
   }
 
   stepAfterPhysics(): { landed: boolean; grounded: boolean } {
-    this.applyPendingWallBounce();
+    const springApplied = this.applyPendingSpringImpulse();
+    if (springApplied) this.pendingWallImpact = null;
+    else this.applyPendingWallBounce();
     const now = this.clock.nowMs;
     const contactGrounded = this.contacts.isGrounded(now);
     const supportNormal = contactGrounded ? this.contacts.getSupportNormal(now) : null;
@@ -164,6 +170,7 @@ export class BallController {
     this.body.setAwake();
     this.contacts.clear();
     this.pendingWallImpact = null;
+    this.pendingSpringImpact = null;
     this.wallBounceContacts.clear();
     this.prePhysicsVelocity = null;
     this.landingBouncesRemaining = 0;
@@ -183,6 +190,43 @@ export class BallController {
   }
 
   dispose(): void { this.unsubscribePhysicsEvents(); this.body.destroy(); this.contacts.clear(); }
+
+  private applyPendingSpringImpulse(): boolean {
+    const impact = this.pendingSpringImpact;
+    this.pendingSpringImpact = null;
+    if (!impact || impact.impulse <= 0) return false;
+
+    const normalVelocity = impact.incomingVelocity.x * impact.normal.x
+      + impact.incomingVelocity.y * impact.normal.y;
+    // The mapper only emits spring impacts for a new contact while moving
+    // toward or tangentially across the selected surface.
+    if (normalVelocity > 1) return false;
+
+    const normalX = normalVelocity * impact.normal.x;
+    const normalY = normalVelocity * impact.normal.y;
+    const tangentX = impact.incomingVelocity.x - normalX;
+    const tangentY = impact.incomingVelocity.y - normalY;
+    const position = this.body.getSnapshot().position;
+    this.body.setPosition({
+      x: position.x + impact.normal.x * this.config.springSurface.separationDistancePx,
+      y: position.y + impact.normal.y * this.config.springSurface.separationDistancePx,
+    });
+    // `impulse` is a fixed outgoing speed along the surface normal, not an
+    // additive velocity delta. Repeated contacts therefore reproduce the
+    // same launch energy instead of accumulating energy on every bounce.
+    this.body.setVelocity({
+      x: tangentX * this.config.springSurface.tangentRetention + impact.normal.x * impact.impulse,
+      y: tangentY * this.config.springSurface.tangentRetention + impact.normal.y * impact.impulse,
+    });
+    this.body.setAwake();
+    this.contacts.clear();
+    this.lastGrounded = false;
+    this.state.grounded = false;
+    this.state.lastGroundedAtMs = -Infinity;
+    this.jump.reset();
+    this.landingBouncesRemaining = 0;
+    return true;
+  }
 
   private applyPendingWallBounce(): void {
     const impact = this.pendingWallImpact;

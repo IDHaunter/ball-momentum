@@ -6,6 +6,18 @@ const materialSchema = z.object({
   restitution: z.number().min(0).max(1),
 });
 
+const springImpulseSchema = z.number().finite().positive().max(3000);
+
+const boxSpringSurfaceSchema = z.object({
+  side: z.enum(['top', 'right', 'bottom', 'left']),
+  impulse: springImpulseSchema,
+});
+
+const polygonSpringSurfaceSchema = z.object({
+  edge: z.number().int().nonnegative(),
+  impulse: springImpulseSchema,
+});
+
 const breakableSchema = z.object({
   thresholdEnergy: z.number().finite().positive(),
   velocityRetention: z.number().min(0.1).max(1).optional(),
@@ -16,6 +28,7 @@ const boxSchema = z.object({
   x: z.number().finite(), y: z.number().finite(),
   width: z.number().finite().positive(), height: z.number().finite().positive(), material: z.string().optional(),
   breakable: breakableSchema.optional(),
+  springSurfaces: z.array(boxSpringSurfaceSchema).optional(),
 });
 
 const polygonSchema = z.object({
@@ -23,6 +36,7 @@ const polygonSchema = z.object({
   vertices: z.array(z.tuple([z.number().finite(), z.number().finite()])).min(3),
   material: z.string().optional(),
   breakable: breakableSchema.optional(),
+  springSurfaces: z.array(polygonSpringSurfaceSchema).optional(),
 });
 
 const triggerSchema = z.object({

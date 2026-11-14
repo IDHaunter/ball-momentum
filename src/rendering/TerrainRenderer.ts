@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
-import { polygonCentroid } from '../utils/GeometryUtils';
-import type { LevelDefinition, SolidDefinition, TerrainMaterialDefinition } from '../level/LevelTypes';
+import { polygonCentroid, polygonEdgeOutwardNormal } from '../utils/GeometryUtils';
+import type { BoxSurfaceSide, LevelDefinition, SolidDefinition, TerrainMaterialDefinition } from '../level/LevelTypes';
 
 const MATERIAL_COLORS: Record<string, number> = {
   normal: 0x52647b,
@@ -42,7 +42,8 @@ export class TerrainRenderer {
     if (!this.currentLevel) return;
     for (const solid of this.currentLevel.solids) {
       if (this.removed.has(solid.id)) continue;
-      this.draw(solid, this.currentLevel.materials?.[solid.material ?? 'normal'], solid.material ?? 'normal');
+      const materialName = solid.material ?? 'normal';
+      this.draw(solid, this.currentLevel.materials?.[materialName], materialName);
     }
   }
 
@@ -73,6 +74,51 @@ export class TerrainRenderer {
         this.graphics.lineStyle(1.5, 0xd9fbff, 0.72);
         for (const [x, y] of points) this.graphics.lineBetween(centroid.x, centroid.y, x, y);
       }
+    }
+
+    // Springs are intentionally not rendered on glass: glass ignores spring
+    // assignments and remains governed exclusively by its breakable behavior.
+    if (!isGlass && solid.springSurfaces?.length) this.drawSpringMarkers(solid);
+  }
+
+  private drawSpringMarkers(solid: SolidDefinition): void {
+    const surfaces = solid.springSurfaces ?? [];
+    this.graphics.lineStyle(4, 0xf0c96a, 0.98);
+    for (const surface of surfaces) {
+      let a: { x: number; y: number };
+      let b: { x: number; y: number };
+      let normal: { x: number; y: number };
+      if (solid.type === 'box' && 'side' in surface) {
+        const bounds: Record<BoxSurfaceSide, [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }]> = {
+          top: [{ x: solid.x, y: solid.y }, { x: solid.x + solid.width, y: solid.y }, { x: 0, y: -1 }],
+          right: [{ x: solid.x + solid.width, y: solid.y }, { x: solid.x + solid.width, y: solid.y + solid.height }, { x: 1, y: 0 }],
+          bottom: [{ x: solid.x + solid.width, y: solid.y + solid.height }, { x: solid.x, y: solid.y + solid.height }, { x: 0, y: 1 }],
+          left: [{ x: solid.x, y: solid.y + solid.height }, { x: solid.x, y: solid.y }, { x: -1, y: 0 }],
+        };
+        [a, b, normal] = bounds[surface.side];
+      } else if (solid.type === 'polygon' && 'edge' in surface) {
+        const edge = surface.edge;
+        a = { x: solid.vertices[edge][0], y: solid.vertices[edge][1] };
+        const next = solid.vertices[(edge + 1) % solid.vertices.length];
+        b = { x: next[0], y: next[1] };
+        normal = polygonEdgeOutwardNormal(solid.vertices.map(([x, y]) => ({ x, y })), edge);
+      } else {
+        continue;
+      }
+
+      this.graphics.lineBetween(a.x, a.y, b.x, b.y);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const length = Math.hypot(dx, dy);
+      const markCount = Math.max(2, Math.min(10, Math.floor(length / 24)));
+      this.graphics.lineStyle(2, 0xffe8a6, 0.95);
+      for (let mark = 1; mark < markCount; mark += 1) {
+        const t = mark / markCount;
+        const x = a.x + dx * t;
+        const y = a.y + dy * t;
+        this.graphics.lineBetween(x - normal.x * 5, y - normal.y * 5, x + normal.x * 5, y + normal.y * 5);
+      }
+      this.graphics.lineStyle(4, 0xf0c96a, 0.98);
     }
   }
 }

@@ -99,7 +99,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(definition.x + definition.width / 2, definition.y + definition.height / 2, 1, 1), rawBody, true);
     object.body.label = definition.id;
-    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable });
+    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable, springSurfaces: definition.springSurfaces });
   }
 
   createStaticPolygon(definition: StaticPolygonOptions): void {
@@ -119,7 +119,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(center.x, center.y, 1, 1), rawBody, true);
     object.body.label = definition.id;
-    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable });
+    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable, springSurfaces: definition.springSurfaces });
   }
 
   createSensor(definition: SensorOptions): void {

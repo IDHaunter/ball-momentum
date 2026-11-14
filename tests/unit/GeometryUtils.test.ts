@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isConvexPolygon, polygonCentroid } from '../../src/utils/GeometryUtils';
+import { isConvexPolygon, polygonCentroid, polygonEdgeOutwardNormal } from '../../src/utils/GeometryUtils';
 
 describe('isConvexPolygon', () => {
   it('accepts convex triangles and rectangles', () => {
@@ -52,5 +52,24 @@ describe('polygonCentroid', () => {
 
   it('rejects degenerate polygons', () => {
     expect(() => polygonCentroid([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }])).toThrow(/zero-area/);
+  });
+});
+
+
+describe('polygonEdgeOutwardNormal', () => {
+  it('returns the outward normal for a top-facing polygon edge', () => {
+    const points = [{ x: 10, y: 50 }, { x: 50, y: 10 }, { x: 90, y: 50 }];
+    const normal = polygonEdgeOutwardNormal(points, 0);
+    expect(normal.x).toBeCloseTo(-Math.SQRT1_2, 6);
+    expect(normal.y).toBeCloseTo(-Math.SQRT1_2, 6);
+  });
+
+  it('is independent of clockwise or counter-clockwise vertex order', () => {
+    const clockwise = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
+    const reversed = [...clockwise].reverse();
+    expect(polygonEdgeOutwardNormal(clockwise, 0)).toEqual({ x: 0, y: -1 });
+    const reversedNormal = polygonEdgeOutwardNormal(reversed, 2);
+    expect(reversedNormal).toEqual({ x: 0, y: -1 });
+    expect(Object.is(reversedNormal.x, -0)).toBe(false);
   });
 });

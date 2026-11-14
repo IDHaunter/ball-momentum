@@ -276,6 +276,12 @@ export class GameplayScene extends Phaser.Scene {
     const events = this.physicsEvents;
     this.physicsEvents = [];
     for (const event of events) {
+      if (event.type === 'BALL_SPRING_IMPACT') {
+        if (this.gameRegistry.flow.state === 'PLAYING') {
+          this.effects.springImpact(event.contactPoint.x, event.contactPoint.y, event.normal, event.impulse);
+        }
+        continue;
+      }
       if (event.type === 'BALL_TERRAIN_IMPACT') {
         if (this.gameRegistry.flow.state !== 'PLAYING' || !this.ball || !this.levelBuilder) continue;
         const breakable = this.levelBuilder.getBreakable(event.terrainId);

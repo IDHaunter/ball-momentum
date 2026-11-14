@@ -92,6 +92,48 @@ export class EffectsRenderer {
     }
   }
 
+  springImpact(x: number, y: number, normal: { x: number; y: number }, impulse: number): void {
+    if (this.reducedMotion) return;
+    const tangentAngle = Math.atan2(normal.y, normal.x) + Math.PI / 2;
+    const strength = Math.max(0.65, Math.min(1.6, impulse / 520));
+    const flash = this.scene.add.rectangle(x, y, 42 * strength, 6, 0xffdf88, 0.95)
+      .setRotation(tangentAngle)
+      .setDepth(7);
+    flash.setScale(0.35, 1);
+    this.scene.tweens.add({
+      targets: flash,
+      scaleX: 1.45,
+      alpha: 0,
+      duration: 190,
+      ease: 'Quad.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+
+    const count = 5 + Math.round(strength * 3);
+    for (let i = 0; i < count; i += 1) {
+      const spread = (Math.random() - 0.5) * 0.9;
+      const angle = Math.atan2(normal.y, normal.x) + spread;
+      const distance = 18 + Math.random() * 26 * strength;
+      const particle = this.scene.add.circle(
+        x + normal.x * 2,
+        y + normal.y * 2,
+        1.5 + Math.random() * 2,
+        i % 2 === 0 ? 0xffe6a3 : 0x9cf4ff,
+        0.9,
+      ).setDepth(7);
+      this.scene.tweens.add({
+        targets: particle,
+        x: particle.x + Math.cos(angle) * distance,
+        y: particle.y + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: 0.2,
+        duration: 160 + Math.random() * 130,
+        ease: 'Quad.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
   landing(x: number, y: number, intensity: number): void {
     if (this.reducedMotion) return;
     const count = Math.max(2, Math.min(7, Math.round(intensity / 110)));

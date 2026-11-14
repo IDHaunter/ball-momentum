@@ -69,3 +69,39 @@ Impact energy is evaluated from the velocity component perpendicular to the cont
 - Physics advances at a fixed 60 Hz independent of rendering cadence.
 
 The web build is intentionally platform-neutral and can later be wrapped with Capacitor without creating a second gameplay implementation.
+
+## Spring surfaces
+
+Any non-glass terrain solid can expose one or more spring surfaces. A spring surface launches the ball along that surface's outward normal while preserving most of its tangential velocity. The configured `impulse` is a fixed outgoing normal speed in pixels per second, not an additive velocity delta; repeated contacts therefore reproduce the same launch energy rather than compounding it.
+
+For boxes, use `side` values `top`, `right`, `bottom`, or `left`. For polygons, `edge` is the zero-based index of the first vertex of the edge (`vertices[edge]` to `vertices[(edge + 1) % vertices.length]`). Each assignment requires a positive `impulse` value up to 3000 px/s. A spring fires once when the ball acquires a new contact with that face; it is armed again after separation. The impulse sets a fixed outgoing normal speed, so repeated contacts do not accumulate more normal energy. Most tangential velocity is preserved.
+
+```json
+{
+  "id": "spring-platform",
+  "type": "box",
+  "x": 600,
+  "y": 700,
+  "width": 220,
+  "height": 80,
+  "material": "normal",
+  "springSurfaces": [
+    { "side": "top", "impulse": 650 },
+    { "side": "right", "impulse": 420 }
+  ]
+}
+```
+
+Polygon example:
+
+```json
+{
+  "id": "spring-ramp",
+  "type": "polygon",
+  "vertices": [[900, 700], [1050, 620], [1200, 700]],
+  "material": "rubber",
+  "springSurfaces": [{ "edge": 0, "impulse": 560 }]
+}
+```
+
+Glass solids ignore `springSurfaces` even if the property is present. Their breakable behavior remains unchanged. The Physics Sandbox includes spring-enabled box sides, polygon slopes, and a horizontal spring floor for testing.

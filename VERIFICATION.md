@@ -229,3 +229,89 @@ Checks performed for this test-only patch:
 | ZIP integrity | Passed |
 
 The lightweight runner executes the test bodies and supported assertions but is not the Vitest runtime. Full `npm test` was not rerun here because Vitest and project dependencies are not installed in this packaging environment. The user's prior log showed the other 57 cases passing before this test-only correction; rerun `npm run test` locally to confirm the complete 60-test suite.
+
+## Spring surfaces — 2026-11-14
+
+Implemented per-surface spring behavior for non-glass terrain:
+
+1. Box solids accept `springSurfaces` entries with `side: "top" | "right" | "bottom" | "left"` and a positive `impulse` value.
+2. Polygon solids accept `springSurfaces` entries with a zero-based `edge` index and a positive `impulse` value. Edge normals are calculated from the actual collision vertices and are independent of polygon winding.
+3. The configured `impulse` is the fixed outgoing normal speed in px/s. Tangential speed is retained at the configured `springSurface.tangentRetention` (default 0.98). Because the normal component is set to a fixed launch speed rather than incremented, repeated touches do not compound spring energy.
+4. Springs fire once on a newly acquired contact while the ball is moving toward or tangentially across the selected face. They do not retrigger during `collisionactive`, and a separating ball is not launched back into the surface.
+5. Applying a spring launch separates the ball from the contact manifold, clears stale ground support, and prevents the regular wall-bounce/landing-bounce logic from overriding the spring response.
+6. Glass ignores spring assignments. The factory passes no spring metadata for glass and the renderer does not draw spring markers on glass; breakable glass behavior is unchanged.
+7. Added a spring-impact flash/particle pulse and persistent spring-edge markers. F3 exposes global tangential retention and contact separation settings.
+8. The Physics Sandbox now contains three spring-enabled solids and five assigned surfaces: the step top and right side, both sloped sides of a triangle, and a horizontal floor. No glass solid has spring assignments.
+
+### Verification completed in this environment
+
+| Check | Result |
+|---|---|
+| Strict TypeScript check of app, all source dependencies, and unit tests using minimal temporary declarations for unavailable Phaser/Vitest/Zod packages | Passed |
+| TypeScript syntax transpilation (`src` + `tests`, 88 files) | Passed; zero syntax diagnostics |
+| Focused runtime harness using transpiled project classes | Passed; 10 checks |
+| Spring activation while rolling tangentially across a new top contact | Passed |
+| Polygon edge outward normals and spring contact mapping | Passed |
+| Matter body-order handling (`bodyA` / `bodyB`) | Passed |
+| No spring event for active contacts or separating velocity | Passed |
+| Ball controller: normal launch speed, tangential retention, separation, and grounded reset | Passed |
+| Repeated spring contact: fixed launch speed, no cumulative normal-speed gain | Passed |
+| TerrainFactory: box sides, polygon edges, and glass spring suppression | Passed |
+| TerrainRenderer spring markers and EffectsRenderer impact pulse smoke checks | Passed |
+| JSON parsing for package and both level files; sandbox spring configuration | Passed; 3 solids, 5 surfaces, no glass springs |
+| ZIP integrity | Passed |
+
+There are 73 unit-test cases in 13 files. New Vitest cases cover geometry, mapping, controller response, factory mapping, schema validation, duplicate surfaces, and the glass exclusion rule. The actual Vitest runner, dependency-backed `npm run typecheck`, Vite production build, and Playwright browser E2E were not run here: the project has no `node_modules`, and `npm install --ignore-scripts --no-audit --no-fund` timed out while reaching the npm registry. The strict TypeScript check above used temporary declaration shims and is not represented as the project's full dependency-backed `npm run typecheck`.
+
+Run locally after extracting the archive:
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e
+```
+
+Sandbox test sequence: roll onto `sandbox-floor-d` for the horizontal trampoline; jump onto the top of `sandbox-step`; collide with its right side; then hit either sloped edge of `sandbox-triangle`. Verify that hitting a glass wall still only breaks it according to its energy threshold and does not spring-launch the ball.
+
+## Final spring-surface verification — 2026-11-14
+
+After the last controller adjustment, applying a spring launch also resets stale jump/Air Boost state. This prevents a spring bounce from inheriting an old manual-jump landing sequence or a previously available air boost. The spring still provides its configured fixed outward normal speed; the tangent component is retained at 98% by default. A spring activates only on a newly acquired contact, so a continuous contact does not repeatedly add energy. After the ball separates and touches again, the same configured launch speed is applied again.
+
+Latest checks, performed after this controller adjustment:
+
+| Check | Result |
+|---|---|
+| Strict TypeScript check of app, imported source dependencies, and all unit tests, using temporary declaration shims for unavailable Phaser, Zod, and Vitest packages | Passed |
+| TypeScript syntax transpilation (`src` + `tests`, 88 files) | Passed; zero syntax diagnostics |
+| Focused runtime harness using transpiled project classes | Passed; 10 checks |
+| Box-side spring mapping (top, right, left) | Passed |
+| Polygon spring edge normal mapping | Passed |
+| Tangential rolling contact activates a newly acquired top spring | Passed |
+| Spring contact mapping with ball as `bodyA` and `bodyB` | Passed |
+| No repeated spring event during an active contact and no launch when already separating | Passed |
+| BallController: fixed outgoing normal speed, tangential retention, separation, grounded/jump state reset | Passed |
+| Repeated spring contacts: no cumulative normal-speed gain | Passed |
+| Glass spring assignments are ignored by the collider factory | Passed |
+| TerrainRenderer marker and EffectsRenderer spring-pulse smoke checks | Passed |
+| Sandbox JSON: three spring-enabled solids, five surface assignments, no spring on glass | Passed |
+| ZIP archive integrity | Passed |
+
+The focused harness executes the transpiled project classes and uses a minimal mock physics world for deterministic checks. It is not a browser simulation with the actual Phaser Matter engine. Full Vitest, the dependency-backed project `npm run typecheck`, Vite build, and Playwright E2E were not run in this environment because dependencies are not installed and npm registry access timed out. The user's development machine should run the commands below after extracting the archive:
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e
+```
+
+## Spring surface validation follow-up — 2026-11-14
+
+The owner reported one project typecheck error and one failing geometry unit test after the spring-surface feature. Both were corrected:
+
+1. `src/level/LevelValidator.ts`: removed the manual `(string | number)[]` issue-path annotation. Zod paths use `PropertyKey[]`, which can include symbols. Path segments are now formatted with `String(segment)` before joining.
+2. `src/utils/GeometryUtils.ts`: normalized signed zero in the outward edge normal result. This avoids returning `-0` for the X component when polygon winding is reversed while preserving the same mathematical normal.
+3. Added regression coverage in `LevelValidator.test.ts` and made the geometry test explicitly assert that the reversed-winding result is not negative zero.
+
+The two reported failures are addressed in source. Dependency-backed full `npm run typecheck`, `npm run test`, and `npm run build` were not run in this packaging environment because project dependencies are not installed here; rerun those commands locally after extracting the updated archive.

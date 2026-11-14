@@ -165,3 +165,64 @@ describe('MatterCollisionMapper wall impacts', () => {
   });
 
 });
+
+
+describe('MatterCollisionMapper spring surfaces', () => {
+  it('emits a spring impact for a newly acquired top contact while rolling tangentially', () => {
+    const ball = body(100, 100);
+    const floor = body(100, 160);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball' }],
+      [floor, {
+        kind: 'terrain', id: 'spring-floor',
+        springSurfaces: [{ id: 'spring-floor:spring:top', normal: { x: 0, y: -1 }, impulse: 640 }],
+      }],
+    ]));
+
+    const events = mapper.mapPair({
+      bodyA: ball,
+      bodyB: floor,
+      collision: { normal: { x: 0, y: -1 }, supports: [{ x: 100, y: 118 }], supportCount: 1 },
+    }, 'start', { x: 360, y: 0 });
+
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'BALL_SPRING_IMPACT', terrainId: 'spring-floor',
+        surfaceId: 'spring-floor:spring:top', normal: { x: 0, y: -1 }, impulse: 640,
+      }),
+    ]));
+  });
+
+  it('matches the spring face by its normal when the ball is bodyB', () => {
+    const wall = body(130, 100);
+    const ball = body(100, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [wall, { kind: 'terrain', id: 'spring-wall', springSurfaces: [{ id: 'spring-wall:left', normal: { x: -1, y: 0 }, impulse: 480 }] }],
+      [ball, { kind: 'ball', id: 'ball' }],
+    ]));
+
+    const events = mapper.mapPair({
+      bodyA: wall,
+      bodyB: ball,
+      collision: { normal: { x: 1, y: 0 }, supports: [{ x: 118, y: 100 }], supportCount: 1 },
+    }, 'start', { x: 240, y: 0 });
+
+    expect(events.some((event) => event.type === 'BALL_SPRING_IMPACT')).toBe(true);
+    expect(events.some((event) => event.type === 'BALL_WALL_IMPACT')).toBe(false);
+  });
+
+  it('does not retrigger during an active pair or when the ball is separating', () => {
+    const ball = body(100, 100);
+    const floor = body(100, 160);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball' }],
+      [floor, { kind: 'terrain', id: 'spring-floor', springSurfaces: [{ id: 'top', normal: { x: 0, y: -1 }, impulse: 600 }] }],
+    ]));
+    const pair: CollisionPairLike = { bodyA: ball, bodyB: floor, collision: { normal: { x: 0, y: -1 } } };
+
+    const active = mapper.mapPair(pair, 'active', { x: 100, y: 0 });
+    const separating = mapper.mapPair(pair, 'start', { x: 0, y: -120 });
+    expect(active.some((event) => event.type === 'BALL_SPRING_IMPACT')).toBe(false);
+    expect(separating.some((event) => event.type === 'BALL_SPRING_IMPACT')).toBe(false);
+  });
+});

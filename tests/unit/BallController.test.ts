@@ -300,4 +300,57 @@ describe('BallController', () => {
     ball.dispose();
   });
 
+
+  it('applies a fixed spring launch speed while preserving tangential motion', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, clock, { x: 20, y: 20 });
+    const springImpact = {
+      type: 'BALL_SPRING_IMPACT' as const,
+      terrainId: 'spring-floor',
+      surfaceId: 'spring-floor:spring:top',
+      normal: { x: 0, y: -1 },
+      incomingVelocity: { x: 360, y: 0 },
+      contactPoint: { x: 20, y: 2 },
+      impactSpeed: 0,
+      impulse: 640,
+    };
+
+    ball.state.takeoffAtMs = 10;
+    ball.state.airBoostAvailable = true;
+    ball.currentBody.setVelocity(springImpact.incomingVelocity);
+    world.emit(springImpact);
+    ball.stepAfterPhysics();
+    expect(ball.snapshot.velocity.x).toBeCloseTo(360 * config.springSurface.tangentRetention);
+    expect(ball.snapshot.velocity.y).toBe(-640);
+    expect(ball.snapshot.position.y).toBeCloseTo(20 - config.springSurface.separationDistancePx);
+    expect(ball.state.grounded).toBe(false);
+    expect(ball.state.takeoffAtMs).toBe(null);
+    expect(ball.state.airBoostAvailable).toBe(false);
+    ball.dispose();
+  });
+
+  it('repeats the same spring launch energy without accumulating it', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const ball = new BallController(world, createPhysicsConfig(), clock, { x: 20, y: 20 });
+    const impact = {
+      type: 'BALL_SPRING_IMPACT' as const, terrainId: 'spring-pad', surfaceId: 'top',
+      normal: { x: 0, y: -1 }, incomingVelocity: { x: 0, y: 0 },
+      contactPoint: { x: 20, y: 2 }, impactSpeed: 0, impulse: 520,
+    };
+
+    world.emit(impact);
+    ball.stepAfterPhysics();
+    const firstLaunchSpeed = Math.abs(ball.snapshot.velocity.y);
+    ball.currentBody.setVelocity({ x: 0, y: 0 });
+    world.emit({ ...impact, incomingVelocity: { x: 0, y: 300 } });
+    ball.stepAfterPhysics();
+
+    expect(firstLaunchSpeed).toBe(520);
+    expect(Math.abs(ball.snapshot.velocity.y)).toBe(520);
+    ball.dispose();
+  });
+
 });

@@ -7,7 +7,12 @@ export class LevelValidator {
   validate(raw: unknown, sourceName = 'level'): LevelDefinition {
     const parsed = LevelSchema.safeParse(raw);
     if (!parsed.success) {
-      const issues = parsed.error.issues.map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`);
+      const issues = parsed.error.issues.map((issue) => {
+        // Zod's PropertyKey path can contain symbols (for example, in
+        // unrecognized-key issues), so do not narrow it to string | number.
+        const path = issue.path.map((segment) => String(segment)).join('.');
+        return `${path || '<root>'}: ${issue.message}`;
+      });
       throw new ValidationErrors(`Invalid ${sourceName}: ${issues.join('; ')}`, issues);
     }
     const level = parsed.data as LevelDefinition;
@@ -29,6 +34,23 @@ export class LevelValidator {
       addId(solid.id, `solids.${solid.id}`);
       if (solid.material && !level.materials?.[solid.material]) errors.push(`solids.${solid.id}.material: unknown material "${solid.material}"`);
       if (solid.breakable && solid.material !== 'glass') errors.push(`solids.${solid.id}.breakable: breakable solids must use material "glass"`);
+      // Glass is intentionally non-springy. Its spring assignments are
+      // accepted for forward compatibility but ignored by TerrainFactory.
+      if (solid.material !== 'glass' && solid.springSurfaces?.length) {
+        const surfaceKeys = solid.type === 'box'
+          ? solid.springSurfaces.map((surface) => surface.side)
+          : solid.springSurfaces.map((surface) => String(surface.edge));
+        if (new Set(surfaceKeys).size !== surfaceKeys.length) {
+          errors.push(`solids.${solid.id}.springSurfaces: duplicate surface assignment`);
+        }
+        if (solid.type === 'polygon') {
+          for (const surface of solid.springSurfaces) {
+            if (surface.edge >= solid.vertices.length) {
+              errors.push(`solids.${solid.id}.springSurfaces: edge ${surface.edge} is outside the polygon vertex range`);
+            }
+          }
+        }
+      }
       if (solid.type === 'polygon') {
         const points = solid.vertices.map(([x, y]) => ({ x, y }));
         const unique = new Set(points.map((p) => `${p.x}:${p.y}`));

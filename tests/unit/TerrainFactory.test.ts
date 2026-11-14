@@ -120,3 +120,73 @@ describe('TerrainFactory breakable solids', () => {
     });
   });
 });
+
+
+describe('TerrainFactory spring surfaces', () => {
+  function makeWorld(captured: {
+    boxes: Array<Parameters<IPhysicsWorld['createStaticBox']>[0]>;
+    polygons: Array<Parameters<IPhysicsWorld['createStaticPolygon']>[0]>;
+  }): IPhysicsWorld {
+    return {
+      createStaticBox: (definition: Parameters<IPhysicsWorld['createStaticBox']>[0]) => { captured.boxes.push(definition); },
+      createStaticPolygon: (definition: Parameters<IPhysicsWorld['createStaticPolygon']>[0]) => { captured.polygons.push(definition); },
+      removeTerrainBody: () => undefined,
+      createSensor: () => undefined,
+      removeLevelBodies: () => undefined,
+      step: () => undefined,
+      setGravity: () => undefined,
+      setTimeScale: () => undefined,
+      onPhysicsEvent: () => () => undefined,
+      createBall: () => { throw new Error('not used'); },
+    } as unknown as IPhysicsWorld;
+  }
+
+  it('maps any configured box sides to their outward normals', () => {
+    const captured = { boxes: [] as Array<Parameters<IPhysicsWorld['createStaticBox']>[0]>, polygons: [] as Array<Parameters<IPhysicsWorld['createStaticPolygon']>[0]> };
+    new TerrainFactory(makeWorld(captured), { render: () => undefined } as unknown as TerrainRenderer).build({
+      schemaVersion: 1, id: 'spring-box', title: 'Spring box',
+      world: { width: 300, height: 300, killPlaneY: 280 }, spawn: { x: 20, y: 20 }, triggers: [],
+      solids: [{
+        id: 'pad', type: 'box', x: 50, y: 60, width: 100, height: 40,
+        springSurfaces: [{ side: 'top', impulse: 620 }, { side: 'right', impulse: 440 }, { side: 'left', impulse: 360 }],
+      }],
+    });
+
+    expect(captured.boxes[0].springSurfaces).toEqual([
+      { id: 'pad:spring:top', normal: { x: 0, y: -1 }, impulse: 620 },
+      { id: 'pad:spring:right', normal: { x: 1, y: 0 }, impulse: 440 },
+      { id: 'pad:spring:left', normal: { x: -1, y: 0 }, impulse: 360 },
+    ]);
+  });
+
+  it('maps polygon edge indices to the true outward edge normals', () => {
+    const captured = { boxes: [] as Array<Parameters<IPhysicsWorld['createStaticBox']>[0]>, polygons: [] as Array<Parameters<IPhysicsWorld['createStaticPolygon']>[0]> };
+    new TerrainFactory(makeWorld(captured), { render: () => undefined } as unknown as TerrainRenderer).build({
+      schemaVersion: 1, id: 'spring-poly', title: 'Spring polygon',
+      world: { width: 300, height: 300, killPlaneY: 280 }, spawn: { x: 20, y: 20 }, triggers: [],
+      solids: [{ id: 'triangle', type: 'polygon', vertices: [[10, 50], [50, 10], [90, 50]], springSurfaces: [{ edge: 0, impulse: 560 }] }],
+    });
+
+    const spring = captured.polygons[0].springSurfaces?.[0];
+    expect(spring?.id).toBe('triangle:spring:edge-0');
+    expect(spring?.normal.x).toBeCloseTo(-Math.SQRT1_2, 6);
+    expect(spring?.normal.y).toBeCloseTo(-Math.SQRT1_2, 6);
+    expect(spring?.impulse).toBe(560);
+  });
+
+  it('ignores spring assignments on glass colliders', () => {
+    const captured = { boxes: [] as Array<Parameters<IPhysicsWorld['createStaticBox']>[0]>, polygons: [] as Array<Parameters<IPhysicsWorld['createStaticPolygon']>[0]> };
+    new TerrainFactory(makeWorld(captured), { render: () => undefined } as unknown as TerrainRenderer).build({
+      schemaVersion: 1, id: 'spring-glass', title: 'Glass ignores springs',
+      world: { width: 300, height: 300, killPlaneY: 280 }, spawn: { x: 20, y: 20 }, triggers: [],
+      materials: { glass: { friction: 0.08, frictionStatic: 0.12, restitution: 0.34 } },
+      solids: [{
+        id: 'glass', type: 'box', x: 50, y: 60, width: 100, height: 40, material: 'glass',
+        breakable: { thresholdEnergy: 1000 }, springSurfaces: [{ side: 'top', impulse: 900 }],
+      }],
+    });
+
+    expect(captured.boxes[0].breakable).toBe(true);
+    expect(captured.boxes[0].springSurfaces).toEqual([]);
+  });
+});

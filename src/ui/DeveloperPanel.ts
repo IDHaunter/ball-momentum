@@ -25,6 +25,8 @@ const FIELDS: TuningField[] = [
   { label: 'Landing minimum impact speed', path: 'landingBounce.minimumImpactSpeed', min: 0, max: 300, step: 5 },
   { label: 'Glass velocity retention', path: 'breakableTerrain.velocityRetention', min: 0.3, max: 0.95, step: 0.02 },
   { label: 'Glass separation (px)', path: 'breakableTerrain.separationDistancePx', min: 1, max: 12, step: 0.5 },
+  { label: 'Spring tangent retention', path: 'springSurface.tangentRetention', min: 0.5, max: 1, step: 0.02 },
+  { label: 'Spring separation (px)', path: 'springSurface.separationDistancePx', min: 0.5, max: 8, step: 0.5 },
 ];
 
 export class DeveloperPanel {

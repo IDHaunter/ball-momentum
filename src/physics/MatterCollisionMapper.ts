@@ -14,6 +14,7 @@ export interface PhysicsBodyMetadata {
   id: string;
   triggerType?: 'hazard' | 'checkpoint' | 'goal';
   breakable?: boolean;
+  springSurfaces?: Array<{ id: string; normal: Vector2; impulse: number }>;
 }
 
 export class MatterCollisionMapper {
@@ -83,6 +84,33 @@ export class MatterCollisionMapper {
           x: ballBody.position.x - supportNormal.x * (ballBody.circleRadius ?? 0),
           y: ballBody.position.y - supportNormal.y * (ballBody.circleRadius ?? 0),
         };
+      const matchedSpring = (otherMeta.springSurfaces ?? [])
+        .map((surface) => ({ surface, alignment: surface.normal.x * supportNormal.x + surface.normal.y * supportNormal.y }))
+        .filter((entry) => entry.alignment >= 0.94)
+        .sort((a, b) => b.alignment - a.alignment)[0]?.surface;
+      const incomingSpeed = Math.hypot(incomingVelocity.x, incomingVelocity.y);
+      const velocityAwayFromSpring = matchedSpring
+        ? incomingVelocity.x * matchedSpring.normal.x + incomingVelocity.y * matchedSpring.normal.y
+        : 0;
+      // A rolling ball can acquire a new top-surface contact with almost no
+      // normal velocity. Trigger on a new pair if it is moving tangentially,
+      // but never launch a ball that is already separating from the surface.
+      const springCanActivate = phase === 'start'
+        && Boolean(matchedSpring)
+        && velocityAwayFromSpring <= 1
+        && incomingSpeed >= 8;
+      if (springCanActivate && matchedSpring) {
+        events.push({
+          type: 'BALL_SPRING_IMPACT',
+          terrainId: otherMeta.id,
+          surfaceId: matchedSpring.id,
+          normal: { ...matchedSpring.normal },
+          incomingVelocity,
+          contactPoint,
+          impactSpeed: Math.max(0, -velocityAwayFromSpring),
+          impulse: matchedSpring.impulse,
+        });
+      }
 
       if (normalImpactSpeed > 0.1) {
         events.push({
@@ -100,7 +128,7 @@ export class MatterCollisionMapper {
       // Breakable walls still use the ordinary bounce if their energy is below
       // the level-defined threshold; a successful break replaces it with a
       // breakthrough using the original incoming velocity.
-      if (Math.abs(supportNormal.x) >= 0.88 && normalImpactSpeed > 0.1) {
+      if (!springCanActivate && Math.abs(supportNormal.x) >= 0.88 && normalImpactSpeed > 0.1) {
         events.push({
           type: 'BALL_WALL_IMPACT',
           terrainId: otherMeta.id,

@@ -1,8 +1,35 @@
 import type { IPhysicsWorld } from '../physics/IPhysicsWorld';
 import type { BoxSolidDefinition, LevelDefinition, PolygonSolidDefinition, SolidDefinition, TerrainMaterialDefinition } from './LevelTypes';
+import { polygonEdgeOutwardNormal } from '../utils/GeometryUtils';
 import type { TerrainRenderer } from '../rendering/TerrainRenderer';
 
 const DEFAULT_MATERIAL: TerrainMaterialDefinition = { friction: 0.35, frictionStatic: 0.55, restitution: 0.02 };
+
+const BOX_SURFACE_NORMALS = {
+  top: { x: 0, y: -1 },
+  right: { x: 1, y: 0 },
+  bottom: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+} as const;
+
+function getBoxSpringSurfaces(solid: BoxSolidDefinition) {
+  return (solid.springSurfaces ?? []).map((surface) => ({
+    id: `${solid.id}:spring:${surface.side}`,
+    normal: BOX_SURFACE_NORMALS[surface.side],
+    impulse: surface.impulse,
+  }));
+}
+
+function getPolygonSpringSurfaces(
+  solid: PolygonSolidDefinition,
+  collisionVertices: { x: number; y: number }[],
+) {
+  return (solid.springSurfaces ?? []).map((surface) => ({
+    id: `${solid.id}:spring:edge-${surface.edge}`,
+    normal: polygonEdgeOutwardNormal(collisionVertices, surface.edge),
+    impulse: surface.impulse,
+  }));
+}
 
 export class TerrainFactory {
   constructor(private readonly world: IPhysicsWorld, private readonly renderer: TerrainRenderer) {}
@@ -15,13 +42,16 @@ export class TerrainFactory {
           id: solid.id, x: solid.x, y: solid.y, width: solid.width, height: solid.height,
           friction: material.friction, frictionStatic: material.frictionStatic, restitution: material.restitution,
           breakable: Boolean(solid.breakable),
+          springSurfaces: solid.material === 'glass' ? [] : getBoxSpringSurfaces(solid),
         });
       } else {
+        const collisionVertices = getCollisionVertices(solid, level.solids);
         this.world.createStaticPolygon({
           id: solid.id,
-          vertices: getCollisionVertices(solid, level.solids),
+          vertices: collisionVertices,
           friction: material.friction, frictionStatic: material.frictionStatic, restitution: material.restitution,
           breakable: Boolean(solid.breakable),
+          springSurfaces: solid.material === 'glass' ? [] : getPolygonSpringSurfaces(solid, collisionVertices),
         });
       }
     }
