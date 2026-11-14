@@ -8,14 +8,14 @@ export const BALL_SKIN_OPTIONS = [
   {
     id: 'soccer',
     label: 'Football',
-    description: 'Classic white football with dark panels.',
-    previewSvg: '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" fill="#f5f6f2" stroke="#cbd5df" stroke-width="2.5"/><path d="M32 20 42 27 38 39 26 39 22 27Z" fill="#18212f"/><path d="M32 20 32 7 M42 27 55 22 M38 39 46 52 M26 39 17 52 M22 27 9 22" fill="none" stroke="#18212f" stroke-width="2.7" stroke-linecap="round"/><path d="M32 7 22 10 9 22 M55 22 46 10 32 7 M46 52 55 42 55 22 M17 52 8 42 9 22" fill="none" stroke="#8d99a8" stroke-width="1.5"/></svg>',
+    description: 'Classic football with a bold centre pentagon and simplified dark panels.',
+    previewSvg: '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" fill="#f8f9f6" stroke="#cbd5df" stroke-width="2.5"/><path d="M32 23 L32 18.6 M40.5 29.2 L44.8 27.8 M37.3 39.2 L39.9 42.9 M26.7 39.2 L24.1 42.9 M23.5 29.2 L19.2 27.8" fill="none" stroke="#5d6875" stroke-width="1.4" stroke-linecap="round"/><path d="M32 23 L40.5 29.2 L37.3 39.2 L26.7 39.2 L23.5 29.2 Z M32 18.4 L26.5 14.5 L28.6 8 L35.4 8 L37.5 14.5 Z M44.9 27.8 L47 21.4 L53.7 21.4 L55.8 27.8 L50.4 31.8 Z M40 43 L46.7 43 L48.8 49.4 L43.4 53.4 L37.9 49.4 Z M24 43 L26.1 49.4 L20.6 53.4 L15.2 49.4 L17.3 43 Z M19.1 27.8 L13.6 31.8 L8.2 27.8 L10.3 21.4 L17 21.4 Z" fill="#18212f" stroke="#18212f" stroke-linejoin="round"/><ellipse cx="24" cy="17" rx="7" ry="3" fill="#fff" opacity=".42"/></svg>',
   },
   {
     id: 'basketball',
     label: 'Basketball',
-    description: 'Orange ball with classic black seams.',
-    previewSvg: '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" fill="#e9822d" stroke="#ffb15e" stroke-width="2.5"/><path d="M32 4 C14 18 14 46 32 60 M32 4 C50 18 50 46 32 60 M5 32 H59 M7 18 C21 28 43 28 57 18 M7 46 C21 36 43 36 57 46" fill="none" stroke="#44291e" stroke-width="2.5"/></svg>',
+    description: 'Orange basketball with bold curved side seams and a centre channel.',
+    previewSvg: '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" fill="#e9822d" stroke="#6a3b22" stroke-width="2.5"/><path d="M32 5.7 C20 18 20 46 32 58.3 M32 5.7 C44 18 44 46 32 58.3 M32 5.7 V58.3 M5.7 32 C20 31.2 44 32.8 58.3 32" fill="none" stroke="#432719" stroke-width="3.2" stroke-linecap="round"/><ellipse cx="23" cy="18" rx="8" ry="3.5" fill="#ffcf91" opacity=".34"/></svg>',
   },
   {
     id: 'eye',

@@ -71,34 +71,61 @@ export class BallRenderer {
 
   private createSoccerSkin(): Phaser.GameObjects.GameObject[] {
     const r = this.radius;
-    const objects: Phaser.GameObjects.GameObject[] = [this.circle(0xf5f6f2, 0xd2dbe3)];
-    const patches: LocalPoint[][] = [];
-    patches.push(this.regularPolygon(0, 0, r * 0.29, 5, -Math.PI / 2));
-    for (let i = 0; i < 5; i += 1) {
-      const angle = -Math.PI / 2 + (Math.PI * 2 * i) / 5;
-      const x = Math.cos(angle) * r * 0.68;
-      const y = Math.sin(angle) * r * 0.68;
-      patches.push(this.regularPolygon(x, y, r * 0.18, 5, angle));
+    const dark = 0x18212f;
+    const seam = 0x5d6875;
+    const objects: Phaser.GameObjects.GameObject[] = [this.circle(0xf8f9f6, 0xcbd5df)];
+
+    // Keep the traditional pentagon-and-panel silhouette, but simplify seams for the small in-game ball.
+    objects.push(this.scene.add.ellipse(-r * 0.28, -r * 0.42, r * 0.48, r * 0.2, 0xffffff, 0.36));
+
+    const angles = Array.from({ length: 5 }, (_, index) => -Math.PI / 2 + (Math.PI * 2 * index) / 5);
+    for (const angle of angles) {
+      objects.push(this.polyline([
+        { x: Math.cos(angle) * r * 0.31, y: Math.sin(angle) * r * 0.31 },
+        { x: Math.cos(angle) * r * 0.49, y: Math.sin(angle) * r * 0.49 },
+      ], Math.max(0.95, r * 0.05), seam));
     }
-    for (const patch of patches) objects.push(this.filledPolygon(patch, 0x202a38, 0xf5f6f2, 1));
-    objects.push(this.polyline([
-      { x: -r * 0.72, y: -r * 0.3 }, { x: -r * 0.42, y: -r * 0.55 },
-      { x: -r * 0.14, y: -r * 0.48 }, { x: r * 0.18, y: -r * 0.49 },
-      { x: r * 0.48, y: -r * 0.56 }, { x: r * 0.73, y: -r * 0.28 },
-    ], 1.2, 0x8793a1, 0.8));
+
+    for (const angle of angles) {
+      const cx = Math.cos(angle) * r * 0.69;
+      const cy = Math.sin(angle) * r * 0.69;
+      objects.push(this.filledPolygon(
+        this.regularPolygon(cx, cy, r * 0.19, 5, angle + Math.PI),
+        dark,
+        dark,
+      ));
+    }
+
+    objects.push(this.filledPolygon(this.regularPolygon(0, 0, r * 0.3, 5, -Math.PI / 2), dark, dark));
     return objects;
   }
 
   private createBasketballSkin(): Phaser.GameObjects.GameObject[] {
     const r = this.radius;
-    const objects: Phaser.GameObjects.GameObject[] = [this.circle(0xe9822d, 0xffb15e)];
-    const seam: LocalPoint[][] = [];
-    seam.push(this.sampleCurve((t) => ({ x: r * 0.22 * Math.sin(t * Math.PI * 2), y: -r * 0.94 + t * r * 1.88 }), 18));
-    seam.push(this.sampleCurve((t) => ({ x: -r * 0.22 * Math.sin(t * Math.PI * 2), y: -r * 0.94 + t * r * 1.88 }), 18));
-    seam.push(this.sampleCurve((t) => ({ x: -r * 0.94 + t * r * 1.88, y: r * 0.16 * Math.sin(t * Math.PI * 2) }), 18));
-    seam.push(this.sampleCurve((t) => ({ x: -r * 0.94 + t * r * 1.88, y: -r * 0.16 * Math.sin(t * Math.PI * 2) }), 18));
-    for (const points of seam) objects.push(this.polyline(points, Math.max(1.5, r * 0.095), 0x482b20));
-    objects.push(this.scene.add.ellipse(-r * 0.28, -r * 0.38, r * 0.48, r * 0.22, 0xffc47e, 0.36));
+    const seamColor = 0x432719;
+    const seamWidth = Math.max(1.85, r * 0.11);
+    const objects: Phaser.GameObjects.GameObject[] = [this.circle(0xe9822d, 0x6a3b22)];
+
+    // Classic basketball layout: two bowed side seams, a centre meridian and a bold equator.
+    objects.push(
+      this.polyline(this.sampleCurve((t) => ({
+        x: -r * 0.43 * Math.sin(Math.PI * t),
+        y: -r * 0.94 + t * r * 1.88,
+      }), 24), seamWidth, seamColor),
+      this.polyline(this.sampleCurve((t) => ({
+        x: r * 0.43 * Math.sin(Math.PI * t),
+        y: -r * 0.94 + t * r * 1.88,
+      }), 24), seamWidth, seamColor),
+      this.polyline([
+        { x: 0, y: -r * 0.94 },
+        { x: 0, y: r * 0.94 },
+      ], seamWidth, seamColor),
+      this.polyline(this.sampleCurve((t) => ({
+        x: -r * 0.94 + t * r * 1.88,
+        y: r * 0.025 * Math.sin(t * Math.PI * 2),
+      }), 24), seamWidth, seamColor),
+      this.scene.add.ellipse(-r * 0.3, -r * 0.4, r * 0.5, r * 0.22, 0xffcf91, 0.34),
+    );
     return objects;
   }
 

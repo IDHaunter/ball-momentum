@@ -33,3 +33,10 @@
 - Glass, breakable, and spring-surface combinations are rejected for movable boxes. Movable boxes are intentionally configured independently from spring surfaces.
 - Added an arrow-marked teal crate and a 150 px pit to Physics Sandbox.
 - Added regression tests for impact energy threshold, top landing, momentum transfer, crate cleanup, incompatible level settings, and sandbox mapping.
+
+## Football and basketball skin visual polish — 2026-11-14
+
+- Reworked the in-game football pattern for the 36 px gameplay scale: a bold central pentagon, five surrounding dark panels, and lighter narrow connecting seams replace the previous star-like heavy spokes.
+- Simplified the in-game basketball to three high-contrast seam systems: two bowed side seams, a centre meridian, and a horizontal equator. Increased the seam width so the pattern remains legible while rolling.
+- Updated the Settings SVG previews to match the revised in-game designs.
+- Kept Smiley, Googly Eye, and Tiny Alien visuals unchanged; no skin IDs, save format, or gameplay behavior changed.

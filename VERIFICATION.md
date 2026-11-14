@@ -29,3 +29,12 @@ npm run test
 npm run build
 npm run test:e2e
 ```
+
+## Football and basketball skin visual polish — 2026-11-14
+
+- Updated only `src/rendering/BallRenderer.ts`, `src/player/BallSkin.ts`, this report, and the patch notes.
+- Strict TypeScript check passed for `BallSkin.ts` and `BallRenderer.ts` using a minimal local Phaser API declaration shim.
+- TypeScript syntax transpilation passed for all 94 source and test `.ts` files.
+- Rendered the revised SVG previews at Settings size (72 px) and at approximately gameplay size (36 px) for visual inspection.
+- No changes were made to the smiley, eye, or alien skin implementations, the Sandbox JSON, or gameplay/physics behavior.
+- Full Vitest and Vite production build were not run because project dependencies are not installed in this environment.
