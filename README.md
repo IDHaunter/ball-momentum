@@ -74,7 +74,7 @@ The web build is intentionally platform-neutral and can later be wrapped with Ca
 
 Any non-glass terrain solid can expose one or more spring surfaces. A spring surface launches the ball along that surface's outward normal while preserving most of its tangential velocity. The configured `impulse` is a fixed outgoing normal speed in pixels per second, not an additive velocity delta; repeated contacts therefore reproduce the same launch energy rather than compounding it.
 
-For boxes, use `side` values `top`, `right`, `bottom`, or `left`. For polygons, `edge` is the zero-based index of the first vertex of the edge (`vertices[edge]` to `vertices[(edge + 1) % vertices.length]`). Each assignment requires a positive `impulse` value up to 3000 px/s. A spring fires once when the ball acquires a new contact with that face; it is armed again after separation. The impulse sets a fixed outgoing normal speed, so repeated contacts do not accumulate more normal energy. Most tangential velocity is preserved.
+For boxes, use `side` values `top`, `right`, `bottom`, or `left`. For polygons, `edge` is the zero-based index of the first vertex of the edge (`vertices[edge]` to `vertices[(edge + 1) % vertices.length]`). Each assignment requires a positive `impulse` value up to 3000 px/s. A spring fires once when the ball acquires a new contact with that face; it is armed again after separation. The impulse sets a fixed outgoing normal speed, so repeated contacts do not accumulate more normal energy. Most tangential velocity is preserved. Horizontal spring faces preserve the ball's spin; vertical and inclined spring faces reverse spin using the same retention coefficient as ordinary wall impacts.
 
 ```json
 {

@@ -331,6 +331,61 @@ describe('BallController', () => {
     ball.dispose();
   });
 
+  it('reverses spin on a vertical spring surface using wall spin retention', () => {
+    const world = new FakeWorld();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, new GameClock(), { x: 20, y: 20 });
+    ball.currentBody.setAngularVelocity(8);
+    ball.currentBody.setVelocity({ x: -500, y: 0 });
+
+    world.emit({
+      type: 'BALL_SPRING_IMPACT', terrainId: 'spring-step', surfaceId: 'spring-step:right',
+      normal: { x: 1, y: 0 }, incomingVelocity: { x: -500, y: 0 },
+      contactPoint: { x: 30, y: 20 }, impactSpeed: 500, impulse: 440,
+    });
+    ball.stepAfterPhysics();
+
+    expect(ball.snapshot.velocity.x).toBe(440);
+    expect(ball.snapshot.angularVelocity).toBeCloseTo(-8 * config.wallBounce.spinRetention);
+    ball.dispose();
+  });
+
+  it('reverses spin on an inclined spring surface', () => {
+    const world = new FakeWorld();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, new GameClock(), { x: 20, y: 20 });
+    const normal = { x: -0.6, y: -0.8 };
+    ball.currentBody.setAngularVelocity(-6);
+    ball.currentBody.setVelocity({ x: 300, y: 400 });
+
+    world.emit({
+      type: 'BALL_SPRING_IMPACT', terrainId: 'spring-ramp', surfaceId: 'spring-ramp:edge-1',
+      normal, incomingVelocity: { x: 300, y: 400 },
+      contactPoint: { x: 30, y: 20 }, impactSpeed: 500, impulse: 560,
+    });
+    ball.stepAfterPhysics();
+
+    expect(ball.snapshot.angularVelocity).toBeCloseTo(6 * config.wallBounce.spinRetention);
+    ball.dispose();
+  });
+
+  it('preserves spin on a horizontal spring surface', () => {
+    const world = new FakeWorld();
+    const ball = new BallController(world, createPhysicsConfig(), new GameClock(), { x: 20, y: 20 });
+    ball.currentBody.setAngularVelocity(7);
+    ball.currentBody.setVelocity({ x: 360, y: 0 });
+
+    world.emit({
+      type: 'BALL_SPRING_IMPACT', terrainId: 'spring-floor', surfaceId: 'spring-floor:top',
+      normal: { x: 0, y: -1 }, incomingVelocity: { x: 360, y: 0 },
+      contactPoint: { x: 20, y: 2 }, impactSpeed: 0, impulse: 640,
+    });
+    ball.stepAfterPhysics();
+
+    expect(ball.snapshot.angularVelocity).toBe(7);
+    ball.dispose();
+  });
+
   it('repeats the same spring launch energy without accumulating it', () => {
     const world = new FakeWorld();
     const clock = new GameClock();

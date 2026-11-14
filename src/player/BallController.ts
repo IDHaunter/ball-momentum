@@ -218,6 +218,16 @@ export class BallController {
       x: tangentX * this.config.springSurface.tangentRetention + impact.normal.x * impact.impulse,
       y: tangentY * this.config.springSurface.tangentRetention + impact.normal.y * impact.impulse,
     });
+
+    // Horizontal spring surfaces (top/bottom) preserve the current roll.
+    // Side and inclined surfaces reverse spin exactly like a solid wall.
+    // A small tolerance avoids reacting to floating-point noise in an otherwise
+    // horizontal normal; the retention is shared with ordinary wall impacts.
+    if (Math.abs(impact.normal.x) > 0.05) {
+      const angularVelocity = this.body.getSnapshot().angularVelocity;
+      this.body.setAngularVelocity(-angularVelocity * this.config.wallBounce.spinRetention);
+    }
+
     this.body.setAwake();
     this.contacts.clear();
     this.lastGrounded = false;

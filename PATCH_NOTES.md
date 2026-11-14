@@ -16,3 +16,10 @@
 - Canonicalized signed zero in `polygonEdgeOutwardNormal`, so clockwise and counter-clockwise winding return stable `{ x: 0, ... }` normals instead of sometimes returning `-0`.
 - Added regression coverage for schema issue formatting and signed-zero normalization.
 - No gameplay behavior, spring configuration, level geometry, or physics tuning was changed.
+
+## Spring surface spin behavior — 2026-11-14
+
+- Horizontal spring surfaces preserve the ball's current angular velocity.
+- Vertical and inclined spring surfaces reverse angular velocity using the same `wallBounce.spinRetention` coefficient as ordinary wall impacts.
+- Added controller regression tests for side-wall springs, inclined springs, and horizontal spring surfaces.
+- Updated the Physics Sandbox to the simplified layout supplied by the user: the triangle keeps only edge 1 spring-enabled, `sandbox-floor-d` is no longer spring-enabled, and spring-only hint decorations were removed.

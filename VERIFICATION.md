@@ -315,3 +315,23 @@ The owner reported one project typecheck error and one failing geometry unit tes
 3. Added regression coverage in `LevelValidator.test.ts` and made the geometry test explicitly assert that the reversed-winding result is not negative zero.
 
 The two reported failures are addressed in source. Dependency-backed full `npm run typecheck`, `npm run test`, and `npm run build` were not run in this packaging environment because project dependencies are not installed here; rerun those commands locally after extracting the updated archive.
+
+## Spring surface spin consistency — 2026-11-14
+
+- Updated `BallController.applyPendingSpringImpulse()` so a spring contact on a non-horizontal face reverses the ball's angular velocity using the same `wallBounce.spinRetention` coefficient as an ordinary wall impact.
+- Horizontal spring surfaces (top/bottom faces) intentionally preserve angular velocity, retaining the requested rolling behavior.
+- The orientation check uses `abs(normal.x) > 0.05`, which treats clearly inclined and vertical faces as non-horizontal while ignoring small floating-point deviations from a horizontal normal.
+- Added three `BallController` regression tests: vertical spring reverses spin; inclined spring reverses spin; horizontal spring preserves spin.
+- Applied the user's simplified `physics-sandbox.json`: `sandbox-triangle` keeps only spring edge `1`; `sandbox-floor-d` has no spring surface; spring-specific hint decorations were removed. The step's top and right springs remain.
+
+Validation performed in this environment:
+
+| Check | Result |
+|---|---|
+| Strict TypeScript check for `BallController.ts`, its imported source dependencies, and `BallController.test.ts` with a minimal Vitest declaration shim | Passed |
+| Compiled runtime checks using the actual project `BallController` class: vertical, inclined, and horizontal spring spin behavior | 3/3 passed |
+| TypeScript syntax transpilation (`src` and `tests`) | 88 files, 0 syntax errors |
+| Updated Physics Sandbox JSON parse and key spring-placement assertions | Passed |
+| ZIP archive integrity | Passed |
+
+The full Vitest runner and dependency-backed full project build were not run in this environment because project `node_modules` are not installed here. Expected unit-test total is 76 cases (73 existing + 3 spring-spin regression cases); rerun `npm run typecheck`, `npm run test`, and `npm run build` on the development machine to confirm the complete local toolchain.
