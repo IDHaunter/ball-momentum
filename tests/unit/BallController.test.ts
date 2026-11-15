@@ -6,6 +6,7 @@ import { BallController } from '../../src/player/BallController';
 import type { IPhysicsBody } from '../../src/physics/IPhysicsBody';
 import type { IPhysicsWorld } from '../../src/physics/IPhysicsWorld';
 import type { BallPhysicsOptions, MovableBoxOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from '../../src/physics/PhysicsTypes';
+import { polygonEdgeOutwardNormal } from '../../src/utils/GeometryUtils';
 
 class FakeBody implements IPhysicsBody {
   position: Vector2;
@@ -444,6 +445,45 @@ describe('BallController', () => {
     expect(firstLaunchSpeed).toBe(520);
     expect(Math.abs(ball.snapshot.velocity.y)).toBe(520);
     ball.dispose();
+  });
+
+
+  it('allows jumping from either sloped side of the first-level stone triangle', () => {
+    // Regression for level-01 triangle-ramp: atan(220 / 150) = 55.71 degrees.
+    // Its two sloping faces must both qualify as ground support.
+    const triangle = [
+      { x: 2500, y: 850 },
+      { x: 2650, y: 630 },
+      { x: 2800, y: 850 },
+    ];
+
+    for (const edgeIndex of [0, 1]) {
+      const world = new FakeWorld();
+      const clock = new GameClock();
+      const ball = new BallController(world, createPhysicsConfig(), clock, { x: 20, y: 20 });
+      const normal = polygonEdgeOutwardNormal(triangle, edgeIndex);
+
+      world.emit({
+        type: 'BALL_TERRAIN_CONTACT_ACTIVE',
+        terrainId: `triangle-ramp-edge-${edgeIndex}`,
+        supportNormal: normal,
+        impactSpeed: 0,
+      });
+      ball.stepAfterPhysics();
+      expect(ball.state.grounded).toBe(true);
+
+      const jump: PlayerAction = { type: 'JUMP', strength: 1, source: 'keyboard', timestamp: 0 };
+      let launched = false;
+      for (let frame = 0; frame < 6; frame += 1) {
+        clock.advance(1000 / 60);
+        launched = ball.stepBeforePhysics(frame === 0 ? [jump] : []) || launched;
+      }
+
+      expect(launched).toBe(true);
+      expect(ball.snapshot.velocity.y).toBeLessThan(0);
+      expect(ball.state.airBoostAvailable).toBe(true);
+      ball.dispose();
+    }
   });
 
 });

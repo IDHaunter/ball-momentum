@@ -89,3 +89,11 @@
 - Kept a subtle speed/impact expression by smoothly interpolating a very small horizontal/vertical scale change on the cached mouth image.
 - Left the Settings preview SVG, Smiley gradient, eye/pupil animation, other skins, physics, Sandbox, and gameplay mechanics unchanged.
 - Added focused `SmileyMouth` Canvas drawing tests and updated animation tests to assert stable smile behavior.
+
+
+## First-level triangle jump support — 2026-11-15
+
+- Raised the default maximum ground-support angle from 55 to 60 degrees. The first-level stone triangle has two sloped faces at approximately 55.71 degrees, so its outward normals were just outside the old grounded threshold even though the Sandbox triangle (approximately 54.74 degrees) was inside it.
+- Updated the GameApplication fallback physics configuration to use the same 60-degree setting, so resetting physics defaults does not reintroduce the bug.
+- Added GroundContactTracker regression coverage for both sloped faces of the exact `level-01.json` triangle and BallController integration coverage confirming the player can jump from either side.
+- No terrain geometry, material settings, collision response, or Sandbox content was changed.

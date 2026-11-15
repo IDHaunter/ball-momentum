@@ -9,7 +9,9 @@ export const PHYSICS_DEFAULTS: PhysicsConfig = {
   jump: { baseVelocity: 540, minStrengthMultiplier: 0.85, maxStrengthMultiplier: 1.15, coyoteTimeMs: 100, bufferTimeMs: 120, anticipationMs: 60 },
   airBoost: { velocityDelta: 210, minStrengthMultiplier: 0.8, maxStrengthMultiplier: 1.2, earliestAfterTakeoffMs: 60, latestAfterTakeoffMs: 1000, sweetSpotAfterTakeoffMs: 440, sweetSpotToleranceMs: 180, edgeTimingMultiplier: 0.65, maxUpwardSpeed: 900 },
   limits: { maxHorizontalSpeed: 840, maxUpwardSpeed: 900, maxDownwardSpeed: 1100 },
-  groundContact: { maxGroundAngleDegrees: 55, supportGraceMs: 35 },
+  // The first level's stone triangle has 55.71-degree slopes. Keep a 60-degree
+  // limit so both faces remain valid support surfaces for rolling and jumping.
+  groundContact: { maxGroundAngleDegrees: 60, supportGraceMs: 35 },
   wallBounce: { restitution: 0.86, tangentRetention: 0.98, spinRetention: 0.85, minimumImpactSpeed: 10, minimumOutgoingSpeed: 125, separationDistancePx: 3 },
   landingBounce: { restitution: 0.52, tangentRetention: 0.96, minimumImpactSpeed: 45, minimumOutgoingSpeed: 35, maxBounces: 3, separationDistancePx: 1.5 },
   breakableTerrain: { velocityRetention: 0.72, separationDistancePx: 5 },
