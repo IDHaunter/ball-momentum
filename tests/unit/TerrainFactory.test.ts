@@ -156,6 +156,35 @@ describe('TerrainFactory movable boxes', () => {
       friction: 0.45, frictionStatic: 0.65, restitution: 0.01,
     }]);
   });
+
+  it('passes an optional surface texture to movable block rendering', () => {
+    const captured: Array<Parameters<IPhysicsWorld['createMovableBox']>[0]> = [];
+    const world = {
+      createStaticBox: () => undefined,
+      createStaticPolygon: () => undefined,
+      createMovableBox: (definition: Parameters<IPhysicsWorld['createMovableBox']>[0]) => captured.push(definition),
+      removeTerrainBody: () => undefined,
+      createSensor: () => undefined,
+      removeLevelBodies: () => undefined,
+      step: () => undefined,
+      setGravity: () => undefined,
+      setTimeScale: () => undefined,
+      onPhysicsEvent: () => () => undefined,
+      createBall: () => { throw new Error('not used'); },
+    } as unknown as IPhysicsWorld;
+    const renderer = { render: () => undefined } as unknown as TerrainRenderer;
+    new TerrainFactory(world, renderer).build({
+      schemaVersion: 1, id: 'textured-movable-test', title: 'Textured movable test',
+      world: { width: 500, height: 400, killPlaneY: 360 }, spawn: { x: 20, y: 20 }, triggers: [],
+      materials: { stone: { friction: 0.45, frictionStatic: 0.65, restitution: 0.01 } },
+      solids: [{
+        id: 'textured-crate', type: 'box', x: 100, y: 150, width: 60, height: 50, material: 'stone',
+        movable: { mass: 4, minimumImpactEnergy: 32_000 },
+        texture: { pattern: 'wood-grain', density: 0.9, opacity: 0.4, seed: 23 },
+      }],
+    });
+    expect(captured[0].texture).toMatchObject({ pattern: 'wood-grain', density: 0.9, opacity: 0.4, seed: 23 });
+  });
 });
 
 describe('TerrainFactory spring surfaces', () => {

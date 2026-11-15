@@ -21,7 +21,8 @@
       "y": 700,
       "width": 900,
       "height": 700,
-      "material": "normal"
+      "material": "normal",
+      "texture": "concrete-grain"
     },
     {
       "id": "sandbox-slope",
@@ -44,7 +45,8 @@
           1400
         ]
       ],
-      "material": "normal"
+      "material": "normal",
+      "texture": "stone-strata"
     },
     {
       "id": "sandbox-floor-b",
@@ -53,7 +55,8 @@
       "y": 880,
       "width": 300,
       "height": 520,
-      "material": "ice"
+      "material": "ice",
+      "texture": "ice-crystals"
     },
     {
       "id": "sandbox-movable-crate",
@@ -66,7 +69,8 @@
       "movable": {
         "mass": 4,
         "minimumImpactEnergy": 32000
-      }
+      },
+      "texture": "wood-grain"
     },
     {
       "id": "sandbox-bot-island",
@@ -75,7 +79,8 @@
       "y": 400,
       "width": 600,
       "height": 24,
-      "material": "stone"
+      "material": "stone",
+      "texture": "stone-fragments"
     },
     {
       "id": "sandbox-step",
@@ -94,7 +99,13 @@
           "side": "right",
           "impulse": 440
         }
-      ]
+      ],
+      "texture": {
+        "pattern": "stone-fragments",
+        "density": 1.05,
+        "opacity": 0.46,
+        "seed": 43
+      }
     },
     {
       "id": "sandbox-floor-c",
@@ -103,7 +114,8 @@
       "y": 880,
       "width": 800,
       "height": 520,
-      "material": "normal"
+      "material": "normal",
+      "texture": "concrete-grain"
     },
     {
       "id": "sandbox-triangle",
@@ -128,7 +140,8 @@
           "edge": 1,
           "impulse": 560
         }
-      ]
+      ],
+      "texture": "rubber-dots"
     },
     {
       "id": "sandbox-floor-d",
@@ -137,7 +150,8 @@
       "y": 880,
       "width": 1600,
       "height": 520,
-      "material": "normal"
+      "material": "normal",
+      "texture": "concrete-grain"
     },
     {
       "id": "sandbox-glass-wall",
@@ -150,7 +164,8 @@
       "breakable": {
         "thresholdEnergy": 140000,
         "velocityRetention": 0.72
-      }
+      },
+      "texture": "glass-facets"
     },
     {
       "id": "sandbox-glass-triangle",
@@ -173,6 +188,12 @@
       "breakable": {
         "thresholdEnergy": 185000,
         "velocityRetention": 0.7
+      },
+      "texture": {
+        "pattern": "glass-facets",
+        "density": 1.25,
+        "opacity": 0.68,
+        "seed": 17
       }
     },
     {
@@ -186,7 +207,8 @@
       "breakable": {
         "thresholdEnergy": 145000,
         "velocityRetention": 0.72
-      }
+      },
+      "texture": "glass-facets"
     },
     {
       "id": "sandbox-glass-stack-top",
@@ -199,7 +221,8 @@
       "breakable": {
         "thresholdEnergy": 120000,
         "velocityRetention": 0.72
-      }
+      },
+      "texture": "glass-facets"
     },
     {
       "id": "sandbox-bomb-pushable",
@@ -212,7 +235,8 @@
       "movable": {
         "mass": 3,
         "minimumImpactEnergy": 25000
-      }
+      },
+      "texture": "wood-grain"
     },
     {
       "id": "sandbox-bomb-glass",
@@ -225,7 +249,8 @@
       "breakable": {
         "thresholdEnergy": 28000,
         "velocityRetention": 0.7
-      }
+      },
+      "texture": "glass-facets"
     }
   ],
   "triggers": [

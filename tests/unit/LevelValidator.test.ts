@@ -206,3 +206,33 @@ describe('LevelValidator', () => {
   });
 
 });
+
+describe('surface textures', () => {
+  const validator = new LevelValidator();
+
+  it('accepts named patterns and per-solid texture overrides', () => {
+    const level = {
+      ...validLevel,
+      solids: [
+        { ...validLevel.solids[0], texture: 'stone-fragments' },
+        {
+          id: 'ice-slope', type: 'polygon',
+          vertices: [[100, 100], [180, 40], [260, 100]],
+          texture: { pattern: 'ice-crystals', density: 1.4, opacity: 0.62, seed: 17 },
+        },
+      ],
+    };
+    const validated = validator.validate(level);
+    expect(validated.solids[0].texture).toBe('stone-fragments');
+    expect(validated.solids[1].texture).toMatchObject({ pattern: 'ice-crystals', density: 1.4, opacity: 0.62, seed: 17 });
+  });
+
+  it('rejects unknown patterns and invalid texture tuning values', () => {
+    const unknown = { ...validLevel, solids: [{ ...validLevel.solids[0], texture: 'lava-cracks' }] };
+    const invalidDensity = { ...validLevel, solids: [{ ...validLevel.solids[0], texture: { pattern: 'stone-fragments', density: 5 } }] };
+    const invalidOpacity = { ...validLevel, solids: [{ ...validLevel.solids[0], texture: { pattern: 'stone-fragments', opacity: 0 } }] };
+    expect(() => validator.validate(unknown)).toThrow(/texture/);
+    expect(() => validator.validate(invalidDensity)).toThrow(/density/);
+    expect(() => validator.validate(invalidOpacity)).toThrow(/opacity/);
+  });
+});

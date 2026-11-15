@@ -47,6 +47,7 @@ export class TerrainFactory {
             friction: material.friction,
             frictionStatic: material.frictionStatic,
             restitution: material.restitution,
+            ...(solid.texture ? { texture: solid.texture } : {}),
           });
         } else {
           this.world.createStaticBox({

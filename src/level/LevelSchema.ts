@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SURFACE_TEXTURE_NAMES } from './SurfaceTextureTypes';
 
 const materialSchema = z.object({
   friction: z.number().min(0).max(1),
@@ -7,6 +8,17 @@ const materialSchema = z.object({
 });
 
 const springImpulseSchema = z.number().finite().positive().max(3000);
+
+const surfaceTextureNameSchema = z.enum(SURFACE_TEXTURE_NAMES);
+const surfaceTextureSchema = z.union([
+  surfaceTextureNameSchema,
+  z.object({
+    pattern: surfaceTextureNameSchema,
+    density: z.number().finite().min(0.25).max(3).optional(),
+    opacity: z.number().finite().min(0.05).max(1).optional(),
+    seed: z.number().int().optional(),
+  }),
+]);
 
 const boxSpringSurfaceSchema = z.object({
   side: z.enum(['top', 'right', 'bottom', 'left']),
@@ -35,6 +47,7 @@ const boxSchema = z.object({
   breakable: breakableSchema.optional(),
   springSurfaces: z.array(boxSpringSurfaceSchema).optional(),
   movable: movableSchema.optional(),
+  texture: surfaceTextureSchema.optional(),
 });
 
 const polygonSchema = z.object({
@@ -43,6 +56,7 @@ const polygonSchema = z.object({
   material: z.string().optional(),
   breakable: breakableSchema.optional(),
   springSurfaces: z.array(polygonSpringSurfaceSchema).optional(),
+  texture: surfaceTextureSchema.optional(),
 });
 
 const botSchema = z.object({

@@ -8,6 +8,9 @@ import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
 import { directionFromVelocity, hasPatrolEdgeAhead, hasPatrolObstacleAhead } from './BotPatrol';
 import { calculateBlastEnergy, calculateBlastVelocityDelta, distanceToPatrolGeometry } from './BombExplosion';
+import type Phaser from 'phaser';
+import { createSurfaceTextureCanvas, createSurfaceTextureKey } from '../rendering/SurfaceTextureGenerator';
+import { hashSurfaceTextureSeed } from '../rendering/SurfaceTextureCatalog';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -117,6 +120,8 @@ interface BombRecord {
 interface MovableBlockRecord {
   object: MatterGameObjectLike;
   marker: MatterTextLike;
+  textureOverlay: Phaser.GameObjects.Image | null;
+  textureKey: string | null;
   mass: number;
   minimumImpactEnergy: number;
   restitution: number;
@@ -260,6 +265,29 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       .rectangle(centerX, centerY, definition.width, definition.height, 0x397f8d, 0.98)
       .setStrokeStyle(3, 0xf0c66d, 1)
       .setDepth(4);
+    let textureOverlay: Phaser.GameObjects.Image | null = null;
+    let textureKey: string | null = null;
+    if (definition.texture) {
+      const phaserScene = this.scene as Phaser.Scene;
+      textureKey = createSurfaceTextureKey('movable', definition.id, definition.texture);
+      createSurfaceTextureCanvas(
+        phaserScene,
+        textureKey,
+        definition.width,
+        definition.height,
+        [
+          { x: 0, y: 0 },
+          { x: definition.width, y: 0 },
+          { x: definition.width, y: definition.height },
+          { x: 0, y: definition.height },
+        ],
+        definition.texture,
+        hashSurfaceTextureSeed(`movable:${definition.id}`),
+      );
+      textureOverlay = phaserScene.add.image(centerX, centerY, textureKey)
+        .setDisplaySize(definition.width, definition.height)
+        .setDepth(4.5);
+    }
     const object = this.factory.gameObject(visual, rawBody, true);
     object.body.label = `MOVABLE:${definition.id}`;
     // Keep the crate in place until a sufficiently energetic side impact.
@@ -282,6 +310,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.movableBlocks.set(definition.id, {
       object,
       marker,
+      textureOverlay,
+      textureKey,
       mass: definition.mass,
       minimumImpactEnergy: definition.minimumImpactEnergy,
       restitution: definition.restitution,
@@ -468,7 +498,13 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     if (index < 0) return;
     const [object] = this.levelObjects.splice(index, 1);
     this.metadata.delete(object.body);
-    this.movableBlocks.get(id)?.marker.destroy();
+    const movable = this.movableBlocks.get(id);
+    movable?.marker.destroy();
+    movable?.textureOverlay?.destroy();
+    if (movable?.textureKey) {
+      const textures = (this.scene as Phaser.Scene).textures;
+      if (textures.exists(movable.textureKey)) textures.remove(movable.textureKey);
+    }
     this.movableBlocks.delete(id);
     object.destroy();
   }
@@ -478,7 +514,14 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       this.metadata.delete(object.body);
       object.destroy();
     }
-    for (const block of this.movableBlocks.values()) block.marker.destroy();
+    for (const block of this.movableBlocks.values()) {
+      block.marker.destroy();
+      block.textureOverlay?.destroy();
+      if (block.textureKey) {
+        const textures = (this.scene as Phaser.Scene).textures;
+        if (textures.exists(block.textureKey)) textures.remove(block.textureKey);
+      }
+    }
     this.movableBlocks.clear();
     for (const bot of this.bots.values()) { bot.eyes.destroy(); bot.mouth.destroy(); }
     this.bots.clear();
@@ -1011,6 +1054,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         continue;
       }
       block.marker.setPosition(position.x, position.y).setRotation(block.object.body.angle);
+      block.textureOverlay?.setPosition(position.x, position.y).setRotation(block.object.body.angle);
     }
   }
 }

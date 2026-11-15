@@ -1,3 +1,5 @@
+import type { SurfaceTextureAssignment } from './SurfaceTextureTypes';
+
 export interface TerrainMaterialDefinition {
   friction: number;
   frictionStatic: number;
@@ -57,11 +59,11 @@ export interface BotDefinition {
 
 export interface BoxSolidDefinition {
   id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string;
-  breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition;
+  breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition; texture?: SurfaceTextureAssignment;
 }
 
 export interface PolygonSolidDefinition {
-  id: string; type: 'polygon'; vertices: [number, number][]; material?: string; breakable?: BreakableDefinition; springSurfaces?: PolygonSpringSurfaceDefinition[];
+  id: string; type: 'polygon'; vertices: [number, number][]; material?: string; breakable?: BreakableDefinition; springSurfaces?: PolygonSpringSurfaceDefinition[]; texture?: SurfaceTextureAssignment;
 }
 
 export type SolidDefinition = BoxSolidDefinition | PolygonSolidDefinition;

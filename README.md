@@ -193,3 +193,7 @@ The Physics Sandbox includes a small island over a pit with two differently weig
 ## In-game settings and safe return to menu
 
 Settings are available from the main menu, the pause menu, and the level-complete panel. Opening Settings while playing keeps the game paused; saving or closing Settings returns to the menu it was opened from, so the current level, player position, checkpoint, and physics state are preserved. Choosing Main menu opens a confirmation dialog. Confirming discards the current run and clears level geometry, physics bodies, bots, movable blocks, ball visuals, and transient effects before showing the main menu. Previously completed level records and saved preferences are retained.
+
+## Surface textures
+
+Level solids can optionally define a procedural `texture` independently of their physics `material`. See [`SURFACE_TEXTURES.md`](./SURFACE_TEXTURES.md) for the built-in catalog, per-solid options (`density`, `opacity`, `seed`), and JSON examples. Textures are CanvasTexture overlays clipped to each box or polygon; the movable-block overlay follows its physics body.
