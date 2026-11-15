@@ -21,6 +21,8 @@ Open the local URL printed by Vite. Use mouse/touch swipes or the keyboard:
 - Swipe down / Down / S / Space: jump (or buffer a jump)
 - Swipe up / Up / W: one timed mid-air boost after takeoff
 - Escape / P: pause or resume
+- Pause menu: Settings can be opened without leaving the current level; closing Settings returns to the pause menu
+- Main menu: leaving an active run asks for confirmation and clears the current level scene
 - R: restart the current level
 - F3: toggle the developer panel
 
@@ -183,3 +185,7 @@ Levels can define up to 24 autonomous rolling bots in the optional top-level `bo
 `speed` is in pixels per second; `mass` is the Matter body mass. `direction` is `1` (right) or `-1` (left). If `patrolRange: { minX, maxX }` is present, the bot reverses at those horizontal limits. Otherwise, it detects the supporting terrain ahead and reverses before walking off a platform; horizontal collisions with walls also make it turn around. Two bots turn away from one another on contact. A player-ball collision is resolved by Matter using both bodies' masses and restitution; the bot briefly preserves its physical separation velocity before resuming patrol in the direction it was pushed. Bots fall naturally into pits and are removed after crossing `world.killPlaneY`.
 
 The Physics Sandbox includes a small island over a pit with two differently weighted patrol bots, useful for testing edge turnaround, bot-to-bot contact, and player-to-bot impacts.
+
+## In-game settings and safe return to menu
+
+Settings are available from the main menu, the pause menu, and the level-complete panel. Opening Settings while playing keeps the game paused; saving or closing Settings returns to the menu it was opened from, so the current level, player position, checkpoint, and physics state are preserved. Choosing Main menu opens a confirmation dialog. Confirming discards the current run and clears level geometry, physics bodies, bots, movable blocks, ball visuals, and transient effects before showing the main menu. Previously completed level records and saved preferences are retained.

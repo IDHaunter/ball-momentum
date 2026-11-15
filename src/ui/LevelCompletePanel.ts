@@ -4,7 +4,7 @@ export class LevelCompletePanel {
   private readonly panel: HTMLElement;
   private readonly title: HTMLElement;
   private readonly nextButton: HTMLButtonElement;
-  constructor(root: HTMLElement, callbacks: { replay(): void; next(): void; menu(): void }) {
+  constructor(root: HTMLElement, callbacks: { replay(): void; next(): void; settings(): void; menu(): void }) {
     this.panel = createPanel(root, 'complete-menu');
     this.title = createElement('h2', 'panel-title', 'Level complete!');
     this.nextButton = createButton('Play next level', callbacks.next, 'button button-primary');
@@ -12,7 +12,8 @@ export class LevelCompletePanel {
       createElement('p', 'eyebrow', 'NICE RUN'), this.title,
       this.nextButton,
       createButton('Replay', callbacks.replay, 'button button-secondary'),
-      createButton('Main menu', callbacks.menu, 'button button-ghost'),
+      createButton('Settings', callbacks.settings, 'button button-ghost'),
+      createButton('Main menu', callbacks.menu, 'button button-danger button-ghost'),
     );
     this.panel.hidden = true;
   }

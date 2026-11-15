@@ -6,6 +6,8 @@ import { GameHud } from '../ui/GameHud';
 import { PauseMenu } from '../ui/PauseMenu';
 import { LevelCompletePanel } from '../ui/LevelCompletePanel';
 import { SettingsPanel } from '../ui/SettingsPanel';
+import { SettingsNavigation, type SettingsOrigin } from '../ui/SettingsNavigation';
+import { ExitConfirmationPanel } from '../ui/ExitConfirmationPanel';
 import { DeveloperPanel } from '../ui/DeveloperPanel';
 import { LocalStorageProgressRepository } from '../platform/Storage/LocalStorageProgressRepository';
 import { BrowserLifecycleAdapter } from '../platform/BrowserLifecycleAdapter';
@@ -18,11 +20,16 @@ export class GameApplication {
   private readonly pause: PauseMenu;
   private readonly complete: LevelCompletePanel;
   private readonly settings: SettingsPanel;
+  private readonly exitConfirmation: ExitConfirmationPanel;
+  private readonly settingsNavigation = new SettingsNavigation();
+  private exitConfirmationReturnTarget: 'pause' | 'complete' = 'pause';
   private readonly developer: DeveloperPanel;
   private readonly progress = new LocalStorageProgressRepository();
   private readonly lifecycle = new BrowserLifecycleAdapter();
   private readonly unsubscribers: Array<() => void> = [];
   private autoPaused = false;
+  private menuOverlayActive = false;
+  private debugPanelEnabled = false;
 
   constructor(gameContainer: HTMLElement, uiRoot: HTMLElement) {
     const created = createGame(gameContainer);
@@ -33,7 +40,7 @@ export class GameApplication {
     this.menu = new MainMenu(uiRoot, {
       start: () => void this.registry.gameplayScene?.startLevel('level-01'),
       sandbox: () => void this.registry.gameplayScene?.startLevel('physics-sandbox'),
-      settings: () => { this.menu.hide(); this.settings.show(); },
+      settings: () => this.openSettings('main-menu'),
     });
     this.hud = new GameHud(uiRoot, {
       pause: () => this.registry.gameplayScene?.pauseGame(),
@@ -42,12 +49,14 @@ export class GameApplication {
     this.pause = new PauseMenu(uiRoot, {
       resume: () => this.registry.gameplayScene?.resumeGame(),
       restart: () => void this.registry.gameplayScene?.restartLevel(),
-      menu: () => this.registry.gameplayScene?.returnToMenu(),
+      settings: () => this.openSettings('pause'),
+      menu: () => this.requestMainMenu(),
     });
     this.complete = new LevelCompletePanel(uiRoot, {
       replay: () => void this.registry.gameplayScene?.restartLevel(),
       next: () => void this.registry.gameplayScene?.nextLevel(),
-      menu: () => this.registry.gameplayScene?.returnToMenu(),
+      settings: () => this.openSettings('complete'),
+      menu: () => this.requestMainMenu(),
     });
     this.settings = new SettingsPanel(uiRoot, {
       initial: this.progress.getPreferences(),
@@ -55,8 +64,23 @@ export class GameApplication {
         this.progress.savePreferences(value);
         document.documentElement.dataset.reducedMotion = String(value.reducedMotion);
         this.registry.gameplayScene?.setBallSkin(value.ballSkin);
+        this.registry.gameplayScene?.setReducedMotion(value.reducedMotion);
       },
-      close: () => { this.settings.hide(); this.menu.show(); },
+      close: () => this.closeSettings(),
+    });
+    this.exitConfirmation = new ExitConfirmationPanel(uiRoot, {
+      confirm: () => {
+        this.exitConfirmation.hide();
+        this.menuOverlayActive = false;
+        this.registry.gameplayScene?.setMenuOverlayActive(false);
+        this.registry.gameplayScene?.returnToMenu();
+      },
+      cancel: () => {
+        this.exitConfirmation.hide();
+        this.menuOverlayActive = false;
+        this.registry.gameplayScene?.setMenuOverlayActive(false);
+        this.restoreExitConfirmationOrigin();
+      },
     });
     this.developer = new DeveloperPanel(uiRoot, {
       change: (path, value) => this.registry.gameplayScene?.applyDebugSetting(path, value),
@@ -71,8 +95,11 @@ export class GameApplication {
       this.registry.events.on('completed', ({ title, hasNext }) => { this.complete.setTitle(title); this.complete.setNextAvailable(hasNext); }),
       this.registry.events.on('boostChanged', ({ available, used }) => this.hud.setBoost(available, used)),
       this.registry.events.on('debugChanged', ({ enabled }) => {
-        if (enabled) { this.developer.setValues(this.registry.gameplayScene?.physicsSettings ?? this.defaultPhysicsFallback()); this.developer.show(); }
-        else this.developer.hide();
+        this.debugPanelEnabled = enabled;
+        if (enabled && !this.menuOverlayActive) {
+          this.developer.setValues(this.registry.gameplayScene?.physicsSettings ?? this.defaultPhysicsFallback());
+          this.developer.show();
+        } else this.developer.hide();
       }),
       this.registry.events.on('error', ({ message }) => this.showError(message)),
     );
@@ -84,12 +111,14 @@ export class GameApplication {
     });
     this.lifecycle.onResume(() => {
       if (this.autoPaused && this.registry.flow.state === 'PAUSED') {
+        const scene = this.registry.gameplayScene;
         this.autoPaused = false;
-        this.registry.gameplayScene?.resumeGame();
+        if (!scene?.isMenuOverlayActive) scene?.resumeGame();
       }
     });
     this.renderState('MAIN_MENU');
     if (new URLSearchParams(window.location.search).get('debug') === '1') {
+      this.debugPanelEnabled = true;
       this.developer.setValues(this.registry.gameplayScene?.physicsSettings ?? this.defaultPhysicsFallback());
       this.developer.show();
     }
@@ -102,11 +131,73 @@ export class GameApplication {
   }
 
   private renderState(state: string): void {
-    this.menu.hide(); this.hud.hide(); this.pause.hide(); this.complete.hide();
-    if (state === 'MAIN_MENU') this.menu.show();
-    else if (state === 'PLAYING' || state === 'PAUSED' || state === 'RESPAWNING') this.hud.show();
+    this.menu.hide();
+    this.hud.hide();
+    this.pause.hide();
+    this.complete.hide();
+    this.settings.hide();
+    this.exitConfirmation.hide();
+    this.menuOverlayActive = false;
+    this.registry.gameplayScene?.setMenuOverlayActive(false);
+
+    if (state === 'MAIN_MENU') {
+      this.menu.show();
+      this.developer.hide();
+    } else {
+      if (state === 'PLAYING' || state === 'PAUSED' || state === 'RESPAWNING') this.hud.show();
+      if (this.debugPanelEnabled) {
+        this.developer.setValues(this.registry.gameplayScene?.physicsSettings ?? this.defaultPhysicsFallback());
+        this.developer.show();
+      } else this.developer.hide();
+    }
     if (state === 'PAUSED') this.pause.show();
     if (state === 'LEVEL_COMPLETE') this.complete.show();
+  }
+
+  private openSettings(origin: SettingsOrigin): void {
+    this.settingsNavigation.openFrom(origin);
+    this.menuOverlayActive = true;
+    this.developer.hide();
+    this.menu.hide();
+    this.hud.hide();
+    this.pause.hide();
+    this.complete.hide();
+    this.registry.gameplayScene?.setMenuOverlayActive(true);
+    this.settings.show();
+  }
+
+  private closeSettings(): void {
+    this.settings.hide();
+    this.menuOverlayActive = false;
+    this.registry.gameplayScene?.setMenuOverlayActive(false);
+    if (this.debugPanelEnabled) this.developer.show();
+    const origin = this.settingsNavigation.closeTo();
+    if (origin === 'main-menu') this.menu.show();
+    else if (origin === 'pause') {
+      this.hud.show();
+      this.pause.show();
+    } else this.complete.show();
+  }
+
+  private requestMainMenu(): void {
+    this.menuOverlayActive = true;
+    this.developer.hide();
+    this.exitConfirmationReturnTarget = this.registry.flow.state === 'LEVEL_COMPLETE' ? 'complete' : 'pause';
+    this.hud.hide();
+    this.pause.hide();
+    this.complete.hide();
+    this.registry.gameplayScene?.setMenuOverlayActive(true);
+    this.exitConfirmation.show();
+  }
+
+  private restoreExitConfirmationOrigin(): void {
+    if (this.debugPanelEnabled) this.developer.show();
+    if (this.exitConfirmationReturnTarget === 'pause') {
+      this.hud.show();
+      this.pause.show();
+    } else {
+      this.complete.show();
+    }
   }
 
   private hideError(): void {

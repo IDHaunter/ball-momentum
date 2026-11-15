@@ -17,5 +17,7 @@ export class BackgroundRenderer {
     }
   }
 
+  clear(): void { this.graphics.clear(); }
+
   destroy(): void { this.graphics.destroy(); }
 }

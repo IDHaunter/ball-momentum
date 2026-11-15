@@ -3,10 +3,19 @@ import type { SolidDefinition } from '../level/LevelTypes';
 
 export class EffectsRenderer {
   private lastWallImpactAt = -Infinity;
+  private readonly activeEffects = new Set<Phaser.GameObjects.GameObject>();
 
   constructor(private readonly scene: Phaser.Scene, private reducedMotion = false) {}
 
   setReducedMotion(enabled: boolean): void { this.reducedMotion = enabled; }
+
+  clear(): void {
+    for (const effect of [...this.activeEffects]) {
+      this.activeEffects.delete(effect);
+      this.scene.tweens.killTweensOf(effect);
+      effect.destroy();
+    }
+  }
 
   wallImpact(x: number, y: number, normal: { x: number; y: number }, intensity: number): void {
     if (this.reducedMotion) return;
@@ -21,13 +30,13 @@ export class EffectsRenderer {
       const tangentOffset = (Math.random() - 0.5) * (10 + strength * 14);
       const startX = x + normal.x * 2 + tangent.x * tangentOffset;
       const startY = y + normal.y * 2 + tangent.y * tangentOffset;
-      const particle = this.scene.add.circle(
+      const particle = this.trackEffect(this.scene.add.circle(
         startX,
         startY,
         1.5 + Math.random() * 2.2,
         Math.random() > 0.5 ? 0xb7c2cc : 0xd0c7b5,
         0.78,
-      ).setDepth(6);
+      ).setDepth(6));
       const distance = 14 + Math.random() * (18 + strength * 24);
       this.scene.tweens.add({
         targets: particle,
@@ -37,7 +46,7 @@ export class EffectsRenderer {
         scaleX: 0.25,
         scaleY: 0.25,
         duration: 180 + Math.random() * 160,
-        onComplete: () => particle.destroy(),
+        onComplete: () => this.finishEffect(particle),
       });
     }
   }
@@ -67,13 +76,13 @@ export class EffectsRenderer {
       const startX = minX + Math.random() * (maxX - minX);
       const startY = minY + Math.random() * (maxY - minY);
       const size = 3 + Math.random() * 7;
-      const shard = this.scene.add.triangle(
+      const shard = this.trackEffect(this.scene.add.triangle(
         startX, startY,
         -size, -size * 0.65,
         size * (0.65 + Math.random() * 0.4), 0,
         -size * 0.2, size,
         0x8cecff, 0.82,
-      ).setDepth(8);
+      ).setDepth(8));
       shard.setStrokeStyle(1, 0xe4fcff, 0.9);
       const angle = Math.atan2(startY - centerY, startX - centerX) + (Math.random() - 0.5) * 0.9;
       const distance = span * (0.7 + Math.random() * 1.4);
@@ -87,7 +96,7 @@ export class EffectsRenderer {
         scaleY: 0.12,
         duration: 380 + Math.random() * 320,
         ease: 'Quad.easeOut',
-        onComplete: () => shard.destroy(),
+        onComplete: () => this.finishEffect(shard),
       });
     }
   }
@@ -96,9 +105,9 @@ export class EffectsRenderer {
     if (this.reducedMotion) return;
     const tangentAngle = Math.atan2(normal.y, normal.x) + Math.PI / 2;
     const strength = Math.max(0.65, Math.min(1.6, impulse / 520));
-    const flash = this.scene.add.rectangle(x, y, 42 * strength, 6, 0xffdf88, 0.95)
+    const flash = this.trackEffect(this.scene.add.rectangle(x, y, 42 * strength, 6, 0xffdf88, 0.95)
       .setRotation(tangentAngle)
-      .setDepth(7);
+      .setDepth(7));
     flash.setScale(0.35, 1);
     this.scene.tweens.add({
       targets: flash,
@@ -106,7 +115,7 @@ export class EffectsRenderer {
       alpha: 0,
       duration: 190,
       ease: 'Quad.easeOut',
-      onComplete: () => flash.destroy(),
+      onComplete: () => this.finishEffect(flash),
     });
 
     const count = 5 + Math.round(strength * 3);
@@ -114,13 +123,13 @@ export class EffectsRenderer {
       const spread = (Math.random() - 0.5) * 0.9;
       const angle = Math.atan2(normal.y, normal.x) + spread;
       const distance = 18 + Math.random() * 26 * strength;
-      const particle = this.scene.add.circle(
+      const particle = this.trackEffect(this.scene.add.circle(
         x + normal.x * 2,
         y + normal.y * 2,
         1.5 + Math.random() * 2,
         i % 2 === 0 ? 0xffe6a3 : 0x9cf4ff,
         0.9,
-      ).setDepth(7);
+      ).setDepth(7));
       this.scene.tweens.add({
         targets: particle,
         x: particle.x + Math.cos(angle) * distance,
@@ -129,7 +138,7 @@ export class EffectsRenderer {
         scale: 0.2,
         duration: 160 + Math.random() * 130,
         ease: 'Quad.easeOut',
-        onComplete: () => particle.destroy(),
+        onComplete: () => this.finishEffect(particle),
       });
     }
   }
@@ -138,15 +147,25 @@ export class EffectsRenderer {
     if (this.reducedMotion) return;
     const count = Math.max(2, Math.min(7, Math.round(intensity / 110)));
     for (let i = 0; i < count; i += 1) {
-      const particle = this.scene.add.circle(x + (Math.random() - 0.5) * 20, y, 2 + Math.random() * 2, 0xb7c8d9, 0.8).setDepth(4);
+      const particle = this.trackEffect(this.scene.add.circle(x + (Math.random() - 0.5) * 20, y, 2 + Math.random() * 2, 0xb7c8d9, 0.8).setDepth(4));
       this.scene.tweens.add({
         targets: particle,
         x: particle.x + (Math.random() - 0.5) * 50,
         y: particle.y - 10 - Math.random() * 20,
         alpha: 0,
         duration: 220 + Math.random() * 120,
-        onComplete: () => particle.destroy(),
+        onComplete: () => this.finishEffect(particle),
       });
     }
+  }
+
+  private trackEffect<T extends Phaser.GameObjects.GameObject>(effect: T): T {
+    this.activeEffects.add(effect);
+    return effect;
+  }
+
+  private finishEffect(effect: Phaser.GameObjects.GameObject): void {
+    if (!this.activeEffects.delete(effect)) return;
+    effect.destroy();
   }
 }

@@ -81,6 +81,7 @@ export class LevelBuilder {
   }
 
   clear(): void {
+    this.backgroundRenderer.clear();
     this.terrainRenderer.clear();
     this.triggerRenderer.render([]);
     for (const item of this.decorations) item.destroy();

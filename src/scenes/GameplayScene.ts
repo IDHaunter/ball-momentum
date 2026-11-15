@@ -59,6 +59,7 @@ export class GameplayScene extends Phaser.Scene {
   private debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
   private levelStartedAtMs = 0;
   private autoPaused = false;
+  private menuOverlayActive = false;
   private lastBoostIndicator = '';
   private resolveSceneReady!: () => void;
   private readonly sceneReady = new Promise<void>((resolve) => { this.resolveSceneReady = resolve; });
@@ -98,6 +99,7 @@ export class GameplayScene extends Phaser.Scene {
     if (currentState === 'BOOT') { this.gameRegistry.flow.transition('MAIN_MENU'); currentState = 'MAIN_MENU'; }
     if (currentState !== 'LOADING_LEVEL') this.gameRegistry.flow.transition('LOADING_LEVEL');
     this.currentLevelId = id;
+    this.debugRenderer?.setVisible(this.debugEnabled);
     this.accumulator = 0;
     this.inputManager?.clear();
     this.inputQueue.clear();
@@ -169,12 +171,25 @@ export class GameplayScene extends Phaser.Scene {
   }
 
   returnToMenu(): void {
-    const state = this.gameRegistry.flow.state;
-    if (state === 'MAIN_MENU') return;
-    this.inputManager?.clear();
-    this.inputQueue.clear();
-    this.accumulator = 0;
+    if (this.gameRegistry.flow.state === 'MAIN_MENU') return;
+    this.clearCurrentLevel();
+    this.menuOverlayActive = false;
     this.gameRegistry.flow.transition('MAIN_MENU');
+  }
+
+  get isMenuOverlayActive(): boolean { return this.menuOverlayActive; }
+
+  setMenuOverlayActive(active: boolean): void {
+    this.menuOverlayActive = active;
+    if (active) {
+      this.inputManager?.clear();
+      this.inputQueue.clear();
+    }
+  }
+
+  setReducedMotion(enabled: boolean): void {
+    this.effects?.setReducedMotion(enabled);
+    this.ballVisual?.setReducedMotion(enabled);
   }
 
   toggleDebug(): void {
@@ -330,6 +345,37 @@ export class GameplayScene extends Phaser.Scene {
     }
   }
 
+  private clearCurrentLevel(): void {
+    this.inputManager?.clear();
+    this.inputQueue.clear();
+    this.accumulator = 0;
+    this.physicsEvents = [];
+    this.respawn.reset();
+    this.completion.reset();
+
+    this.ball?.dispose();
+    this.ball = null;
+    this.ballRenderer?.destroy();
+    this.ballRenderer = null;
+    this.ballVisual = null;
+
+    this.physicsWorld?.removeLevelBodies();
+    this.levelBuilder?.clear();
+    this.effects?.clear();
+    this.level = null;
+    this.checkpoint = null;
+    this.clock.reset();
+    this.currentLevelId = GAME_DEFAULTS.initialLevelId;
+    this.lastBoostIndicator = '';
+    this.lastSubsteps = 0;
+
+    this.cameras.main.stopFollow();
+    this.cameras.main.setScroll(0, 0);
+    this.cameras.main.setBounds(0, 0, Math.max(1, this.scale.width), Math.max(1, this.scale.height));
+    this.cameras.main.setBackgroundColor(GAME_DEFAULTS.backgroundColor);
+    this.debugRenderer?.setVisible(false);
+  }
+
   private die(reason: string): void {
     if (this.gameRegistry.flow.state !== 'PLAYING' || !this.ball || !this.checkpoint) return;
     this.gameRegistry.flow.transition('RESPAWNING');
@@ -351,6 +397,7 @@ export class GameplayScene extends Phaser.Scene {
   }
 
   private handleShortcut(shortcut: KeyboardShortcut): void {
+    if (this.menuOverlayActive) return;
     if (shortcut === 'pause') this.togglePause();
     else if (shortcut === 'restart') void this.restartLevel();
     else this.toggleDebug();

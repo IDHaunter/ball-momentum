@@ -1,7 +1,10 @@
 #ui-root { display: flex; align-items: center; justify-content: center; }
 .ui-panel { pointer-events: auto; position: absolute; color: #edf3fb; background: rgba(13, 22, 36, 0.94); border: 1px solid rgba(174, 197, 222, 0.22); border-radius: 20px; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45); backdrop-filter: blur(16px); }
 .ui-panel[hidden] { display: none !important; }
-.main-menu, .pause-menu, .complete-menu, .settings-menu { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 430px); padding: 34px; text-align: center; }
+.main-menu, .pause-menu, .complete-menu, .settings-menu, .confirm-menu { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 430px); padding: 34px; text-align: center; }
+.confirm-menu { z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 12px; border-color: #b86a73; box-shadow: 0 28px 100px rgba(0, 0, 0, .68); }
+.confirm-menu .panel-title { margin-bottom: 4px; }
+.confirmation-description { margin: 0 auto 10px; }
 .eyebrow { margin: 0 0 10px; color: #f5c451; font-size: 11px; font-weight: 800; letter-spacing: .18em; }
 .game-title { margin: 0; color: #fff; font-size: clamp(34px, 7vw, 52px); line-height: 1; letter-spacing: -.06em; }
 .panel-title { margin: 0 0 20px; font-size: 28px; letter-spacing: -.04em; }
@@ -13,6 +16,8 @@
 .button-primary { background: #f5b942; color: #192334; }
 .button-secondary { background: #31435b; border-color: #465d79; }
 .button-ghost { background: transparent; border-color: #46566d; color: #c8d5e4; }
+.button-danger { background: #5a2c37; border-color: #914554; color: #ffe7e9; }
+.button-danger:hover { background: #713544; }
 .button-small { min-height: 34px; padding: 6px 12px; border-radius: 9px; font-size: 12px; }
 .control-hint { margin: 22px 0 0; color: #8295ad; font-size: 11px; line-height: 1.5; }
 .game-hud { pointer-events: none; inset: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) auto max(12px, env(safe-area-inset-left)); display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 14px; background: rgba(13, 22, 36, .82); }
@@ -32,7 +37,7 @@
 .tuning-row input { width: 100%; min-width: 0; accent-color: #f5b942; }
 .tuning-value { color: #f5c451; font: 10px ui-monospace, monospace; text-align: right; }
 @media (max-width: 600px) {
-  .main-menu, .pause-menu, .complete-menu, .settings-menu { padding: 24px; }
+  .main-menu, .pause-menu, .complete-menu, .settings-menu, .confirm-menu { padding: 24px; }
   .game-hud { padding: 7px 8px; }
   .hud-left { gap: 7px; }
   .hud-level-title { max-width: 32vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -88,3 +88,28 @@
 ## Not run
 
 - Full `npm run typecheck`, `npm run test`, `npm run build`, and Playwright E2E were not run because project npm dependencies are not installed in this environment.
+
+# In-game Settings and confirmed Main Menu return — 2026-11-15
+
+## Implemented
+
+- Added Settings to the in-game Pause menu and the Level Complete panel, in addition to the existing Main Menu entry.
+- Added a settings-origin controller so Back/Save returns to the exact screen that opened Settings: main menu, pause, or level complete.
+- Kept the game in `PAUSED` while Settings is open; player position, current level, checkpoint, physics state, bots, and movable blocks remain alive and unchanged.
+- Blocked gameplay shortcuts while Settings or the exit confirmation is active. Escape/P/R/F3 can no longer resume, restart, or toggle debug behind an open overlay.
+- Added a confirmation dialog before leaving an active level. Cancel restores the previous menu; confirmation clears the current attempt and checkpoint while keeping completed-level records and saved preferences.
+- Added complete scene cleanup on confirmed return to Main Menu: ball and renderer, level bodies, terrain/trigger/background graphics, decorations, bots, movable blocks, transient effects, level/checkpoint/respawn state, and camera bounds/background.
+- Applied Reduced Motion changes immediately to the currently loaded game scene.
+
+## Checks performed
+
+- Strict TypeScript check passed for SettingsNavigation, ExitConfirmationPanel, PauseMenu, LevelCompletePanel, SettingsPanel, their preference/skin dependencies, and the new SettingsNavigation unit test.
+- Strict TypeScript check passed for GameStateMachine and its updated unit tests.
+- Strict TypeScript check passed for EffectsRenderer and BackgroundRenderer cleanup methods with focused Phaser API declaration shims.
+- Runtime checks passed for all Settings return origins (main menu, pause, level complete) and for state-machine return paths from PAUSED and LEVEL_COMPLETE to MAIN_MENU.
+- All 108 TypeScript source/test files passed TypeScript parser syntax checks.
+- Both level JSON files parsed successfully; Physics Sandbox content was retained.
+
+## Not run
+
+- Full npm typecheck, Vitest suite, Vite production build, and Playwright E2E were not run because npm dependencies are not installed in this environment.
