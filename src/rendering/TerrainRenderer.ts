@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
-import { polygonCentroid, polygonEdgeOutwardNormal } from '../utils/GeometryUtils';
-import type { BoxSurfaceSide, LevelDefinition, SolidDefinition, TerrainMaterialDefinition } from '../level/LevelTypes';
+import { polygonCentroid } from '../utils/GeometryUtils';
+import type { LevelDefinition, SolidDefinition, TerrainMaterialDefinition } from '../level/LevelTypes';
+import { drawBoxBorders, drawPolygonBorders, drawSpringTape, getBoxBorderSegments, getPolygonBorderSegments } from './SurfaceBorderRenderer';
 import {
   createSurfaceTextureCanvas,
   createSurfaceTextureKey,
@@ -102,9 +103,9 @@ export class TerrainRenderer {
     }
 
     if (isMovable) return;
-    this.overlayGraphics.lineStyle(isGlass ? 2.5 : 3, isGlass ? 0xc5f7ff : 0x91a5bb, isGlass ? 0.98 : 0.85);
+    const defaultBorderColor = isGlass ? 0xc5f7ff : 0x91a5bb;
     if (solid.type === 'box') {
-      this.overlayGraphics.strokeRect(solid.x, solid.y, solid.width, solid.height);
+      drawBoxBorders(this.overlayGraphics, solid.x, solid.y, solid.width, solid.height, solid.borders, defaultBorderColor);
       if (isGlass) {
         this.overlayGraphics.lineStyle(1.5, 0xd9fbff, 0.7);
         this.overlayGraphics.lineBetween(solid.x + 8, solid.y + 8, solid.x + solid.width - 8, solid.y + solid.height - 8);
@@ -113,11 +114,7 @@ export class TerrainRenderer {
       }
     } else {
       const points = solid.vertices;
-      this.overlayGraphics.beginPath();
-      this.overlayGraphics.moveTo(points[0][0], points[0][1]);
-      for (let index = 1; index < points.length; index += 1) this.overlayGraphics.lineTo(points[index][0], points[index][1]);
-      this.overlayGraphics.closePath();
-      this.overlayGraphics.strokePath();
+      drawPolygonBorders(this.overlayGraphics, points, solid.borders, defaultBorderColor);
       if (isGlass) {
         const centroid = polygonCentroid(points.map(([x, y]) => ({ x, y })));
         this.overlayGraphics.lineStyle(1.5, 0xd9fbff, 0.72);
@@ -125,8 +122,8 @@ export class TerrainRenderer {
       }
     }
 
-    // Springs are intentionally not rendered on glass: glass ignores spring
-    // assignments and remains governed exclusively by its breakable behavior.
+    // Springs override the configured edge style with a high-contrast hazard
+    // tape so the gameplay affordance remains unmistakable.
     if (!isGlass && solid.springSurfaces?.length) this.drawSpringMarkers(solid);
   }
 
@@ -161,43 +158,21 @@ export class TerrainRenderer {
   }
 
   private drawSpringMarkers(solid: SolidDefinition): void {
-    const surfaces = solid.springSurfaces ?? [];
-    this.overlayGraphics.lineStyle(4, 0xf0c96a, 0.98);
-    for (const surface of surfaces) {
-      let a: { x: number; y: number };
-      let b: { x: number; y: number };
-      let normal: { x: number; y: number };
-      if (solid.type === 'box' && 'side' in surface) {
-        const bounds: Record<BoxSurfaceSide, [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }]> = {
-          top: [{ x: solid.x, y: solid.y }, { x: solid.x + solid.width, y: solid.y }, { x: 0, y: -1 }],
-          right: [{ x: solid.x + solid.width, y: solid.y }, { x: solid.x + solid.width, y: solid.y + solid.height }, { x: 1, y: 0 }],
-          bottom: [{ x: solid.x + solid.width, y: solid.y + solid.height }, { x: solid.x, y: solid.y + solid.height }, { x: 0, y: 1 }],
-          left: [{ x: solid.x, y: solid.y + solid.height }, { x: solid.x, y: solid.y }, { x: -1, y: 0 }],
-        };
-        [a, b, normal] = bounds[surface.side];
-      } else if (solid.type === 'polygon' && 'edge' in surface) {
-        const edge = surface.edge;
-        a = { x: solid.vertices[edge][0], y: solid.vertices[edge][1] };
-        const next = solid.vertices[(edge + 1) % solid.vertices.length];
-        b = { x: next[0], y: next[1] };
-        normal = polygonEdgeOutwardNormal(solid.vertices.map(([x, y]) => ({ x, y })), edge);
-      } else {
-        continue;
+    if (solid.type === 'box') {
+      const segments = getBoxBorderSegments(solid.x, solid.y, solid.width, solid.height);
+      for (const surface of solid.springSurfaces ?? []) {
+        if (!('side' in surface)) continue;
+        const edge = segments.find((segment) => segment.side === surface.side);
+        if (edge) drawSpringTape(this.overlayGraphics, edge);
       }
+      return;
+    }
 
-      this.overlayGraphics.lineBetween(a.x, a.y, b.x, b.y);
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const length = Math.hypot(dx, dy);
-      const markCount = Math.max(2, Math.min(10, Math.floor(length / 24)));
-      this.overlayGraphics.lineStyle(2, 0xffe8a6, 0.95);
-      for (let mark = 1; mark < markCount; mark += 1) {
-        const t = mark / markCount;
-        const x = a.x + dx * t;
-        const y = a.y + dy * t;
-        this.overlayGraphics.lineBetween(x - normal.x * 5, y - normal.y * 5, x + normal.x * 5, y + normal.y * 5);
-      }
-      this.overlayGraphics.lineStyle(4, 0xf0c96a, 0.98);
+    const segments = getPolygonBorderSegments(solid.vertices);
+    for (const surface of solid.springSurfaces ?? []) {
+      if (!('edge' in surface)) continue;
+      const edge = segments.find((segment) => segment.edge === surface.edge);
+      if (edge) drawSpringTape(this.overlayGraphics, edge);
     }
   }
 }

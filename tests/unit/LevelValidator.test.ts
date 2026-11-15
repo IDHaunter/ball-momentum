@@ -235,4 +235,35 @@ describe('surface textures', () => {
     expect(() => validator.validate(invalidDensity)).toThrow(/density/);
     expect(() => validator.validate(invalidOpacity)).toThrow(/opacity/);
   });
+  it('accepts custom box-side and polygon-edge border styles', () => {
+    const custom = {
+      ...validLevel,
+      solids: [
+        { id: 'box', type: 'box', x: 0, y: 200, width: 300, height: 100, borders: { top: 'grass', right: 'metal', bottom: 'none' } },
+        { id: 'triangle', type: 'polygon', vertices: [[400, 300], [450, 200], [500, 300]], borders: [{ edge: 0, style: 'grass' }, { edge: 1, style: 'asphalt' }] },
+      ],
+    };
+    expect(validator.validate(custom).solids).toHaveLength(2);
+  });
+
+  it('rejects duplicate polygon border assignments', () => {
+    const invalid = {
+      ...validLevel,
+      solids: [{ id: 'triangle', type: 'polygon', vertices: [[100, 300], [150, 200], [200, 300]], borders: [
+        { edge: 0, style: 'grass' }, { edge: 0, style: 'metal' },
+      ] }],
+    };
+    expect(() => validator.validate(invalid)).toThrow(/borders: duplicate edge assignment/);
+  });
+
+  it('rejects polygon border edge indices outside the vertex range', () => {
+    const invalid = {
+      ...validLevel,
+      solids: [{ id: 'triangle', type: 'polygon', vertices: [[100, 300], [150, 200], [200, 300]], borders: [
+        { edge: 3, style: 'grass' },
+      ] }],
+    };
+    expect(() => validator.validate(invalid)).toThrow(/edge 3 is outside the polygon vertex range/);
+  });
+
 });

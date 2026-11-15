@@ -61,6 +61,15 @@ export class LevelValidator {
         }
       }
       if (solid.type === 'polygon') {
+        const borderEdges = (solid.borders ?? []).map((border) => border.edge);
+        if (new Set(borderEdges).size !== borderEdges.length) {
+          errors.push(`solids.${solid.id}.borders: duplicate edge assignment`);
+        }
+        for (const edge of borderEdges) {
+          if (edge >= solid.vertices.length) {
+            errors.push(`solids.${solid.id}.borders: edge ${edge} is outside the polygon vertex range`);
+          }
+        }
         const points = solid.vertices.map(([x, y]) => ({ x, y }));
         const unique = new Set(points.map((p) => `${p.x}:${p.y}`));
         if (unique.size !== points.length) errors.push(`solids.${solid.id}.vertices: duplicate vertices`);

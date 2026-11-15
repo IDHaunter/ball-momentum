@@ -1,3 +1,12 @@
+# Patch notes — Surface border customization
+
+- Added `borders` configuration to boxes (per `top`, `right`, `bottom`, `left` side) and polygons (per zero-based edge index).
+- Added eight visual styles: `default`, `none`, `grass`, `asphalt`, `stone`, `metal`, `ice`, and `wood`. Each style uses simple procedural geometry and remains independent of physical materials and interior textures.
+- Movable boxes receive a border overlay that follows their Matter position and rotation and is cleaned up when the block is removed.
+- Replaced the old thin orange spring marker and short ticks with a broad black-and-yellow hazard tape, diagonal dark bands, and a pale highlight. Spring tape takes visual priority over a configured border style on the same edge; glass continues to ignore spring assignments.
+- Applied coordinated grass, stone, metal, asphalt, wood, and ice borders across every solid in `level-01.json` and the latest `physics-sandbox.json`. Physics, collision geometry, and material parameters were not changed.
+- Added a border renderer/catalog helper, polygon-edge validation, and regression tests for styles, hidden edges, spring tape, and movable-block overlays.
+
 # Patch notes — Spring surfaces
 
 - Added per-surface spring assignments to box and polygon level definitions.

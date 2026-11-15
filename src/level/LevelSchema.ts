@@ -8,6 +8,17 @@ const materialSchema = z.object({
 });
 
 const springImpulseSchema = z.number().finite().positive().max(3000);
+const borderStyleSchema = z.enum(['default', 'none', 'grass', 'asphalt', 'stone', 'metal', 'ice', 'wood']);
+const boxBordersSchema = z.object({
+  top: borderStyleSchema.optional(),
+  right: borderStyleSchema.optional(),
+  bottom: borderStyleSchema.optional(),
+  left: borderStyleSchema.optional(),
+});
+const polygonBordersSchema = z.array(z.object({
+  edge: z.number().int().nonnegative(),
+  style: borderStyleSchema,
+}));
 
 const surfaceTextureNameSchema = z.enum(SURFACE_TEXTURE_NAMES);
 const surfaceTextureSchema = z.union([
@@ -48,6 +59,7 @@ const boxSchema = z.object({
   springSurfaces: z.array(boxSpringSurfaceSchema).optional(),
   movable: movableSchema.optional(),
   texture: surfaceTextureSchema.optional(),
+  borders: boxBordersSchema.optional(),
 });
 
 const polygonSchema = z.object({
@@ -57,6 +69,7 @@ const polygonSchema = z.object({
   breakable: breakableSchema.optional(),
   springSurfaces: z.array(polygonSpringSurfaceSchema).optional(),
   texture: surfaceTextureSchema.optional(),
+  borders: polygonBordersSchema.optional(),
 });
 
 const botSchema = z.object({

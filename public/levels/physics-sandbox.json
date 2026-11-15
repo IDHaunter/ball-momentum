@@ -22,7 +22,13 @@
       "width": 900,
       "height": 700,
       "material": "normal",
-      "texture": "concrete-grain"
+      "texture": "concrete-grain",
+      "borders": {
+        "top": "grass",
+        "right": "stone",
+        "bottom": "none",
+        "left": "stone"
+      }
     },
     {
       "id": "sandbox-slope",
@@ -46,7 +52,25 @@
         ]
       ],
       "material": "normal",
-      "texture": "stone-strata"
+      "texture": "stone-strata",
+      "borders": [
+        {
+          "edge": 0,
+          "style": "grass"
+        },
+        {
+          "edge": 1,
+          "style": "stone"
+        },
+        {
+          "edge": 2,
+          "style": "none"
+        },
+        {
+          "edge": 3,
+          "style": "stone"
+        }
+      ]
     },
     {
       "id": "sandbox-floor-b",
@@ -56,7 +80,13 @@
       "width": 300,
       "height": 520,
       "material": "ice",
-      "texture": "ice-crystals"
+      "texture": "ice-crystals",
+      "borders": {
+        "top": "ice",
+        "right": "ice",
+        "bottom": "none",
+        "left": "ice"
+      }
     },
     {
       "id": "sandbox-movable-crate",
@@ -70,7 +100,13 @@
         "mass": 4,
         "minimumImpactEnergy": 32000
       },
-      "texture": "wood-grain"
+      "texture": "wood-grain",
+      "borders": {
+        "top": "wood",
+        "right": "metal",
+        "bottom": "wood",
+        "left": "metal"
+      }
     },
     {
       "id": "sandbox-bot-island",
@@ -80,7 +116,13 @@
       "width": 600,
       "height": 24,
       "material": "stone",
-      "texture": "stone-fragments"
+      "texture": "stone-fragments",
+      "borders": {
+        "top": "grass",
+        "right": "stone",
+        "bottom": "none",
+        "left": "stone"
+      }
     },
     {
       "id": "sandbox-step",
@@ -105,6 +147,12 @@
         "density": 1.05,
         "opacity": 0.46,
         "seed": 43
+      },
+      "borders": {
+        "top": "none",
+        "right": "none",
+        "bottom": "none",
+        "left": "stone"
       }
     },
     {
@@ -115,7 +163,13 @@
       "width": 800,
       "height": 520,
       "material": "normal",
-      "texture": "concrete-grain"
+      "texture": "concrete-grain",
+      "borders": {
+        "top": "grass",
+        "right": "stone",
+        "bottom": "none",
+        "left": "stone"
+      }
     },
     {
       "id": "sandbox-triangle",
@@ -141,7 +195,21 @@
           "impulse": 560
         }
       ],
-      "texture": "rubber-dots"
+      "texture": "rubber-dots",
+      "borders": [
+        {
+          "edge": 0,
+          "style": "grass"
+        },
+        {
+          "edge": 1,
+          "style": "none"
+        },
+        {
+          "edge": 2,
+          "style": "none"
+        }
+      ]
     },
     {
       "id": "sandbox-floor-d",
@@ -151,7 +219,13 @@
       "width": 1600,
       "height": 520,
       "material": "normal",
-      "texture": "concrete-grain"
+      "texture": "concrete-grain",
+      "borders": {
+        "top": "asphalt",
+        "right": "stone",
+        "bottom": "none",
+        "left": "stone"
+      }
     },
     {
       "id": "sandbox-glass-wall",
@@ -165,7 +239,13 @@
         "thresholdEnergy": 140000,
         "velocityRetention": 0.72
       },
-      "texture": "glass-facets"
+      "texture": "glass-facets",
+      "borders": {
+        "top": "ice",
+        "right": "ice",
+        "bottom": "none",
+        "left": "ice"
+      }
     },
     {
       "id": "sandbox-glass-triangle",
@@ -194,7 +274,21 @@
         "density": 1.25,
         "opacity": 0.68,
         "seed": 17
-      }
+      },
+      "borders": [
+        {
+          "edge": 0,
+          "style": "ice"
+        },
+        {
+          "edge": 1,
+          "style": "ice"
+        },
+        {
+          "edge": 2,
+          "style": "none"
+        }
+      ]
     },
     {
       "id": "sandbox-glass-stack-base",
@@ -208,7 +302,13 @@
         "thresholdEnergy": 145000,
         "velocityRetention": 0.72
       },
-      "texture": "glass-facets"
+      "texture": "glass-facets",
+      "borders": {
+        "top": "ice",
+        "right": "ice",
+        "bottom": "none",
+        "left": "ice"
+      }
     },
     {
       "id": "sandbox-glass-stack-top",
@@ -222,7 +322,13 @@
         "thresholdEnergy": 120000,
         "velocityRetention": 0.72
       },
-      "texture": "glass-facets"
+      "texture": "glass-facets",
+      "borders": {
+        "top": "ice",
+        "right": "ice",
+        "bottom": "ice",
+        "left": "ice"
+      }
     },
     {
       "id": "sandbox-bomb-pushable",
@@ -236,7 +342,13 @@
         "mass": 3,
         "minimumImpactEnergy": 25000
       },
-      "texture": "wood-grain"
+      "texture": "wood-grain",
+      "borders": {
+        "top": "wood",
+        "right": "metal",
+        "bottom": "wood",
+        "left": "metal"
+      }
     },
     {
       "id": "sandbox-bomb-glass",
@@ -250,7 +362,13 @@
         "thresholdEnergy": 28000,
         "velocityRetention": 0.7
       },
-      "texture": "glass-facets"
+      "texture": "glass-facets",
+      "borders": {
+        "top": "ice",
+        "right": "ice",
+        "bottom": "none",
+        "left": "ice"
+      }
     }
   ],
   "triggers": [

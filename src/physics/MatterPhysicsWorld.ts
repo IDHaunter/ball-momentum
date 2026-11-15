@@ -11,6 +11,7 @@ import { calculateBlastEnergy, calculateBlastVelocityDelta, distanceToPatrolGeom
 import type Phaser from 'phaser';
 import { createSurfaceTextureCanvas, createSurfaceTextureKey } from '../rendering/SurfaceTextureGenerator';
 import { hashSurfaceTextureSeed } from '../rendering/SurfaceTextureCatalog';
+import { drawBoxBorders } from '../rendering/SurfaceBorderRenderer';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -121,6 +122,7 @@ interface MovableBlockRecord {
   object: MatterGameObjectLike;
   marker: MatterTextLike;
   textureOverlay: Phaser.GameObjects.Image | null;
+  borderOverlay: Phaser.GameObjects.Graphics;
   textureKey: string | null;
   mass: number;
   minimumImpactEnergy: number;
@@ -258,17 +260,20 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     });
     rawBody.label = `MOVABLE:${definition.id}`;
 
-    // The object is rendered as a distinct teal crate with an amber outline.
-    // Its ↔ marker is updated from the Matter body so it follows translation
-    // and rotation while the object moves or falls into a pit.
+    // Keep the crate fill, configurable edge treatment, texture and ↔ marker
+    // as separate visuals so each can follow the Matter body's transform.
     const visual = (this.scene as unknown as MatterSceneLike).add
       .rectangle(centerX, centerY, definition.width, definition.height, 0x397f8d, 0.98)
-      .setStrokeStyle(3, 0xf0c66d, 1)
       .setDepth(4);
+    const phaserScene = this.scene as Phaser.Scene;
+    const borderOverlay = phaserScene.add.graphics().setDepth(4.75);
+    drawBoxBorders(borderOverlay, -definition.width / 2, -definition.height / 2, definition.width, definition.height, definition.borders, 0xf0c66d);
+    // Phaser Graphics has a nominal origin of (0, 0), so local coordinates
+    // centered around the body origin rotate around the physical box center.
+    borderOverlay.setPosition(centerX, centerY);
     let textureOverlay: Phaser.GameObjects.Image | null = null;
     let textureKey: string | null = null;
     if (definition.texture) {
-      const phaserScene = this.scene as Phaser.Scene;
       textureKey = createSurfaceTextureKey('movable', definition.id, definition.texture);
       createSurfaceTextureCanvas(
         phaserScene,
@@ -311,6 +316,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       object,
       marker,
       textureOverlay,
+      borderOverlay,
       textureKey,
       mass: definition.mass,
       minimumImpactEnergy: definition.minimumImpactEnergy,
@@ -501,6 +507,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const movable = this.movableBlocks.get(id);
     movable?.marker.destroy();
     movable?.textureOverlay?.destroy();
+    movable?.borderOverlay.destroy();
     if (movable?.textureKey) {
       const textures = (this.scene as Phaser.Scene).textures;
       if (textures.exists(movable.textureKey)) textures.remove(movable.textureKey);
@@ -517,6 +524,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     for (const block of this.movableBlocks.values()) {
       block.marker.destroy();
       block.textureOverlay?.destroy();
+      block.borderOverlay.destroy();
       if (block.textureKey) {
         const textures = (this.scene as Phaser.Scene).textures;
         if (textures.exists(block.textureKey)) textures.remove(block.textureKey);
@@ -1055,6 +1063,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       }
       block.marker.setPosition(position.x, position.y).setRotation(block.object.body.angle);
       block.textureOverlay?.setPosition(position.x, position.y).setRotation(block.object.body.angle);
+      block.borderOverlay.setPosition(position.x, position.y).setRotation(block.object.body.angle);
     }
   }
 }

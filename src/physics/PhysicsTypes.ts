@@ -1,4 +1,5 @@
 import type { SurfaceTextureAssignment } from '../level/SurfaceTextureTypes';
+import type { BoxBorderStyles } from '../level/LevelTypes';
 
 export interface Vector2 { x: number; y: number; }
 
@@ -68,7 +69,7 @@ export type PatrolGeometry =
 export interface MovableBoxOptions {
   id: string; x: number; y: number; width: number; height: number;
   mass: number; minimumImpactEnergy: number;
-  killPlaneY: number; friction: number; frictionStatic: number; restitution: number; texture?: SurfaceTextureAssignment;
+  killPlaneY: number; friction: number; frictionStatic: number; restitution: number; texture?: SurfaceTextureAssignment; borders?: BoxBorderStyles;
 }
 
 export interface SensorOptions {

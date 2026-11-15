@@ -8,6 +8,11 @@ export interface TerrainMaterialDefinition {
 
 export type BoxSurfaceSide = 'top' | 'right' | 'bottom' | 'left';
 
+/** Visual-only style applied to one exposed shape edge. */
+export type BorderStyle = 'default' | 'none' | 'grass' | 'asphalt' | 'stone' | 'metal' | 'ice' | 'wood';
+export type BoxBorderStyles = Partial<Record<BoxSurfaceSide, BorderStyle>>;
+export interface PolygonBorderDefinition { edge: number; style: BorderStyle; }
+
 /** Fixed outgoing normal speed (px/s) applied when the ball hits this surface. */
 export interface BoxSpringSurfaceDefinition { side: BoxSurfaceSide; impulse: number; }
 
@@ -59,11 +64,11 @@ export interface BotDefinition {
 
 export interface BoxSolidDefinition {
   id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string;
-  breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition; texture?: SurfaceTextureAssignment;
+  breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition; texture?: SurfaceTextureAssignment; borders?: BoxBorderStyles;
 }
 
 export interface PolygonSolidDefinition {
-  id: string; type: 'polygon'; vertices: [number, number][]; material?: string; breakable?: BreakableDefinition; springSurfaces?: PolygonSpringSurfaceDefinition[]; texture?: SurfaceTextureAssignment;
+  id: string; type: 'polygon'; vertices: [number, number][]; material?: string; breakable?: BreakableDefinition; springSurfaces?: PolygonSpringSurfaceDefinition[]; texture?: SurfaceTextureAssignment; borders?: PolygonBorderDefinition[];
 }
 
 export type SolidDefinition = BoxSolidDefinition | PolygonSolidDefinition;

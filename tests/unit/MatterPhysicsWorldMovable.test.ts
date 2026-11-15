@@ -13,6 +13,7 @@ function createHarness(withTexture = false) {
   let pendingCollision: CollisionEventLike | null = null;
   const markerStates: Array<{ destroyed: boolean; x: number; y: number; rotation: number }> = [];
   const textureStates: Array<{ destroyed: boolean; x: number; y: number; rotation: number }> = [];
+  const borderStates: Array<{ destroyed: boolean; x: number; y: number; rotation: number; lines: number }> = [];
   const removedTextureKeys: string[] = [];
   const canvasContext = new Proxy({}, { get: () => (..._args: unknown[]) => undefined }) as CanvasRenderingContext2D;
   const canvasTexture = { getContext: () => canvasContext, refresh() { return this; } };
@@ -31,6 +32,19 @@ function createHarness(withTexture = false) {
     add: {
       zone: () => ({}),
       rectangle: () => ({ setStrokeStyle() { return this; }, setDepth() { return this; } }),
+      graphics: () => {
+        const state = { destroyed: false, x: 0, y: 0, rotation: 0, lines: 0 };
+        borderStates.push(state);
+        return {
+          lineStyle() { return this; },
+          lineBetween() { state.lines += 1; return this; },
+          setDepth() { return this; },
+          setOrigin() { return this; },
+          setPosition(x: number, y: number) { state.x = x; state.y = y; return this; },
+          setRotation(value: number) { state.rotation = value; return this; },
+          destroy() { state.destroyed = true; },
+        };
+      },
       image: (x: number, y: number) => {
         const state = { destroyed: false, x, y, rotation: 0 };
         textureStates.push(state);
@@ -106,6 +120,7 @@ function createHarness(withTexture = false) {
     id: 'crate', x: 140, y: 130, width: 40, height: 60,
     mass: 4, minimumImpactEnergy: 20_000, killPlaneY: 500,
     friction: 0.45, frictionStatic: 0.65, restitution: 0.02,
+    borders: { top: 'wood', right: 'metal', bottom: 'none', left: 'metal' },
     ...(withTexture ? { texture: 'wood-grain' as const } : {}),
   });
   const ballBody = bodies.find((body) => body.label === 'BALL')!;
@@ -118,6 +133,7 @@ function createHarness(withTexture = false) {
     blockBody,
     markerStates,
     textureStates,
+    borderStates,
     removedTextureKeys,
     collide(normal: Vector2) {
       pendingCollision = {
@@ -152,9 +168,13 @@ describe('MatterPhysicsWorld movable blocks', () => {
 
     expect(harness.textureStates).toHaveLength(1);
     expect(harness.textureStates[0]).toMatchObject({ x: 245, y: 225, rotation: 0.35, destroyed: false });
+    expect(harness.borderStates).toHaveLength(1);
+    expect(harness.borderStates[0]).toMatchObject({ x: 245, y: 225, rotation: 0.35, destroyed: false });
+    expect(harness.borderStates[0].lines).toBeGreaterThan(10);
 
     harness.physics.removeTerrainBody('crate');
     expect(harness.textureStates[0].destroyed).toBe(true);
+    expect(harness.borderStates[0].destroyed).toBe(true);
     expect(harness.removedTextureKeys).toHaveLength(1);
     harness.physics.dispose();
   });

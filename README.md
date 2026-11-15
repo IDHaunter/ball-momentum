@@ -69,6 +69,10 @@ Levels can define timed bombs in a top-level `bombs` array. Bombs are activated 
 
 Edit JSON files in `public/levels/`. `level-01.json` is the tutorial course and `physics-sandbox.json` is the movement sandbox. The browser validates each file before building collision bodies. Reload the game after changing a level.
 
+## Surface borders
+
+Boxes and polygons can customize each visible edge independently from their physics material and interior texture. Boxes use `borders: { top, right, bottom, left }`; polygons use a `borders` array with zero-based `{ edge, style }` entries. Built-in styles are `default`, `none`, `grass`, `asphalt`, `stone`, `metal`, `ice`, and `wood`. Spring-enabled edges are rendered on top as wide black-and-yellow hazard tape. See `SURFACE_BORDERS.md` for examples and the complete style reference.
+
 ## Physics tuning
 
 Defaults live in `src/config/physics.defaults.ts`. Use `?debug=1` or press F3 while playing to open the developer panel. Runtime tuning is temporary and does not modify source files.

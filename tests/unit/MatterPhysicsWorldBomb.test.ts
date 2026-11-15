@@ -43,6 +43,11 @@ function createHarness() {
       zone: () => ({}),
       circle: (x: number, y: number, _radius: number, fillColor: number, alpha = 1) => makeVisual('circle', x, y, fillColor, alpha),
       rectangle: (x: number, y: number, _width: number, _height: number, fillColor: number, alpha = 1) => makeVisual('rectangle', x, y, fillColor, alpha),
+      graphics: () => ({
+        lineStyle() { return this; }, lineBetween() { return this; },
+        setDepth() { return this; }, setOrigin() { return this; },
+        setPosition() { return this; }, setRotation() { return this; }, destroy() {},
+      }),
       text: (x: number, y: number, text = '') => {
         const state = { text, destroyed: false, x, y, color: '' };
         labels.push(state);

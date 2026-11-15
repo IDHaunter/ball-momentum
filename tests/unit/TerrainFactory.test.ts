@@ -187,6 +187,37 @@ describe('TerrainFactory movable boxes', () => {
   });
 });
 
+
+describe('TerrainFactory movable border styles', () => {
+  it('passes custom border styles to movable block rendering', () => {
+    const captured: Array<Parameters<IPhysicsWorld['createMovableBox']>[0]> = [];
+    const world = {
+      createStaticBox: () => undefined,
+      createStaticPolygon: () => undefined,
+      createMovableBox: (definition: Parameters<IPhysicsWorld['createMovableBox']>[0]) => captured.push(definition),
+      removeTerrainBody: () => undefined,
+      createSensor: () => undefined,
+      removeLevelBodies: () => undefined,
+      step: () => undefined,
+      setGravity: () => undefined,
+      setTimeScale: () => undefined,
+      onPhysicsEvent: () => () => undefined,
+      createBall: () => { throw new Error('not used'); },
+    } as unknown as IPhysicsWorld;
+    new TerrainFactory(world, { render: () => undefined } as unknown as TerrainRenderer).build({
+      schemaVersion: 1, id: 'bordered-movable-test', title: 'Bordered movable test',
+      world: { width: 500, height: 400, killPlaneY: 360 }, spawn: { x: 20, y: 20 }, triggers: [],
+      materials: { stone: { friction: 0.45, frictionStatic: 0.65, restitution: 0.01 } },
+      solids: [{
+        id: 'crate', type: 'box', x: 100, y: 150, width: 60, height: 50, material: 'stone',
+        movable: { mass: 4, minimumImpactEnergy: 32_000 },
+        borders: { top: 'wood', right: 'metal', bottom: 'none', left: 'metal' },
+      }],
+    });
+    expect(captured[0].borders).toEqual({ top: 'wood', right: 'metal', bottom: 'none', left: 'metal' });
+  });
+});
+
 describe('TerrainFactory spring surfaces', () => {
   function makeWorld(captured: {
     boxes: Array<Parameters<IPhysicsWorld['createStaticBox']>[0]>;
