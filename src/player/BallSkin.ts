@@ -2,8 +2,8 @@ export const BALL_SKIN_OPTIONS = [
   {
     id: 'smiley',
     label: 'Happy face',
-    description: 'A cheerful yellow smiley that spins with the ball.',
-    previewSvg: '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" fill="#f5b942" stroke="#ffdf91" stroke-width="3"/><circle cx="22" cy="25" r="3.2" fill="#18212f"/><circle cx="42" cy="25" r="3.2" fill="#18212f"/><path d="M18 36 Q32 52 46 36" fill="none" stroke="#18212f" stroke-width="3.5" stroke-linecap="round"/></svg>',
+    description: 'A goofy wide-eyed yellow face with a warm sunset gradient.',
+    previewSvg: '<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="smileyWarmGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd94d"/><stop offset=".42" stop-color="#f8b932"/><stop offset=".76" stop-color="#ef873f"/><stop offset="1" stop-color="#e77978"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="url(#smileyWarmGradient)" stroke="#9b5a26" stroke-width="1.8"/><ellipse cx="23" cy="15" rx="12" ry="3.4" fill="#fff4bf" opacity=".14"/><circle cx="22" cy="27" r="8" fill="#fffdf7" stroke="#8f5b27" stroke-opacity=".52" stroke-width=".8"/><circle cx="42" cy="27" r="8" fill="#fffdf7" stroke="#8f5b27" stroke-opacity=".52" stroke-width=".8"/><circle cx="24" cy="28.5" r="3.7" fill="#20202a"/><circle cx="40" cy="25.5" r="3.7" fill="#20202a"/><circle cx="22.8" cy="26.8" r="1.2" fill="#fff"/><circle cx="38.8" cy="23.8" r="1.2" fill="#fff"/><path d="M19 42 Q32 54 45 41" fill="none" stroke="#33221b" stroke-width="2.9" stroke-linecap="round"/></svg>', 
   },
   {
     id: 'soccer',

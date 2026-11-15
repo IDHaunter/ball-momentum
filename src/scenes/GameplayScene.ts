@@ -205,7 +205,8 @@ export class GameplayScene extends Phaser.Scene {
 
     if (this.ball) {
       const snapshot = this.ball.snapshot;
-      this.ballVisual?.update(delta / 1000, snapshot.position.x, snapshot.position.y, snapshot.angle);
+      const speedPxPerSecond = Math.hypot(snapshot.velocity.x, snapshot.velocity.y);
+      this.ballVisual?.update(delta / 1000, snapshot.position.x, snapshot.position.y, snapshot.angle, speedPxPerSecond);
       this.cameraController.update(snapshot.position.x, snapshot.position.y);
     }
     this.debugRenderer.update(this.gameRegistry.flow.state, this.currentLevelId, this.ball, stepMs, this.lastSubsteps);
@@ -282,12 +283,18 @@ export class GameplayScene extends Phaser.Scene {
     for (const event of events) {
       if (event.type === 'BALL_SPRING_IMPACT') {
         if (this.gameRegistry.flow.state === 'PLAYING') {
+          this.ballVisual?.impact(Math.max(event.impactSpeed, event.impulse));
           this.effects.springImpact(event.contactPoint.x, event.contactPoint.y, event.normal, event.impulse);
         }
         continue;
       }
+      if (event.type === 'BALL_MOVABLE_IMPACT') {
+        if (this.gameRegistry.flow.state === 'PLAYING') this.ballVisual?.impact(event.normalImpactSpeed);
+        continue;
+      }
       if (event.type === 'BALL_TERRAIN_IMPACT') {
         if (this.gameRegistry.flow.state !== 'PLAYING' || !this.ball || !this.levelBuilder) continue;
+        this.ballVisual?.impact(event.impactSpeed);
         const breakable = this.levelBuilder.getBreakable(event.terrainId);
         if (!breakable) continue;
         const impactEnergy = calculateNormalImpactEnergy(event.impactSpeed, this.physicsConfig.ball.mass);
@@ -305,6 +312,7 @@ export class GameplayScene extends Phaser.Scene {
         continue;
       }
       if (event.type === 'BALL_WALL_IMPACT') {
+        if (this.gameRegistry.flow.state === 'PLAYING') this.ballVisual?.impact(event.impactSpeed);
         if (!event.breakable && this.gameRegistry.flow.state === 'PLAYING' && event.impactSpeed >= this.physicsConfig.wallBounce.minimumImpactSpeed) {
           this.effects.wallImpact(event.contactPoint.x, event.contactPoint.y, event.normal, event.impactSpeed);
         }

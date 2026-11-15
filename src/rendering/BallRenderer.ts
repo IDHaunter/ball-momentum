@@ -1,8 +1,26 @@
 import type Phaser from 'phaser';
 import type { BallSkin } from '../player/BallSkin';
 import { DEFAULT_BALL_SKIN } from '../player/BallSkin';
+import { getSmileyAnimationFrame, type SmileyEyeAnimation } from './SmileyAnimation';
+import { drawSmileyGradient, SMILEY_GRADIENT_TEXTURE_KEY, SMILEY_GRADIENT_TEXTURE_SIZE } from './SmileyGradient';
+import { drawSmileyMouth, SMILEY_MOUTH_TEXTURE_HEIGHT, SMILEY_MOUTH_TEXTURE_KEY, SMILEY_MOUTH_TEXTURE_WIDTH } from './SmileyMouth';
 
 type LocalPoint = { x: number; y: number };
+
+interface SmileyEyeRig {
+  container: Phaser.GameObjects.Container;
+  pupil: Phaser.GameObjects.Arc;
+  baseX: number;
+  baseY: number;
+  basePupilX: number;
+  basePupilY: number;
+}
+
+interface SmileyRig {
+  leftEye: SmileyEyeRig;
+  rightEye: SmileyEyeRig;
+  mouth: Phaser.GameObjects.Image;
+}
 
 export class BallRenderer {
   private readonly container: Phaser.GameObjects.Container;
@@ -10,6 +28,11 @@ export class BallRenderer {
   private readonly scene: Phaser.Scene;
   private skin: BallSkin;
   private skinBuilt = false;
+  private smileyRig: SmileyRig | null = null;
+  private smileyElapsedSeconds = 0;
+  private smileyImpact = 0;
+  private smileyMouthScaleX = 1;
+  private smileyMouthScaleY = 1;
 
   constructor(scene: Phaser.Scene, radius: number, skin: BallSkin = DEFAULT_BALL_SKIN) {
     this.scene = scene;
@@ -22,16 +45,41 @@ export class BallRenderer {
   setSkin(skin: BallSkin): void {
     if (this.skinBuilt && this.skin === skin) return;
     this.skin = skin;
+    this.smileyRig = null;
+    this.smileyElapsedSeconds = 0;
+    this.smileyImpact = 0;
+    this.smileyMouthScaleX = 1;
+    this.smileyMouthScaleY = 1;
     if (this.skinBuilt) this.container.removeAll(true);
     const objects = this.createSkin(skin);
     this.container.add(objects);
     this.skinBuilt = true;
   }
 
-  update(x: number, y: number, angle: number, scaleX = 1, scaleY = 1): void {
+  update(
+    x: number,
+    y: number,
+    angle: number,
+    scaleX = 1,
+    scaleY = 1,
+    dtSeconds = 0,
+    speedPxPerSecond = 0,
+  ): void {
     this.container.setPosition(x, y);
     this.container.setRotation(angle);
     this.container.setScale(scaleX, scaleY);
+    if (this.skin === 'smiley' && this.smileyRig && dtSeconds > 0) {
+      this.smileyElapsedSeconds += Math.min(dtSeconds, 0.1);
+      this.smileyImpact = Math.max(0, this.smileyImpact - Math.min(dtSeconds, 0.1) * 5.5);
+      this.animateSmiley(speedPxPerSecond, Math.min(dtSeconds, 0.1));
+    }
+  }
+
+  /** Briefly widens the Smiley mouth after an impact without switching its shape. */
+  reactToImpact(impactSpeed: number): void {
+    if (this.skin !== 'smiley' || !Number.isFinite(impactSpeed)) return;
+    const strength = Math.max(0.35, Math.min(1, Math.max(0, impactSpeed) / 520));
+    this.smileyImpact = Math.max(this.smileyImpact, strength);
   }
 
   setVisible(value: boolean): void { this.container.setVisible(value); }
@@ -52,21 +100,105 @@ export class BallRenderer {
 
   private createSmileySkin(): Phaser.GameObjects.GameObject[] {
     const r = this.radius;
-    const objects: Phaser.GameObjects.GameObject[] = [this.circle(0xf5b942, 0xffdf91)];
-    objects.push(
-      this.scene.add.circle(-r * 0.31, -r * 0.18, r * 0.075, 0x18212f),
-      this.scene.add.circle(r * 0.31, -r * 0.18, r * 0.075, 0x18212f),
-      this.scene.add.circle(-r * 0.54, r * 0.12, r * 0.11, 0xf08b83, 0.55),
-      this.scene.add.circle(r * 0.54, r * 0.12, r * 0.11, 0xf08b83, 0.55),
-      this.polyline([
-        { x: -r * 0.4, y: r * 0.13 }, { x: -r * 0.28, y: r * 0.27 },
-        { x: -r * 0.12, y: r * 0.34 }, { x: 0, y: r * 0.36 },
-        { x: r * 0.12, y: r * 0.34 }, { x: r * 0.28, y: r * 0.27 },
-        { x: r * 0.4, y: r * 0.13 },
-      ], 2.4, 0x18212f),
-      this.scene.add.ellipse(-r * 0.28, -r * 0.38, r * 0.52, r * 0.24, 0xfff5d7, 0.55),
+    const gradient = this.createSmileyGradient();
+    const outlinePoints = this.regularPolygon(0, 0, r * 0.975, 64, -Math.PI / 2);
+    const outline = this.polyline(
+      [...outlinePoints, outlinePoints[0]],
+      Math.max(1.4, r * 0.065),
+      0x9b5a26,
+      0.88,
     );
-    return objects;
+    const softHighlight = this.scene.add.ellipse(-r * 0.28, -r * 0.57, r * 0.72, r * 0.2, 0xfff4bf, 0.13);
+
+    // Large, simple white eyes keep the face readable at the in-game 36 px size.
+    const leftEye = this.createSmileyEye(-r * 0.29, -r * 0.16);
+    const rightEye = this.createSmileyEye(r * 0.29, -r * 0.16);
+    const mouth = this.createSmileyMouth();
+    const rig: SmileyRig = { leftEye, rightEye, mouth };
+    this.smileyRig = rig;
+
+    return [gradient, outline, softHighlight, leftEye.container, rightEye.container, mouth];
+  }
+
+  private createSmileyGradient(): Phaser.GameObjects.Image {
+    const textureManager = this.scene.textures;
+    if (!textureManager.exists(SMILEY_GRADIENT_TEXTURE_KEY)) {
+      const texture = textureManager.createCanvas(
+        SMILEY_GRADIENT_TEXTURE_KEY,
+        SMILEY_GRADIENT_TEXTURE_SIZE,
+        SMILEY_GRADIENT_TEXTURE_SIZE,
+      );
+      if (!texture) {
+        throw new Error(`Unable to create Smiley texture: ${SMILEY_GRADIENT_TEXTURE_KEY}`);
+      }
+      drawSmileyGradient(texture.getContext(), SMILEY_GRADIENT_TEXTURE_SIZE);
+      texture.refresh();
+    }
+
+    // The cached high-resolution texture is shared across level restarts.
+    return this.scene.add.image(0, 0, SMILEY_GRADIENT_TEXTURE_KEY)
+      .setDisplaySize(this.radius * 2, this.radius * 2);
+  }
+
+  private createSmileyEye(x: number, y: number): SmileyEyeRig {
+    const r = this.radius;
+    const sclera = this.scene.add.circle(0, 0, r * 0.215, 0xfffdf7)
+      .setStrokeStyle(Math.max(0.7, r * 0.022), 0x8f5b27, 0.52);
+    const pupilX = r * 0.012;
+    const pupilY = r * 0.018;
+    const pupil = this.scene.add.circle(pupilX, pupilY, r * 0.098, 0x20202a);
+    const highlight = this.scene.add.circle(-r * 0.045, -r * 0.065, r * 0.043, 0xffffff, 0.96);
+    const container = this.scene.add.container(x, y, [sclera, pupil, highlight]);
+    return { container, pupil, baseX: x, baseY: y, basePupilX: pupilX, basePupilY: pupilY };
+  }
+
+  private createSmileyMouth(): Phaser.GameObjects.Image {
+    const textureManager = this.scene.textures;
+    if (!textureManager.exists(SMILEY_MOUTH_TEXTURE_KEY)) {
+      const texture = textureManager.createCanvas(
+        SMILEY_MOUTH_TEXTURE_KEY,
+        SMILEY_MOUTH_TEXTURE_WIDTH,
+        SMILEY_MOUTH_TEXTURE_HEIGHT,
+      );
+      if (!texture) {
+        throw new Error(`Unable to create Smiley mouth texture: ${SMILEY_MOUTH_TEXTURE_KEY}`);
+      }
+      drawSmileyMouth(texture.getContext(), SMILEY_MOUTH_TEXTURE_WIDTH, SMILEY_MOUTH_TEXTURE_HEIGHT);
+      texture.refresh();
+    }
+
+    // One cached, antialiased CanvasTexture remains stable while the ball rotates.
+    return this.scene.add.image(0, this.radius * 0.48, SMILEY_MOUTH_TEXTURE_KEY)
+      .setDisplaySize(this.radius * 0.84, this.radius * 0.36);
+  }
+
+  private animateSmiley(speedPxPerSecond: number, dtSeconds: number): void {
+    const rig = this.smileyRig;
+    if (!rig) return;
+    const frame = getSmileyAnimationFrame(this.smileyElapsedSeconds, speedPxPerSecond, this.smileyImpact);
+    this.applyEyeAnimation(rig.leftEye, frame.leftEye);
+    this.applyEyeAnimation(rig.rightEye, frame.rightEye);
+
+    // Smooth the tiny expression changes; never clear or re-tessellate the smile per frame.
+    const blend = 1 - Math.exp(-dtSeconds * 5.5);
+    this.smileyMouthScaleX += (frame.mouthScaleX - this.smileyMouthScaleX) * blend;
+    this.smileyMouthScaleY += (frame.mouthScaleY - this.smileyMouthScaleY) * blend;
+    rig.mouth.setDisplaySize(
+      this.radius * 0.84 * this.smileyMouthScaleX,
+      this.radius * 0.36 * this.smileyMouthScaleY,
+    );
+  }
+
+  private applyEyeAnimation(eye: SmileyEyeRig, animation: SmileyEyeAnimation): void {
+    eye.container.setPosition(
+      eye.baseX + animation.eyeOffsetX * this.radius,
+      eye.baseY + animation.eyeOffsetY * this.radius,
+    );
+    eye.container.setScale(1, animation.verticalScale);
+    eye.pupil.setPosition(
+      eye.basePupilX + animation.pupilOffsetX * this.radius,
+      eye.basePupilY + animation.pupilOffsetY * this.radius,
+    );
   }
 
   private createSoccerSkin(): Phaser.GameObjects.GameObject[] {
@@ -201,4 +333,6 @@ export class BallRenderer {
   private sampleCurve(curve: (t: number) => LocalPoint, segments: number): LocalPoint[] {
     return Array.from({ length: segments + 1 }, (_, index) => curve(index / segments));
   }
+
+
 }

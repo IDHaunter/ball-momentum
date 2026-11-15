@@ -156,7 +156,7 @@ The Physics Sandbox includes a teal, arrow-marked crate before a 150 px pit. Pus
 
 ## Ball skins
 
-Open **Settings** from the main menu to choose a ball appearance. The built-in skins are Happy face, Football, Basketball, Googly eye, and Tiny alien. The selected skin is stored with the player's local preferences and restored on the next visit. Existing saves that do not contain a `ballSkin` preference automatically use the Happy face skin.
+Open **Settings** from the main menu to choose a ball appearance. The built-in skins are Happy face, Football, Basketball, Googly eye, and Tiny alien. The selected skin is stored with the player's local preferences and restored on the next visit. Existing saves that do not contain a `ballSkin` preference automatically use the Happy face skin. The Happy face skin has procedural eye glances, offset double-blinks, expressive eyebrows, a gently changing grin, and pulsing cheek blush. Its facial animation follows the rolling ball and pauses when **Reduce motion** is enabled.
 
 ## Autonomous patrol bots
 

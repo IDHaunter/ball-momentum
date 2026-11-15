@@ -59,3 +59,33 @@
 - Spring launches now arm the same finite, damped landing-bounce sequence as a manual jump. Since movable-block top contacts are already mapped as ordinary ground-support contacts, the bounce sequence also works when the spring-launched ball lands on a pushable crate.
 - Applied the user's updated Physics Sandbox layout. The bot island top is at y=400; bot y positions are 386 so their circle centres sit one radius above the platform instead of starting embedded halfway inside it.
 - Added regression tests for bot footprint edge detection, low-spawn floor probing, deterministic bot separation, movable-block support contacts, and spring-launched landing bounces.
+
+## Smiley skin style refinement — 2026-11-14
+
+- Reworked only the Smiley skin to a soft vertical gradient from bright yellow through orange to a subtle rosy lower edge.
+- Removed brows, cheek blush, teeth, and tongue. The face now uses large round white eyes, dark independently moving pupils, offset double-blinks, and a simple dark curved smile.
+- The smile widens and flattens as the ball moves faster. Wall, terrain, spring, movable-block impacts, and landings briefly change it to a surprised open-mouth expression.
+- Facial reactions are driven by speed and existing physics events through `BallVisualController`; the full face remains attached to the rotating / squash-stretch ball container.
+- Reduced Motion continues to pause facial animation and impact reactions.
+- Updated only the Smiley Settings preview SVG. Soccer, Basketball, Googly Eye, and Tiny Alien renderers and preview artwork are unchanged.
+- No physics, input, level configuration, save keys, or skin IDs changed.
+- Added regression coverage for speed-based mouth changes, impact expression, and visual-controller event forwarding.
+
+
+## Smiley in-game gradient artifact fix — 2026-11-15
+
+- Replaced the in-game Smiley fill made from 56 individual narrow Graphics polygons with a single high-resolution, circularly clipped Phaser CanvasTexture.
+- The texture uses the same four vertical warm-gradient stops as the Settings preview, rendered by the Canvas 2D gradient engine rather than many independently tessellated WebGL polygons.
+- Removed all additional shading from the base texture; the existing small soft highlight ellipse remains unchanged. No dark gradients, directional shading, or shadow bands are added.
+- The generated texture is cached by a versioned key in the Phaser Texture Manager and reused across skin switches and level restarts.
+- Settings preview SVG, Smiley eyes/mouth/animation, all other skins, physics, Sandbox JSON, and gameplay code remain unchanged.
+- Added focused regression tests for the single clipped vertical gradient, exact warm color stops, and safe texture sizing.
+
+
+## Smiley mouth rendering stabilization — 2026-11-15
+
+- Replaced the per-frame-cleared Phaser Graphics mouth with one cached CanvasTexture containing a single antialiased quadratic stroke with round caps and joins. This removes short-path triangulation seams and endpoint artifacts that could appear as a dark dot beneath the chin.
+- Removed the impact-triggered open-mouth polygon and independent sinusoidal mouth rotation, both of which could make the smile visibly pop/flicker while the ball rolled.
+- Kept a subtle speed/impact expression by smoothly interpolating a very small horizontal/vertical scale change on the cached mouth image.
+- Left the Settings preview SVG, Smiley gradient, eye/pupil animation, other skins, physics, Sandbox, and gameplay mechanics unchanged.
+- Added focused `SmileyMouth` Canvas drawing tests and updated animation tests to assert stable smile behavior.

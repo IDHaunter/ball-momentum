@@ -22,20 +22,25 @@ export class BallVisualController {
   }
   land(impactSpeed: number): void {
     if (this.reducedMotion) return;
+    this.renderer.reactToImpact(impactSpeed);
     const intensity = Math.min(0.18, Math.max(0.04, impactSpeed / 5000));
     this.squashX = 1 + intensity;
     this.squashY = 1 - intensity;
     this.recovery = 0.18;
   }
 
-  update(dtSeconds: number, x: number, y: number, angle: number): void {
+  impact(impactSpeed: number): void {
+    if (!this.reducedMotion) this.renderer.reactToImpact(impactSpeed);
+  }
+
+  update(dtSeconds: number, x: number, y: number, angle: number, speedPxPerSecond = 0): void {
     if (this.reducedMotion) {
-      this.renderer.update(x, y, angle, 1, 1);
+      this.renderer.update(x, y, angle, 1, 1, 0, speedPxPerSecond);
       return;
     }
     const blend = Math.min(1, dtSeconds / Math.max(0.001, this.recovery));
     this.squashX += (1 - this.squashX) * blend;
     this.squashY += (1 - this.squashY) * blend;
-    this.renderer.update(x, y, angle, this.squashX, this.squashY);
+    this.renderer.update(x, y, angle, this.squashX, this.squashY, dtSeconds, speedPxPerSecond);
   }
 }
