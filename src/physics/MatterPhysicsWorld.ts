@@ -26,16 +26,30 @@ interface MatterFactoryLike {
 interface MatterRectangleVisualLike {
   setStrokeStyle(lineWidth: number, color: number, alpha?: number): MatterRectangleVisualLike;
   setDepth(depth: number): MatterRectangleVisualLike;
+  setPosition(x: number, y: number): MatterRectangleVisualLike;
+  setRotation(value: number): MatterRectangleVisualLike;
+  setScale(x: number, y?: number): MatterRectangleVisualLike;
+  setAlpha(value: number): MatterRectangleVisualLike;
+  setVisible(value: boolean): MatterRectangleVisualLike;
+  destroy(): void;
 }
 interface MatterCircleVisualLike {
   setStrokeStyle(lineWidth: number, color: number, alpha?: number): MatterCircleVisualLike;
   setDepth(depth: number): MatterCircleVisualLike;
+  setPosition(x: number, y: number): MatterCircleVisualLike;
+  setRotation(value: number): MatterCircleVisualLike;
+  setScale(x: number, y?: number): MatterCircleVisualLike;
+  setAlpha(value: number): MatterCircleVisualLike;
+  setVisible(value: boolean): MatterCircleVisualLike;
+  destroy(): void;
 }
 interface MatterTextLike {
   setOrigin(x: number, y?: number): MatterTextLike;
   setDepth(depth: number): MatterTextLike;
   setPosition(x: number, y: number): MatterTextLike;
   setRotation(value: number): MatterTextLike;
+  setScale(x: number, y?: number): MatterTextLike;
+  setAlpha(value: number): MatterTextLike;
   setText(value: string): MatterTextLike;
   setColor(value: string): MatterTextLike;
   destroy(): void;
@@ -65,14 +79,33 @@ interface BotRecord {
   turnCooldownSteps: number;
 }
 
+interface BombEyeVisual {
+  sclera: MatterCircleVisualLike;
+  pupil: MatterCircleVisualLike;
+  brow: MatterRectangleVisualLike;
+  localX: number;
+  phase: number;
+}
+
 interface BombRecord {
   object: MatterGameObjectLike;
   countdown: MatterTextLike;
-  fuse: MatterTextLike;
+  shellHighlight: MatterCircleVisualLike;
+  shellGlint: MatterCircleVisualLike;
+  leftEye: BombEyeVisual;
+  rightEye: BombEyeVisual;
+  mouth: MatterCircleVisualLike;
+  fuseCord: MatterRectangleVisualLike;
+  ember: MatterCircleVisualLike;
+  fuseGlow: MatterCircleVisualLike;
+  flameOuter: MatterCircleVisualLike;
+  flameInner: MatterCircleVisualLike;
+  flameCore: MatterCircleVisualLike;
   radius: number;
   mass: number;
   fuseMs: number;
   remainingMs: number;
+  visualElapsedMs: number;
   zeroDisplayMs: number | null;
   displayedNumber: number;
   explosionRadius: number;
@@ -318,38 +351,96 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     });
     rawBody.label = `BOMB:${definition.id}`;
     const scene = this.scene as unknown as MatterSceneLike;
-    const visual = scene.add.circle(definition.x, definition.y, definition.radius, 0x34313a, 0.98)
-      .setStrokeStyle(3, 0xe3a14e, 1)
+    const radius = definition.radius;
+    const visual = scene.add.circle(definition.x, definition.y, radius, 0x15171d, 1)
+      .setStrokeStyle(Math.max(1.6, radius * 0.105), 0x707984, 1)
       .setDepth(7);
     const object = this.factory.gameObject(visual, rawBody, true);
     object.body.label = `BOMB:${definition.id}`;
     object.setStatic(true);
 
-    const countdown = scene.add.text(definition.x, definition.y + 1, String(Math.ceil(definition.fuseSeconds)), {
-      fontFamily: 'Arial, sans-serif', fontSize: `${Math.max(16, definition.radius * 1.05)}px`,
-      color: '#fff2d4', fontStyle: 'bold', stroke: '#2b2024', strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(9);
-    const fuse = scene.add.text(definition.x - definition.radius * 0.25, definition.y - definition.radius * 0.82, '✦', {
-      fontFamily: 'Arial, sans-serif', fontSize: `${Math.max(14, definition.radius * 0.85)}px`,
-      color: '#ffad4d', fontStyle: 'bold', stroke: '#4b3024', strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(10);
+    // Separate world-space details follow the body's transform. This keeps the
+    // physical circle untouched while giving the bomb a readable metal shell,
+    // animated face, and a layered flame that is lit only after activation.
+    const shellHighlight = scene.add.circle(definition.x, definition.y, radius * 0.34, 0xb8c4d2, 0.16)
+      .setScale(1.3, 0.52).setDepth(8);
+    const shellGlint = scene.add.circle(definition.x, definition.y, radius * 0.075, 0xf3f7fb, 0.78)
+      .setDepth(9);
+
+    const createEye = (localX: number, phase: number): BombEyeVisual => {
+      const eyeY = -radius * 0.16;
+      const sclera = scene.add.circle(definition.x + localX, definition.y + eyeY, radius * 0.16, 0xf7f8fa, 1)
+        .setStrokeStyle(Math.max(0.5, radius * 0.025), 0x5c626d, 0.95).setDepth(9);
+      const pupil = scene.add.circle(definition.x + localX, definition.y + eyeY, radius * 0.078, 0x11151d, 1)
+        .setDepth(10);
+      const brow = scene.add.rectangle(
+        definition.x + localX,
+        definition.y - radius * 0.37,
+        radius * 0.27,
+        Math.max(1, radius * 0.055),
+        0x090b10,
+        1,
+      ).setDepth(10);
+      return { sclera, pupil, brow, localX, phase };
+    };
+    const leftEye = createEye(-radius * 0.28, 0.3);
+    const rightEye = createEye(radius * 0.28, 2.1);
+    const mouth = scene.add.circle(definition.x, definition.y + radius * 0.1, radius * 0.095, 0x080a10, 1)
+      .setScale(1.3, 0.42).setDepth(9);
+
+    const fuseCord = scene.add.rectangle(
+      definition.x - radius * 0.22,
+      definition.y - radius * 0.91,
+      Math.max(2, radius * 0.13),
+      radius * 0.42,
+      0x79523a,
+      1,
+    ).setStrokeStyle(Math.max(0.5, radius * 0.025), 0x38271f, 1).setDepth(8);
+    const ember = scene.add.circle(definition.x - radius * 0.3, definition.y - radius * 1.13, radius * 0.095, 0x8b4b2c, 1)
+      .setDepth(10);
+    const fuseGlow = scene.add.circle(definition.x - radius * 0.3, definition.y - radius * 1.2, radius * 0.43, 0xff762e, 0.22)
+      .setDepth(10).setVisible(false);
+    const flameOuter = scene.add.circle(definition.x - radius * 0.3, definition.y - radius * 1.2, radius * 0.27, 0xff6327, 0.98)
+      .setDepth(11).setVisible(false);
+    const flameInner = scene.add.circle(definition.x - radius * 0.3, definition.y - radius * 1.25, radius * 0.17, 0xffb52e, 1)
+      .setDepth(12).setVisible(false);
+    const flameCore = scene.add.circle(definition.x - radius * 0.3, definition.y - radius * 1.31, radius * 0.085, 0xfff0a1, 1)
+      .setDepth(13).setVisible(false);
+
+    const countdown = scene.add.text(definition.x, definition.y + radius * 0.55, String(Math.ceil(definition.fuseSeconds)), {
+      fontFamily: 'Arial, sans-serif', fontSize: `${Math.max(11, radius * 0.62)}px`,
+      color: '#fff2d4', fontStyle: 'bold', stroke: '#080a10', strokeThickness: Math.max(2, radius * 0.12),
+    }).setOrigin(0.5).setDepth(14);
 
     this.registerLevelObject(object, { kind: 'bomb', id: definition.id, mass: definition.mass });
-    this.bombs.set(definition.id, {
+    const bomb: BombRecord = {
       object,
       countdown,
-      fuse,
-      radius: definition.radius,
+      shellHighlight,
+      shellGlint,
+      leftEye,
+      rightEye,
+      mouth,
+      fuseCord,
+      ember,
+      fuseGlow,
+      flameOuter,
+      flameInner,
+      flameCore,
+      radius,
       mass: definition.mass,
       fuseMs: definition.fuseSeconds * 1000,
       remainingMs: definition.fuseSeconds * 1000,
+      visualElapsedMs: 0,
       zeroDisplayMs: null,
       displayedNumber: Math.ceil(definition.fuseSeconds),
       explosionRadius: definition.explosionRadius,
       explosionEnergy: definition.explosionEnergy,
       killPlaneY: definition.killPlaneY,
       activated: false,
-    });
+    };
+    this.bombs.set(definition.id, bomb);
+    this.updateBombVisual(bomb);
   }
 
   createSensor(definition: SensorOptions): void {
@@ -391,7 +482,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.movableBlocks.clear();
     for (const bot of this.bots.values()) { bot.eyes.destroy(); bot.mouth.destroy(); }
     this.bots.clear();
-    for (const bomb of this.bombs.values()) { bomb.countdown.destroy(); bomb.fuse.destroy(); }
+    for (const bomb of this.bombs.values()) this.destroyBombVisuals(bomb);
     this.bombs.clear();
     this.preStepVelocities.clear();
     this.levelObjects.length = 0;
@@ -480,7 +571,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     bomb.zeroDisplayMs = null;
     bomb.displayedNumber = Math.ceil(bomb.remainingMs / 1000);
     bomb.countdown.setText(String(bomb.displayedNumber)).setColor('#fff1c5');
-    bomb.fuse.setText('✹').setColor('#ff8b3d');
+    this.updateBombVisual(bomb);
     bomb.object.setStatic(false);
     bomb.object.setAwake();
 
@@ -526,13 +617,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         continue;
       }
 
-      const angle = bomb.object.body.angle;
-      const fuseOffsetX = -bomb.radius * 0.22;
-      const fuseOffsetY = -bomb.radius * 0.82;
-      const fuseX = position.x + fuseOffsetX * Math.cos(angle) - fuseOffsetY * Math.sin(angle);
-      const fuseY = position.y + fuseOffsetX * Math.sin(angle) + fuseOffsetY * Math.cos(angle);
-      bomb.countdown.setPosition(position.x, position.y + 1);
-      bomb.fuse.setPosition(fuseX, fuseY).setRotation(angle);
+      bomb.visualElapsedMs += stepMs;
+      this.updateBombVisual(bomb);
 
       if (!bomb.activated) continue;
       if (bomb.zeroDisplayMs !== null) {
@@ -549,8 +635,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         bomb.countdown.setColor(displayed <= 1 ? '#ff725c' : '#fff1c5');
       }
       if (bomb.remainingMs <= 0) {
-        bomb.countdown.setText('0').setColor('#ff5549');
-        bomb.fuse.setText('✹').setColor('#ff4b32');
+        bomb.countdown.setText('0').setColor('#ff5549').setScale(1.18, 1.18);
         bomb.zeroDisplayMs = 120;
       }
     }
@@ -636,9 +721,99 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const entry = this.levelObjects.findIndex((object) => object.body === bomb.object.body);
     if (entry >= 0) this.levelObjects.splice(entry, 1);
     this.metadata.delete(bomb.object.body);
-    bomb.countdown.destroy();
-    bomb.fuse.destroy();
+    this.destroyBombVisuals(bomb);
     bomb.object.destroy();
+  }
+
+  private updateBombVisual(bomb: BombRecord): void {
+    const body = bomb.object.body;
+    const { x, y } = body.position;
+    const angle = body.angle;
+    const radius = bomb.radius;
+    const time = bomb.visualElapsedMs / 1000;
+    const tension = bomb.activated
+      ? Math.max(0, Math.min(1, 1 - bomb.remainingMs / bomb.fuseMs))
+      : 0;
+    const frantic = bomb.activated ? 1 + tension * 2.8 : 0.85;
+    const rotateLocal = (localX: number, localY: number): Vector2 => ({
+      x: x + localX * Math.cos(angle) - localY * Math.sin(angle),
+      y: y + localX * Math.sin(angle) + localY * Math.cos(angle),
+    });
+    const placeCircle = (visual: MatterCircleVisualLike, localX: number, localY: number): void => {
+      const point = rotateLocal(localX, localY);
+      visual.setPosition(point.x, point.y).setRotation(angle);
+    };
+
+    const highlight = rotateLocal(-radius * 0.28, -radius * 0.39);
+    bomb.shellHighlight.setPosition(highlight.x, highlight.y).setRotation(angle)
+      .setAlpha(0.13 + Math.sin(time * 1.7) * 0.025);
+    const glint = rotateLocal(-radius * 0.36, -radius * 0.53);
+    bomb.shellGlint.setPosition(glint.x, glint.y).setAlpha(0.62 + Math.sin(time * 2.4) * 0.12);
+
+    const updateEye = (eye: BombEyeVisual, side: -1 | 1): void => {
+      const eyeY = -radius * 0.16 + Math.sin(time * (2.1 + frantic) + eye.phase) * radius * 0.018;
+      placeCircle(eye.sclera, eye.localX, eyeY);
+      eye.sclera.setScale(1, 1 + tension * 0.18);
+      const pupilAmplitude = radius * (0.025 + tension * 0.045);
+      const pupilX = eye.localX + Math.sin(time * 4.4 * frantic + eye.phase) * pupilAmplitude;
+      const pupilY = eyeY + Math.cos(time * 3.7 * frantic + eye.phase * 1.3) * pupilAmplitude * 0.62;
+      placeCircle(eye.pupil, pupilX, pupilY);
+      const brow = rotateLocal(eye.localX, -radius * (0.37 - tension * 0.025));
+      eye.brow.setPosition(brow.x, brow.y)
+        .setRotation(angle + side * (0.12 + tension * 0.28))
+        .setScale(1, 1 + tension * 0.35);
+    };
+    updateEye(bomb.leftEye, -1);
+    updateEye(bomb.rightEye, 1);
+
+    const mouthPoint = rotateLocal(0, radius * 0.1);
+    const mouthPulse = 0.5 + 0.5 * Math.sin(time * (5 + frantic * 2));
+    bomb.mouth.setPosition(mouthPoint.x, mouthPoint.y).setRotation(angle)
+      .setScale(1.2 + tension * 0.45, 0.42 + tension * (0.8 + mouthPulse * 0.28));
+
+    const cord = rotateLocal(-radius * 0.22, -radius * 0.91);
+    bomb.fuseCord.setPosition(cord.x, cord.y).setRotation(angle - 0.32);
+    const flicker = 0.78 + Math.sin(time * 21) * 0.13 + Math.sin(time * 37 + 0.8) * 0.07;
+    const flameScale = tension ? 0.92 + tension * 0.34 : 1;
+    placeCircle(bomb.ember, -radius * 0.3, -radius * 1.13);
+    bomb.ember.setVisible(!bomb.activated).setAlpha(0.65 + Math.sin(time * 4) * 0.08);
+    placeCircle(bomb.fuseGlow, -radius * 0.3, -radius * 1.19);
+    placeCircle(bomb.flameOuter, -radius * 0.3, -radius * 1.19 + Math.sin(time * 18) * radius * 0.025);
+    placeCircle(bomb.flameInner, -radius * 0.3 + Math.sin(time * 23) * radius * 0.025, -radius * 1.25);
+    placeCircle(bomb.flameCore, -radius * 0.3, -radius * 1.31 + Math.sin(time * 28) * radius * 0.018);
+    const flameVisible = bomb.activated;
+    const flameAlpha = flameVisible ? 0.85 + flicker * 0.12 : 0;
+    bomb.fuseGlow.setVisible(flameVisible).setScale(0.82 + flicker * 0.28, 0.82 + flicker * 0.36)
+      .setAlpha(flameVisible ? 0.14 + flicker * 0.08 : 0);
+    bomb.flameOuter.setVisible(flameVisible).setScale(flicker * flameScale, flicker * 1.22 * flameScale)
+      .setAlpha(flameAlpha);
+    bomb.flameInner.setVisible(flameVisible).setScale((0.88 + flicker * 0.12) * flameScale, (0.98 + flicker * 0.16) * flameScale)
+      .setAlpha(flameVisible ? 0.98 : 0);
+    bomb.flameCore.setVisible(flameVisible).setScale(0.92 + flicker * 0.1, 1 + flicker * 0.18)
+      .setAlpha(flameVisible ? 0.96 : 0);
+
+    bomb.countdown.setPosition(x, y + radius * 0.55).setScale(
+      1 + tension * 0.1 + (bomb.zeroDisplayMs !== null ? 0.12 : 0),
+      1 + tension * 0.08 + (bomb.zeroDisplayMs !== null ? 0.12 : 0),
+    );
+  }
+
+  private destroyBombVisuals(bomb: BombRecord): void {
+    bomb.countdown.destroy();
+    bomb.shellHighlight.destroy();
+    bomb.shellGlint.destroy();
+    for (const eye of [bomb.leftEye, bomb.rightEye]) {
+      eye.sclera.destroy();
+      eye.pupil.destroy();
+      eye.brow.destroy();
+    }
+    bomb.mouth.destroy();
+    bomb.fuseCord.destroy();
+    bomb.ember.destroy();
+    bomb.fuseGlow.destroy();
+    bomb.flameOuter.destroy();
+    bomb.flameInner.destroy();
+    bomb.flameCore.destroy();
   }
 
   private activateMovableBlock(impact: Extract<PhysicsEvent, { type: 'BALL_MOVABLE_IMPACT' }>): void {

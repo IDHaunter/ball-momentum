@@ -6,11 +6,30 @@ import type { CollisionEventLike } from '../../src/physics/MatterCollisionMapper
 import type { PhysicsEvent, Vector2 } from '../../src/physics/PhysicsTypes';
 
 type TestBody = MatterBodyLike & { isStatic?: boolean; destroyed?: boolean; options?: Record<string, unknown> };
+type TestVisual = {
+  kind: 'circle' | 'rectangle'; x: number; y: number; fillColor: number; alpha: number;
+  scaleX: number; scaleY: number; rotation: number; visible: boolean; destroyed: boolean;
+};
 
 function createHarness() {
   const handlers = new Map<string, (event: CollisionEventLike) => void>();
   const bodies: TestBody[] = [];
   const labels: Array<{ text: string; destroyed: boolean; x: number; y: number; color: string }> = [];
+  const visuals: TestVisual[] = [];
+  const makeVisual = (kind: TestVisual['kind'], x: number, y: number, fillColor: number, alpha = 1) => {
+    const state: TestVisual = { kind, x, y, fillColor, alpha, scaleX: 1, scaleY: 1, rotation: 0, visible: true, destroyed: false };
+    visuals.push(state);
+    return {
+      setStrokeStyle() { return this; },
+      setDepth() { return this; },
+      setPosition(px: number, py: number) { state.x = px; state.y = py; return this; },
+      setRotation(value: number) { state.rotation = value; return this; },
+      setScale(sx: number, sy = sx) { state.scaleX = sx; state.scaleY = sy; return this; },
+      setAlpha(value: number) { state.alpha = value; return this; },
+      setVisible(value: boolean) { state.visible = value; return this; },
+      destroy() { state.destroyed = true; },
+    };
+  };
   const makeBody = (x: number, y: number, label: string, options: Record<string, unknown> = {}): TestBody => {
     const body: TestBody = {
       position: { x, y }, velocity: { x: 0, y: 0 }, angle: 0, angularVelocity: 0,
@@ -22,8 +41,8 @@ function createHarness() {
   const scene = {
     add: {
       zone: () => ({}),
-      circle: () => ({ setStrokeStyle() { return this; }, setDepth() { return this; } }),
-      rectangle: () => ({ setStrokeStyle() { return this; }, setDepth() { return this; } }),
+      circle: (x: number, y: number, _radius: number, fillColor: number, alpha = 1) => makeVisual('circle', x, y, fillColor, alpha),
+      rectangle: (x: number, y: number, _width: number, _height: number, fillColor: number, alpha = 1) => makeVisual('rectangle', x, y, fillColor, alpha),
       text: (x: number, y: number, text = '') => {
         const state = { text, destroyed: false, x, y, color: '' };
         labels.push(state);
@@ -34,6 +53,8 @@ function createHarness() {
           setRotation() { return this; },
           setText(value: string) { state.text = value; return this; },
           setColor(value: string) { state.color = value; return this; },
+          setScale() { return this; },
+          setAlpha() { return this; },
           destroy() { state.destroyed = true; },
         };
       },
@@ -57,7 +78,7 @@ function createHarness() {
         fromVertices(x: number, y: number, _vertices: Vector2[][], options: Record<string, unknown>) {
           return makeBody(x, y, String(options.label ?? ''), options);
         },
-        gameObject(_visual: object, body: MatterBodyLike): MatterGameObjectLike {
+        gameObject(visual: object, body: MatterBodyLike): MatterGameObjectLike {
           const testBody = body as TestBody;
           return {
             body,
@@ -66,7 +87,11 @@ function createHarness() {
             setAngularVelocity(value: number) { body.angularVelocity = value; return this; },
             setAwake() { return this; },
             setStatic(value: boolean) { testBody.isStatic = value; return this; },
-            destroy() { testBody.destroyed = true; return this; },
+            destroy() {
+              testBody.destroyed = true;
+              (visual as { destroy?: () => void }).destroy?.();
+              return this;
+            },
           };
         },
       },
@@ -75,7 +100,7 @@ function createHarness() {
   const world = new MatterPhysicsWorld(scene as never);
   const events: PhysicsEvent[] = [];
   world.onPhysicsEvent((event) => events.push(event));
-  return { world, handlers, bodies, labels, events };
+  return { world, handlers, bodies, labels, visuals, events };
 }
 
 const ballOptions = {
@@ -114,6 +139,7 @@ describe('MatterPhysicsWorld bombs', () => {
       friction: 0.3, frictionStatic: 0.5, restitution: 0.1,
     });
     harness.world.createBall({ x: 100, y: 100 }, ballOptions);
+    const bombVisualStart = harness.visuals.length;
     harness.world.createBomb(bombOptions);
 
     const ball = harness.bodies.find((body) => body.label === 'BALL')!;
@@ -138,7 +164,35 @@ describe('MatterPhysicsWorld bombs', () => {
     expect(ball.destroyed).toBe(false);
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeLessThan(0);
     expect(bomb.destroyed).toBe(true);
-    expect(harness.labels.filter((label) => label.text === '1' || label.text === '✦' || label.text === '✹').every((label) => label.destroyed)).toBe(true);
+    expect(harness.labels.filter((label) => label.text === '1').every((label) => label.destroyed)).toBe(true);
+    expect(harness.visuals.slice(bombVisualStart).every((visual) => visual.destroyed)).toBe(true);
+    harness.world.dispose();
+  });
+
+  it('lights a layered flame on impact and animates the bomb face while the fuse burns', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 100, y: 100 }, ballOptions);
+    harness.world.createBomb(bombOptions);
+    const ball = harness.bodies.find((body) => body.label === 'BALL')!;
+    ball.velocity.x = PhysicsAdapter.toMatterVelocity({ x: 240, y: 0 }).x;
+
+    const flameColors = [0xff762e, 0xff6327, 0xffb52e, 0xfff0a1];
+    const flameLayers = harness.visuals.filter((visual) => flameColors.includes(visual.fillColor));
+    expect(flameLayers.length).toBe(4);
+    expect(flameLayers.every((visual) => !visual.visible)).toBe(true);
+
+    const pupils = harness.visuals.filter((visual) => visual.fillColor === 0x11151d);
+    expect(pupils.length).toBe(2);
+    const initialPupilPositions = pupils.map((pupil) => ({ x: pupil.x, y: pupil.y }));
+
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: ball, bodyB: harness.bodies.find((body) => body.label === 'BOMB:timer-bomb')!, collision: { normal: { x: 1, y: 0 } } }],
+    });
+    expect(flameLayers.every((visual) => visual.visible)).toBe(true);
+    const initialFlameScale = flameLayers[1].scaleX;
+    harness.world.step(16);
+    expect(pupils.some((pupil, index) => pupil.x !== initialPupilPositions[index].x || pupil.y !== initialPupilPositions[index].y)).toBe(true);
+    expect(flameLayers[1].scaleX === initialFlameScale).toBe(false);
     harness.world.dispose();
   });
 
@@ -186,8 +240,10 @@ describe('MatterPhysicsWorld bombs', () => {
       pairs: [{ bodyA: ball, bodyB: bomb, collision: { normal: { x: 1, y: 0 } } }],
     });
     expect(bomb.isStatic).toBe(true);
-    expect(harness.labels.some((label) => label.text === '✦')).toBe(true);
-    expect(harness.labels.some((label) => label.text === '✹')).toBe(false);
+    const flameColors = [0xff762e, 0xff6327, 0xffb52e, 0xfff0a1];
+    const flameLayers = harness.visuals.filter((visual) => flameColors.includes(visual.fillColor));
+    expect(flameLayers.length).toBe(4);
+    expect(flameLayers.every((visual) => !visual.visible)).toBe(true);
     harness.world.dispose();
   });
 
