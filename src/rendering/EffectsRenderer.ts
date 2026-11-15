@@ -52,6 +52,57 @@ export class EffectsRenderer {
   }
 
 
+  bombExplosion(x: number, y: number, radius: number, energy: number): void {
+    if (this.reducedMotion) return;
+    const strength = Math.max(0.65, Math.min(1.5, Math.sqrt(energy / 180000)));
+    const ring = this.trackEffect(this.scene.add.circle(x, y, 12, 0xffffff, 0)
+      .setStrokeStyle(5, 0xffad55, 0.95)
+      .setDepth(12));
+    this.scene.tweens.add({
+      targets: ring,
+      scale: Math.max(2, radius / 12),
+      alpha: 0,
+      duration: 420,
+      ease: 'Quad.easeOut',
+      onComplete: () => this.finishEffect(ring),
+    });
+
+    const flash = this.trackEffect(this.scene.add.circle(x, y, 24, 0xffd17b, 0.88).setDepth(11));
+    flash.setScale(0.35);
+    this.scene.tweens.add({
+      targets: flash,
+      scale: 3.2 * strength,
+      alpha: 0,
+      duration: 190,
+      ease: 'Quad.easeOut',
+      onComplete: () => this.finishEffect(flash),
+    });
+
+    const count = Math.max(18, Math.min(38, Math.round(20 + strength * 12)));
+    for (let index = 0; index < count; index += 1) {
+      const angle = (Math.PI * 2 * index) / count + (Math.random() - 0.5) * 0.42;
+      const distance = radius * (0.32 + Math.random() * 0.5);
+      const particle = this.trackEffect(this.scene.add.circle(
+        x + Math.cos(angle) * 5,
+        y + Math.sin(angle) * 5,
+        2 + Math.random() * 3,
+        index % 3 === 0 ? 0xffe1a0 : index % 3 === 1 ? 0xffa34d : 0xc4d1dc,
+        0.95,
+      ).setDepth(13));
+      this.scene.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance + 10 + Math.random() * 18,
+        alpha: 0,
+        scale: 0.18,
+        rotation: (Math.random() - 0.5) * 5,
+        duration: 360 + Math.random() * 220,
+        ease: 'Quad.easeOut',
+        onComplete: () => this.finishEffect(particle),
+      });
+    }
+  }
+
   glassShatter(solid: SolidDefinition): void {
     if (this.reducedMotion) return;
     let minX: number;

@@ -61,6 +61,20 @@ const botSchema = z.object({
   }).optional(),
 });
 
+
+const bombSchema = z.object({
+  id: z.string().min(1),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  radius: z.number().finite().positive().min(10).max(80),
+  mass: z.number().finite().positive().max(100),
+  fuseSeconds: z.number().finite().positive().min(0.5).max(15),
+  explosionRadius: z.number().finite().positive().max(1200),
+  explosionEnergy: z.number().finite().positive(),
+  restitution: z.number().min(0).max(1).optional(),
+  friction: z.number().min(0).max(1).optional(),
+});
+
 const triggerSchema = z.object({
   id: z.string().min(1), type: z.enum(['hazard', 'checkpoint', 'goal']),
   x: z.number().finite(), y: z.number().finite(),
@@ -89,6 +103,7 @@ export const LevelSchema = z.object({
   solids: z.array(z.discriminatedUnion('type', [boxSchema, polygonSchema])),
   triggers: z.array(triggerSchema),
   bots: z.array(botSchema).max(24).optional(),
+  bombs: z.array(bombSchema).max(24).optional(),
   materials: z.record(z.string(), materialSchema).optional(),
   decorations: z.array(decorationSchema).optional(),
   camera: z.object({

@@ -296,6 +296,16 @@ export class GameplayScene extends Phaser.Scene {
     const events = this.physicsEvents;
     this.physicsEvents = [];
     for (const event of events) {
+      if (event.type === 'BOMB_EXPLODED') {
+        if (this.gameRegistry.flow.state === 'PLAYING') {
+          this.effects.bombExplosion(event.position.x, event.position.y, event.radius, event.explosionEnergy);
+          for (const terrainId of event.breakableIds) {
+            const broken = this.levelBuilder?.breakSolid(terrainId) ?? [];
+            for (const solid of broken) this.effects.glassShatter(solid);
+          }
+        }
+        continue;
+      }
       if (event.type === 'BALL_SPRING_IMPACT') {
         if (this.gameRegistry.flow.state === 'PLAYING') {
           this.ballVisual?.impact(Math.max(event.impactSpeed, event.impulse));

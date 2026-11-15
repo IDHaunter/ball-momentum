@@ -35,6 +35,38 @@ describe('LevelValidator', () => {
   });
   it('requires a goal trigger', () => expect(() => validator.validate({ ...validLevel, triggers: [] })).toThrow(/goal trigger/));
 
+  it('accepts a valid timed bomb with an energy-based blast configuration', () => {
+    const level = {
+      ...validLevel,
+      bombs: [{
+        id: 'bomb-1', x: 500, y: 180, radius: 18, mass: 1.5,
+        fuseSeconds: 3, explosionRadius: 320, explosionEnergy: 250000,
+      }],
+    };
+    expect(validator.validate(level).bombs?.[0].fuseSeconds).toBe(3);
+  });
+
+  it('rejects bombs outside the world and invalid blast radii', () => {
+    const outside = {
+      ...validLevel,
+      bombs: [{ id: 'bomb-1', x: 995, y: 180, radius: 18, mass: 1, fuseSeconds: 3, explosionRadius: 300, explosionEnergy: 10000 }],
+    };
+    expect(() => validator.validate(outside)).toThrow(/bomb circle must be inside world bounds/);
+    const invalidRadius = {
+      ...validLevel,
+      bombs: [{ id: 'bomb-1', x: 500, y: 180, radius: 18, mass: 1, fuseSeconds: 3, explosionRadius: 18, explosionEnergy: 10000 }],
+    };
+    expect(() => validator.validate(invalidRadius)).toThrow(/explosionRadius/);
+  });
+
+  it('rejects duplicate bomb identifiers', () => {
+    const duplicate = {
+      ...validLevel,
+      bombs: [{ id: 'floor', x: 500, y: 180, radius: 18, mass: 1, fuseSeconds: 3, explosionRadius: 300, explosionEnergy: 10000 }],
+    };
+    expect(() => validator.validate(duplicate)).toThrow(/duplicate ID/);
+  });
+
   it('accepts breakable glass with a positive energy threshold', () => {
     const level = {
       ...validLevel,

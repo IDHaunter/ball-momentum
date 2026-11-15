@@ -4,4 +4,5 @@ export const COLLISION_CATEGORIES = {
   TRIGGER: 0x0004,
   MOVABLE: 0x0008,
   BOT: 0x0010,
+  BOMB: 0x0020,
 } as const;

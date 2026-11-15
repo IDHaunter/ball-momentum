@@ -97,3 +97,11 @@
 - Updated the GameApplication fallback physics configuration to use the same 60-degree setting, so resetting physics defaults does not reintroduce the bug.
 - Added GroundContactTracker regression coverage for both sloped faces of the exact `level-01.json` triangle and BallController integration coverage confirming the player can jump from either side.
 - No terrain geometry, material settings, collision response, or Sandbox content was changed.
+
+
+## Time Bombs
+
+- Added level-configurable timed bomb characters with visible countdowns and fuse sparks.
+- Player-ball and autonomous-bot contacts activate and release bombs; active bombs remain pushable and are removed without detonating if they fall below the kill plane.
+- Added quadratic radial blast-energy falloff, mass-dependent velocity impulses for the player, bots, and movable blocks, and energy-threshold glass destruction with the existing glass-shatter cascade.
+- Extended Physics Sandbox with a time-bomb test area, a nearby movable crate, a breakable glass target, and a finish beyond the bomb section.

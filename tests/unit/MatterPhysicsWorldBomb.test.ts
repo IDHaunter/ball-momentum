@@ -1,0 +1,211 @@
+import { describe, expect, it } from 'vitest';
+import { MatterPhysicsWorld } from '../../src/physics/MatterPhysicsWorld';
+import { PhysicsAdapter } from '../../src/physics/PhysicsAdapter';
+import type { MatterBodyLike, MatterGameObjectLike } from '../../src/physics/MatterPhysicsBody';
+import type { CollisionEventLike } from '../../src/physics/MatterCollisionMapper';
+import type { PhysicsEvent, Vector2 } from '../../src/physics/PhysicsTypes';
+
+type TestBody = MatterBodyLike & { isStatic?: boolean; destroyed?: boolean; options?: Record<string, unknown> };
+
+function createHarness() {
+  const handlers = new Map<string, (event: CollisionEventLike) => void>();
+  const bodies: TestBody[] = [];
+  const labels: Array<{ text: string; destroyed: boolean; x: number; y: number; color: string }> = [];
+  const makeBody = (x: number, y: number, label: string, options: Record<string, unknown> = {}): TestBody => {
+    const body: TestBody = {
+      position: { x, y }, velocity: { x: 0, y: 0 }, angle: 0, angularVelocity: 0,
+      label, isStatic: Boolean(options.isStatic), destroyed: false, options,
+    };
+    bodies.push(body);
+    return body;
+  };
+  const scene = {
+    add: {
+      zone: () => ({}),
+      circle: () => ({ setStrokeStyle() { return this; }, setDepth() { return this; } }),
+      rectangle: () => ({ setStrokeStyle() { return this; }, setDepth() { return this; } }),
+      text: (x: number, y: number, text = '') => {
+        const state = { text, destroyed: false, x, y, color: '' };
+        labels.push(state);
+        return {
+          setOrigin() { return this; },
+          setDepth() { return this; },
+          setPosition(px: number, py: number) { state.x = px; state.y = py; return this; },
+          setRotation() { return this; },
+          setText(value: string) { state.text = value; return this; },
+          setColor(value: string) { state.color = value; return this; },
+          destroy() { state.destroyed = true; },
+        };
+      },
+    },
+    matter: {
+      world: {
+        autoUpdate: true,
+        engine: { timing: { timeScale: 1 } },
+        on(event: string, listener: (event: CollisionEventLike) => void) { handlers.set(event, listener); },
+        off(event: string) { handlers.delete(event); },
+        step() {},
+        setGravity() {},
+      },
+      add: {
+        circle(x: number, y: number, _radius: number, options: Record<string, unknown>) {
+          return makeBody(x, y, String(options.label ?? ''), options);
+        },
+        rectangle(x: number, y: number, _width: number, _height: number, options: Record<string, unknown>) {
+          return makeBody(x, y, String(options.label ?? ''), options);
+        },
+        fromVertices(x: number, y: number, _vertices: Vector2[][], options: Record<string, unknown>) {
+          return makeBody(x, y, String(options.label ?? ''), options);
+        },
+        gameObject(_visual: object, body: MatterBodyLike): MatterGameObjectLike {
+          const testBody = body as TestBody;
+          return {
+            body,
+            setPosition(px: number, py: number) { body.position.x = px; body.position.y = py; return this; },
+            setVelocity(vx: number, vy: number) { body.velocity.x = vx; body.velocity.y = vy; return this; },
+            setAngularVelocity(value: number) { body.angularVelocity = value; return this; },
+            setAwake() { return this; },
+            setStatic(value: boolean) { testBody.isStatic = value; return this; },
+            destroy() { testBody.destroyed = true; return this; },
+          };
+        },
+      },
+    },
+  };
+  const world = new MatterPhysicsWorld(scene as never);
+  const events: PhysicsEvent[] = [];
+  world.onPhysicsEvent((event) => events.push(event));
+  return { world, handlers, bodies, labels, events };
+}
+
+const ballOptions = {
+  radiusPx: 18, mass: 1, restitution: 0.05, friction: 0.8,
+  frictionStatic: 0.8, frictionAir: 0, fixedRotation: false,
+};
+const bombOptions = {
+  id: 'timer-bomb', x: 150, y: 100, radius: 18, mass: 1.5,
+  fuseSeconds: 1, explosionRadius: 300, explosionEnergy: 30000,
+  restitution: 0.58, friction: 0.08, killPlaneY: 500,
+};
+
+describe('MatterPhysicsWorld bombs', () => {
+  it('creates a static bomb that collides with the player and autonomous bots', () => {
+    const harness = createHarness();
+    harness.world.createBomb(bombOptions);
+    const bomb = harness.bodies.find((body) => body.label === 'BOMB:timer-bomb')!;
+    expect(bomb.isStatic).toBe(true);
+    const filter = bomb.options?.collisionFilter as { category: number; mask: number };
+    expect(filter.category).toBe(0x0020);
+    expect(filter.mask & 0x0001).toBeTruthy();
+    expect(filter.mask & 0x0010).toBeTruthy();
+    harness.world.dispose();
+  });
+
+  it('starts the fuse when hit by the player and pushes nearby movable and glass objects on detonation', () => {
+    const harness = createHarness();
+    harness.world.createStaticBox({
+      id: 'glass-target', x: 220, y: 90, width: 40, height: 20,
+      friction: 0.08, frictionStatic: 0.12, restitution: 0.34,
+      breakable: true, breakableThresholdEnergy: 1000,
+    });
+    harness.world.createMovableBox({
+      id: 'push-target', x: 190, y: 90, width: 20, height: 20,
+      mass: 2, minimumImpactEnergy: 100, killPlaneY: 500,
+      friction: 0.3, frictionStatic: 0.5, restitution: 0.1,
+    });
+    harness.world.createBall({ x: 100, y: 100 }, ballOptions);
+    harness.world.createBomb(bombOptions);
+
+    const ball = harness.bodies.find((body) => body.label === 'BALL')!;
+    const bomb = harness.bodies.find((body) => body.label === 'BOMB:timer-bomb')!;
+    const block = harness.bodies.find((body) => body.label === 'MOVABLE:push-target')!;
+    ball.velocity.x = PhysicsAdapter.toMatterVelocity({ x: 240, y: 0 }).x;
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: ball, bodyB: bomb, collision: { normal: { x: 1, y: 0 } } }],
+    });
+
+    expect(bomb.isStatic).toBe(false);
+    expect(harness.labels.some((label) => label.text === '1')).toBe(true);
+    harness.world.step(1000);
+    harness.world.step(120);
+
+    const explosion = harness.events.find((event) => event.type === 'BOMB_EXPLODED');
+    expect(explosion?.type).toBe('BOMB_EXPLODED');
+    if (explosion?.type !== 'BOMB_EXPLODED') throw new Error('Bomb did not explode');
+    expect(explosion.breakableIds).toContain('glass-target');
+    expect(block.isStatic).toBe(false);
+    expect(Math.hypot(...[PhysicsAdapter.fromMatterVelocity(block.velocity).x, PhysicsAdapter.fromMatterVelocity(block.velocity).y])).toBeGreaterThan(0);
+    expect(ball.destroyed).toBe(false);
+    expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeLessThan(0);
+    expect(bomb.destroyed).toBe(true);
+    expect(harness.labels.filter((label) => label.text === '1' || label.text === '✦' || label.text === '✹').every((label) => label.destroyed)).toBe(true);
+    harness.world.dispose();
+  });
+
+  it('starts its fuse when an autonomous bot hits it', () => {
+    const harness = createHarness();
+    harness.world.createBomb(bombOptions);
+    harness.world.createBot({
+      id: 'patrol-bot', x: 100, y: 100, radius: 14, mass: 1.2,
+      speed: 120, direction: 1, restitution: 0.82, friction: 0.015, killPlaneY: 500,
+    });
+    const bot = harness.bodies.find((body) => body.label === 'BOT:patrol-bot')!;
+    const bomb = harness.bodies.find((body) => body.label === 'BOMB:timer-bomb')!;
+    bot.velocity.x = PhysicsAdapter.toMatterVelocity({ x: 120, y: 0 }).x;
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: bot, bodyB: bomb, collision: { normal: { x: 1, y: 0 } } }],
+    });
+    expect(bomb.isStatic).toBe(false);
+    expect(harness.labels.some((label) => label.text === '1')).toBe(true);
+    harness.world.dispose();
+  });
+
+  it('handles the reversed Matter body order when the player hits the bomb', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 200, y: 100 }, ballOptions);
+    harness.world.createBomb(bombOptions);
+    const ball = harness.bodies.find((body) => body.label === 'BALL')!;
+    const bomb = harness.bodies.find((body) => body.label === 'BOMB:timer-bomb')!;
+    ball.velocity.x = PhysicsAdapter.toMatterVelocity({ x: -240, y: 0 }).x;
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: bomb, bodyB: ball, collision: { normal: { x: 1, y: 0 } } }],
+    });
+    expect(bomb.isStatic).toBe(false);
+    expect(PhysicsAdapter.fromMatterVelocity(bomb.velocity).x).toBeLessThan(0);
+    harness.world.dispose();
+  });
+
+  it('does not activate when a new contact is already separating', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 100, y: 100 }, ballOptions);
+    harness.world.createBomb(bombOptions);
+    const ball = harness.bodies.find((body) => body.label === 'BALL')!;
+    const bomb = harness.bodies.find((body) => body.label === 'BOMB:timer-bomb')!;
+    ball.velocity.x = PhysicsAdapter.toMatterVelocity({ x: -100, y: 0 }).x;
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: ball, bodyB: bomb, collision: { normal: { x: 1, y: 0 } } }],
+    });
+    expect(bomb.isStatic).toBe(true);
+    expect(harness.labels.some((label) => label.text === '✦')).toBe(true);
+    expect(harness.labels.some((label) => label.text === '✹')).toBe(false);
+    harness.world.dispose();
+  });
+
+  it('removes an activated bomb that is pushed into the kill plane without detonating', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 100, y: 100 }, ballOptions);
+    harness.world.createBomb(bombOptions);
+    const ball = harness.bodies.find((body) => body.label === 'BALL')!;
+    const bomb = harness.bodies.find((body) => body.label === 'BOMB:timer-bomb')!;
+    ball.velocity.x = PhysicsAdapter.toMatterVelocity({ x: 240, y: 0 }).x;
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: ball, bodyB: bomb, collision: { normal: { x: 1, y: 0 } } }],
+    });
+    expect(bomb.isStatic).toBe(false);
+    bomb.position.y = 510;
+    harness.world.step(1000 / 60);
+    expect(bomb.destroyed).toBe(true);
+    expect(harness.events.some((event) => event.type === 'BOMB_EXPLODED')).toBe(false);
+    harness.world.dispose();
+  });
+});

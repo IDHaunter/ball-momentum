@@ -10,12 +10,13 @@ export interface CollisionPairLike {
 export interface CollisionEventLike { pairs: CollisionPairLike[]; }
 
 export interface PhysicsBodyMetadata {
-  kind: 'ball' | 'terrain' | 'trigger' | 'movable' | 'bot';
+  kind: 'ball' | 'terrain' | 'trigger' | 'movable' | 'bot' | 'bomb';
   id: string;
   mass?: number;
   minimumImpactEnergy?: number;
   triggerType?: 'hazard' | 'checkpoint' | 'goal';
   breakable?: boolean;
+  breakableThresholdEnergy?: number;
   springSurfaces?: Array<{ id: string; normal: Vector2; impulse: number }>;
   patrolGeometry?: PatrolGeometry;
   dynamic?: boolean;

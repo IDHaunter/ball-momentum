@@ -22,12 +22,26 @@ export interface SpringSurfacePhysicsDefinition { id: string; normal: Vector2; i
 
 export interface StaticBoxOptions {
   id: string; x: number; y: number; width: number; height: number;
-  friction: number; frictionStatic: number; restitution: number; breakable?: boolean; springSurfaces?: SpringSurfacePhysicsDefinition[];
+  friction: number; frictionStatic: number; restitution: number; breakable?: boolean; breakableThresholdEnergy?: number; springSurfaces?: SpringSurfacePhysicsDefinition[];
 }
 
 export interface StaticPolygonOptions {
   id: string; vertices: Vector2[];
-  friction: number; frictionStatic: number; restitution: number; breakable?: boolean; springSurfaces?: SpringSurfacePhysicsDefinition[];
+  friction: number; frictionStatic: number; restitution: number; breakable?: boolean; breakableThresholdEnergy?: number; springSurfaces?: SpringSurfacePhysicsDefinition[];
+}
+
+export interface BombPhysicsOptions {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  fuseSeconds: number;
+  explosionRadius: number;
+  explosionEnergy: number;
+  restitution: number;
+  friction: number;
+  killPlaneY: number;
 }
 
 export interface BotPhysicsOptions {
@@ -67,5 +81,6 @@ export type PhysicsEvent =
   | { type: 'BALL_SPRING_IMPACT'; terrainId: string; surfaceId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; impulse: number }
   | { type: 'BALL_WALL_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; penetrationDepth: number; breakable?: boolean }
   | { type: 'BALL_TERRAIN_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; penetrationDepth: number }
+  | { type: 'BOMB_EXPLODED'; bombId: string; position: Vector2; radius: number; explosionEnergy: number; breakableIds: string[] }
   | { type: 'BALL_ENTERED_TRIGGER'; triggerId: string; triggerType: 'hazard' | 'checkpoint' | 'goal' }
   | { type: 'BALL_EXITED_TRIGGER'; triggerId: string };

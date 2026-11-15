@@ -2,11 +2,12 @@ import { COLLISION_CATEGORIES } from './CollisionCategories';
 import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
-import type { BallPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from './PhysicsTypes';
+import type { BallPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
 import { directionFromVelocity, hasPatrolEdgeAhead, hasPatrolObstacleAhead } from './BotPatrol';
+import { calculateBlastEnergy, calculateBlastVelocityDelta, distanceToPatrolGeometry } from './BombExplosion';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -35,6 +36,8 @@ interface MatterTextLike {
   setDepth(depth: number): MatterTextLike;
   setPosition(x: number, y: number): MatterTextLike;
   setRotation(value: number): MatterTextLike;
+  setText(value: string): MatterTextLike;
+  setColor(value: string): MatterTextLike;
   destroy(): void;
 }
 interface MatterSceneLike {
@@ -62,6 +65,22 @@ interface BotRecord {
   turnCooldownSteps: number;
 }
 
+interface BombRecord {
+  object: MatterGameObjectLike;
+  countdown: MatterTextLike;
+  fuse: MatterTextLike;
+  radius: number;
+  mass: number;
+  fuseMs: number;
+  remainingMs: number;
+  zeroDisplayMs: number | null;
+  displayedNumber: number;
+  explosionRadius: number;
+  explosionEnergy: number;
+  killPlaneY: number;
+  activated: boolean;
+}
+
 interface MovableBlockRecord {
   object: MatterGameObjectLike;
   marker: MatterTextLike;
@@ -81,12 +100,14 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private readonly activeTriggers = new Set<string>();
   private readonly movableBlocks = new Map<string, MovableBlockRecord>();
   private readonly bots = new Map<string, BotRecord>();
+  private readonly bombs = new Map<string, BombRecord>();
   private readonly collisionStart = (event: CollisionEventLike) => this.handleCollision(event, 'start');
   private readonly collisionActive = (event: CollisionEventLike) => this.handleCollision(event, 'active');
   private readonly collisionEnd = (event: CollisionEventLike) => this.handleCollision(event, 'end');
   private readonly world: MatterWorldLike;
   private readonly factory: MatterFactoryLike;
   private preStepBallVelocity: Vector2 | null = null;
+  private readonly preStepVelocities = new Map<MatterBodyLike, Vector2>();
 
   constructor(private readonly scene: object) {
     const matter = (scene as unknown as MatterSceneLike).matter;
@@ -100,15 +121,23 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
 
   step(fixedStepMs: number): void {
     this.updateBotsBeforeStep();
+    this.preStepVelocities.clear();
+    for (const [body, meta] of this.metadata.entries()) {
+      if (meta.kind === 'ball' || meta.kind === 'bot' || meta.kind === 'movable' || meta.kind === 'bomb') {
+        this.preStepVelocities.set(body, PhysicsAdapter.fromMatterVelocity(body.velocity));
+      }
+    }
     const velocity = this.ballObject?.body.velocity;
     this.preStepBallVelocity = velocity ? PhysicsAdapter.fromMatterVelocity(velocity) : null;
     try {
       this.world.step(fixedStepMs);
     } finally {
       this.preStepBallVelocity = null;
+      this.preStepVelocities.clear();
     }
     this.updateMovableBlocks();
     this.updateBotsAfterStep();
+    this.updateBombs(fixedStepMs);
   }
   setGravity(x: number, y: number, scale: number): void { this.world.setGravity(x, y, scale); }
   setTimeScale(value: number): void { this.world.engine.timing.timeScale = Math.max(0, value); }
@@ -122,7 +151,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       label: 'BALL', isStatic: false, restitution: options.restitution,
       friction: options.friction, frictionStatic: options.frictionStatic, frictionAir: options.frictionAir,
       mass: options.mass, inertia: options.fixedRotation ? Infinity : undefined,
-      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT },
+      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB },
     });
     rawBody.label = 'BALL';
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(position.x, position.y, 1, 1), rawBody, true);
@@ -144,13 +173,13 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       {
         label: definition.id, isStatic: true,
         friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT },
+        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB },
       },
     );
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(definition.x + definition.width / 2, definition.y + definition.height / 2, 1, 1), rawBody, true);
     object.body.label = definition.id;
-    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable, springSurfaces: definition.springSurfaces, patrolGeometry: { type: 'box', x: definition.x, y: definition.y, width: definition.width, height: definition.height } });
+    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable, breakableThresholdEnergy: definition.breakableThresholdEnergy, springSurfaces: definition.springSurfaces, patrolGeometry: { type: 'box', x: definition.x, y: definition.y, width: definition.width, height: definition.height } });
   }
 
   createStaticPolygon(definition: StaticPolygonOptions): void {
@@ -165,12 +194,12 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const rawBody = this.factory.fromVertices(center.x, center.y, [local], {
       label: definition.id, isStatic: true,
       friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT },
+      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB },
     }, true);
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(center.x, center.y, 1, 1), rawBody, true);
     object.body.label = definition.id;
-    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable, springSurfaces: definition.springSurfaces, patrolGeometry: { type: 'polygon', vertices: definition.vertices.map((point) => ({ ...point })) } });
+    this.registerLevelObject(object, { kind: 'terrain', id: definition.id, breakable: definition.breakable, breakableThresholdEnergy: definition.breakableThresholdEnergy, springSurfaces: definition.springSurfaces, patrolGeometry: { type: 'polygon', vertices: definition.vertices.map((point) => ({ ...point })) } });
   }
 
   createMovableBox(definition: MovableBoxOptions): void {
@@ -186,7 +215,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.MOVABLE,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB,
       },
     });
     rawBody.label = `MOVABLE:${definition.id}`;
@@ -239,7 +268,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BOT,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB,
       },
     });
     rawBody.label = `BOT:${definition.id}`;
@@ -270,6 +299,56 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       patrolMaxX: definition.patrolMaxX,
       recoverySteps: 0,
       turnCooldownSteps: 0,
+    });
+  }
+
+  createBomb(definition: BombPhysicsOptions): void {
+    const rawBody = this.factory.circle(definition.x, definition.y, definition.radius, {
+      label: `BOMB:${definition.id}`,
+      isStatic: false,
+      mass: definition.mass,
+      friction: definition.friction,
+      frictionStatic: definition.friction,
+      frictionAir: 0.012,
+      restitution: definition.restitution,
+      collisionFilter: {
+        category: COLLISION_CATEGORIES.BOMB,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE,
+      },
+    });
+    rawBody.label = `BOMB:${definition.id}`;
+    const scene = this.scene as unknown as MatterSceneLike;
+    const visual = scene.add.circle(definition.x, definition.y, definition.radius, 0x34313a, 0.98)
+      .setStrokeStyle(3, 0xe3a14e, 1)
+      .setDepth(7);
+    const object = this.factory.gameObject(visual, rawBody, true);
+    object.body.label = `BOMB:${definition.id}`;
+    object.setStatic(true);
+
+    const countdown = scene.add.text(definition.x, definition.y + 1, String(Math.ceil(definition.fuseSeconds)), {
+      fontFamily: 'Arial, sans-serif', fontSize: `${Math.max(16, definition.radius * 1.05)}px`,
+      color: '#fff2d4', fontStyle: 'bold', stroke: '#2b2024', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(9);
+    const fuse = scene.add.text(definition.x - definition.radius * 0.25, definition.y - definition.radius * 0.82, '✦', {
+      fontFamily: 'Arial, sans-serif', fontSize: `${Math.max(14, definition.radius * 0.85)}px`,
+      color: '#ffad4d', fontStyle: 'bold', stroke: '#4b3024', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(10);
+
+    this.registerLevelObject(object, { kind: 'bomb', id: definition.id, mass: definition.mass });
+    this.bombs.set(definition.id, {
+      object,
+      countdown,
+      fuse,
+      radius: definition.radius,
+      mass: definition.mass,
+      fuseMs: definition.fuseSeconds * 1000,
+      remainingMs: definition.fuseSeconds * 1000,
+      zeroDisplayMs: null,
+      displayedNumber: Math.ceil(definition.fuseSeconds),
+      explosionRadius: definition.explosionRadius,
+      explosionEnergy: definition.explosionEnergy,
+      killPlaneY: definition.killPlaneY,
+      activated: false,
     });
   }
 
@@ -312,6 +391,9 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.movableBlocks.clear();
     for (const bot of this.bots.values()) { bot.eyes.destroy(); bot.mouth.destroy(); }
     this.bots.clear();
+    for (const bomb of this.bombs.values()) { bomb.countdown.destroy(); bomb.fuse.destroy(); }
+    this.bombs.clear();
+    this.preStepVelocities.clear();
     this.levelObjects.length = 0;
     this.activeTriggers.clear();
   }
@@ -341,6 +423,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
 
   private handleCollision(event: CollisionEventLike, phase: 'start' | 'active' | 'end'): void {
     for (const pair of event.pairs ?? []) {
+      this.handleBombCollision(pair, phase);
       this.handleBotCollision(pair, phase);
       const mapped = this.mapper.mapPair(pair, phase, this.preStepBallVelocity);
       for (const item of mapped) {
@@ -357,6 +440,205 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         for (const listener of this.listeners) listener(item);
       }
     }
+  }
+
+  private handleBombCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {
+    if (phase !== 'start') return;
+    const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
+    const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
+    const metaA = this.metadata.get(bodyA);
+    const metaB = this.metadata.get(bodyB);
+    if (!metaA || !metaB) return;
+
+    const bombIsA = metaA.kind === 'bomb';
+    const bombMeta = bombIsA ? metaA : metaB.kind === 'bomb' ? metaB : null;
+    if (!bombMeta) return;
+    const sourceMeta = bombIsA ? metaB : metaA;
+    if (sourceMeta.kind !== 'ball' && sourceMeta.kind !== 'bot') return;
+
+    const bombBody = bombIsA ? bodyA : bodyB;
+    const sourceBody = bombIsA ? bodyB : bodyA;
+    const bomb = this.bombs.get(bombMeta.id);
+    if (!bomb || bomb.activated) return;
+
+    const deltaX = sourceBody.position.x - bombBody.position.x;
+    const deltaY = sourceBody.position.y - bombBody.position.y;
+    const normalLength = Math.hypot(pair.collision.normal.x, pair.collision.normal.y) || 1;
+    let normal = { x: pair.collision.normal.x / normalLength, y: pair.collision.normal.y / normalLength };
+    if (normal.x * deltaX + normal.y * deltaY < 0) normal = { x: -normal.x, y: -normal.y };
+
+    const incomingVelocity = this.preStepVelocities.get(sourceBody)
+      ?? PhysicsAdapter.fromMatterVelocity(sourceBody.velocity);
+    const sourceMass = sourceMeta.mass ?? 1;
+    const closingSpeed = -(incomingVelocity.x * normal.x + incomingVelocity.y * normal.y);
+    // A new overlap must be an actual incoming hit. This prevents an already
+    // separating ball/bot (or a spawn-time overlap) from lighting the fuse.
+    if (closingSpeed <= 0.1) return;
+
+    bomb.activated = true;
+    bomb.remainingMs = bomb.fuseMs;
+    bomb.zeroDisplayMs = null;
+    bomb.displayedNumber = Math.ceil(bomb.remainingMs / 1000);
+    bomb.countdown.setText(String(bomb.displayedNumber)).setColor('#fff1c5');
+    bomb.fuse.setText('✹').setColor('#ff8b3d');
+    bomb.object.setStatic(false);
+    bomb.object.setAwake();
+
+    // The body was static during the collision solver. Reconstruct the first
+    // two-body impact from the pre-step velocity so the bomb is actually kicked
+    // instead of merely starting its fuse while remaining glued in place.
+    if (closingSpeed > 0.1) {
+      const result = calculateMovableBlockImpact({
+        normal,
+        incomingVelocity,
+        ballMass: sourceMass,
+        blockMass: bomb.mass,
+        restitution: 0.62,
+      });
+      bomb.object.setVelocity(
+        PhysicsAdapter.toMatterVelocity(result.blockVelocity).x,
+        PhysicsAdapter.toMatterVelocity(result.blockVelocity).y,
+      );
+      const sourceObject = sourceMeta.kind === 'ball'
+        ? this.ballObject
+        : this.bots.get(sourceMeta.id)?.object;
+      if (sourceObject) {
+        const sourceMatterVelocity = PhysicsAdapter.toMatterVelocity(result.ballVelocity);
+        sourceObject.setVelocity(sourceMatterVelocity.x, sourceMatterVelocity.y);
+        sourceObject.setAwake();
+      }
+      if (sourceMeta.kind === 'bot') {
+        const bot = this.bots.get(sourceMeta.id);
+        if (bot) {
+          bot.direction = directionFromVelocity(result.ballVelocity.x, bot.direction);
+          bot.recoverySteps = 16;
+          bot.turnCooldownSteps = 8;
+        }
+      }
+    }
+  }
+
+  private updateBombs(stepMs: number): void {
+    for (const [id, bomb] of [...this.bombs.entries()]) {
+      const position = bomb.object.body.position;
+      if (position.y > bomb.killPlaneY) {
+        this.removeBomb(id);
+        continue;
+      }
+
+      const angle = bomb.object.body.angle;
+      const fuseOffsetX = -bomb.radius * 0.22;
+      const fuseOffsetY = -bomb.radius * 0.82;
+      const fuseX = position.x + fuseOffsetX * Math.cos(angle) - fuseOffsetY * Math.sin(angle);
+      const fuseY = position.y + fuseOffsetX * Math.sin(angle) + fuseOffsetY * Math.cos(angle);
+      bomb.countdown.setPosition(position.x, position.y + 1);
+      bomb.fuse.setPosition(fuseX, fuseY).setRotation(angle);
+
+      if (!bomb.activated) continue;
+      if (bomb.zeroDisplayMs !== null) {
+        bomb.zeroDisplayMs -= stepMs;
+        if (bomb.zeroDisplayMs <= 0) this.detonateBomb(id, bomb);
+        continue;
+      }
+
+      bomb.remainingMs = Math.max(0, bomb.remainingMs - stepMs);
+      const displayed = Math.max(0, Math.ceil(bomb.remainingMs / 1000));
+      if (displayed !== bomb.displayedNumber) {
+        bomb.displayedNumber = displayed;
+        bomb.countdown.setText(String(displayed));
+        bomb.countdown.setColor(displayed <= 1 ? '#ff725c' : '#fff1c5');
+      }
+      if (bomb.remainingMs <= 0) {
+        bomb.countdown.setText('0').setColor('#ff5549');
+        bomb.fuse.setText('✹').setColor('#ff4b32');
+        bomb.zeroDisplayMs = 120;
+      }
+    }
+  }
+
+  private detonateBomb(id: string, bomb: BombRecord): void {
+    const origin = { ...bomb.object.body.position };
+    const breakableIds: string[] = [];
+
+    for (const [body, meta] of [...this.metadata.entries()]) {
+      if (body === bomb.object.body) continue;
+
+      if (meta.kind === 'terrain') {
+        if (!meta.breakable || !meta.breakableThresholdEnergy || !meta.patrolGeometry) continue;
+        const distance = distanceToPatrolGeometry(origin, meta.patrolGeometry);
+        const energy = calculateBlastEnergy(bomb.explosionEnergy, bomb.explosionRadius, distance);
+        if (energy >= meta.breakableThresholdEnergy) breakableIds.push(meta.id);
+        continue;
+      }
+
+      if (meta.kind !== 'ball' && meta.kind !== 'bot' && meta.kind !== 'movable') continue;
+      const target = { ...body.position };
+      const distance = Math.hypot(target.x - origin.x, target.y - origin.y);
+      if (distance >= bomb.explosionRadius) continue;
+      const energy = calculateBlastEnergy(bomb.explosionEnergy, bomb.explosionRadius, distance);
+      if (energy <= 0) continue;
+
+      if (meta.kind === 'movable') {
+        const block = this.movableBlocks.get(meta.id);
+        if (!block) continue;
+        if (!block.activated) {
+          if (energy < block.minimumImpactEnergy) continue;
+          block.activated = true;
+          meta.dynamic = true;
+          block.object.setStatic(false);
+        }
+      }
+
+      const mass = meta.mass ?? 1;
+      const deltaVelocity = calculateBlastVelocityDelta(origin, target, mass, energy);
+      const currentVelocity = PhysicsAdapter.fromMatterVelocity(body.velocity);
+      const nextVelocity = {
+        x: currentVelocity.x + deltaVelocity.x,
+        y: currentVelocity.y + deltaVelocity.y,
+      };
+      const matterVelocity = PhysicsAdapter.toMatterVelocity(nextVelocity);
+
+      if (meta.kind === 'ball') {
+        this.ballObject?.setVelocity(matterVelocity.x, matterVelocity.y);
+        this.ballObject?.setAwake();
+      } else if (meta.kind === 'bot') {
+        const bot = this.bots.get(meta.id);
+        if (!bot) continue;
+        bot.object.setVelocity(matterVelocity.x, matterVelocity.y);
+        bot.object.setAwake();
+        bot.direction = directionFromVelocity(nextVelocity.x, bot.direction);
+        bot.recoverySteps = 36;
+        bot.turnCooldownSteps = 8;
+      } else {
+        const block = this.movableBlocks.get(meta.id);
+        if (!block) continue;
+        block.object.setVelocity(matterVelocity.x, matterVelocity.y);
+        block.object.setAwake();
+      }
+    }
+
+    this.removeBomb(id);
+    const event: PhysicsEvent = {
+      type: 'BOMB_EXPLODED',
+      bombId: id,
+      position: origin,
+      radius: bomb.explosionRadius,
+      explosionEnergy: bomb.explosionEnergy,
+      breakableIds,
+    };
+    for (const listener of this.listeners) listener(event);
+  }
+
+  private removeBomb(id: string): void {
+    const bomb = this.bombs.get(id);
+    if (!bomb) return;
+    this.bombs.delete(id);
+    const entry = this.levelObjects.findIndex((object) => object.body === bomb.object.body);
+    if (entry >= 0) this.levelObjects.splice(entry, 1);
+    this.metadata.delete(bomb.object.body);
+    bomb.countdown.destroy();
+    bomb.fuse.destroy();
+    bomb.object.destroy();
   }
 
   private activateMovableBlock(impact: Extract<PhysicsEvent, { type: 'BALL_MOVABLE_IMPACT' }>): void {

@@ -26,6 +26,19 @@ export interface MovableDefinition {
   minimumImpactEnergy: number;
 }
 
+export interface BombDefinition {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  fuseSeconds: number;
+  explosionRadius: number;
+  explosionEnergy: number;
+  restitution?: number;
+  friction?: number;
+}
+
 export interface BotPatrolRangeDefinition { minX: number; maxX: number; }
 
 /** Autonomous rolling character. Speed is expressed in pixels per second. */
@@ -76,6 +89,7 @@ export interface LevelDefinition {
   solids: SolidDefinition[];
   triggers: TriggerDefinition[];
   bots?: BotDefinition[];
+  bombs?: BombDefinition[];
   materials?: Record<string, TerrainMaterialDefinition>;
   decorations?: DecorationDefinition[];
   camera?: { followOffsetX?: number; smoothing?: number; minX?: number; maxX?: number };

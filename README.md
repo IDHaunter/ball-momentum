@@ -61,6 +61,10 @@ Example level definition:
 
 `minimumImpactEnergy` is measured as `0.5 * ballMass * normalImpactSpeed²`; glancing impacts therefore transfer less energy than direct side hits. The material supplies friction and restitution. Movable boxes cannot also be glass breakables.
 
+## Time bombs
+
+Levels can define timed bombs in a top-level `bombs` array. Bombs are activated by the player ball or autonomous bots, can be pushed during their countdown, and apply a quadratic radial blast to dynamic objects and breakable glass. See `TIME_BOMB_FEATURE.md` for the JSON fields and physics model.
+
 ## Editing levels
 
 Edit JSON files in `public/levels/`. `level-01.json` is the tutorial course and `physics-sandbox.json` is the movement sandbox. The browser validates each file before building collision bodies. Reload the game after changing a level.

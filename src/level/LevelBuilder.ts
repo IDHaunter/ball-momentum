@@ -48,6 +48,21 @@ export class LevelBuilder {
         patrolMaxX: bot.patrolRange?.maxX,
       });
     }
+    for (const bomb of level.bombs ?? []) {
+      this.world.createBomb({
+        id: bomb.id,
+        x: bomb.x,
+        y: bomb.y,
+        radius: bomb.radius,
+        mass: bomb.mass,
+        fuseSeconds: bomb.fuseSeconds,
+        explosionRadius: bomb.explosionRadius,
+        explosionEnergy: bomb.explosionEnergy,
+        restitution: bomb.restitution ?? 0.58,
+        friction: bomb.friction ?? 0.08,
+        killPlaneY: level.world.killPlaneY,
+      });
+    }
     for (const item of level.decorations ?? []) {
       const color = item.color ?? '#ffffff';
       if (item.type === 'circle') {

@@ -1,4 +1,4 @@
-import type { BallPhysicsOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, MovableBoxOptions, BotPhysicsOptions, Vector2 } from './PhysicsTypes';
+import type { BallPhysicsOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, MovableBoxOptions, BotPhysicsOptions, BombPhysicsOptions, Vector2 } from './PhysicsTypes';
 import type { IPhysicsBody } from './IPhysicsBody';
 
 export interface IPhysicsWorld {
@@ -8,6 +8,7 @@ export interface IPhysicsWorld {
   createStaticPolygon(definition: StaticPolygonOptions): void;
   createMovableBox(definition: MovableBoxOptions): void;
   createBot(definition: BotPhysicsOptions): void;
+  createBomb(definition: BombPhysicsOptions): void;
   removeTerrainBody(id: string): void;
   createSensor(definition: SensorOptions): void;
   removeLevelBodies(): void;

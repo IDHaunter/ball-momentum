@@ -68,6 +68,17 @@ export class LevelValidator {
       }
     }
 
+    for (const bomb of level.bombs ?? []) {
+      addId(bomb.id, `bombs.${bomb.id}`);
+      if (bomb.x - bomb.radius < 0 || bomb.x + bomb.radius > level.world.width
+        || bomb.y - bomb.radius < 0 || bomb.y + bomb.radius > level.world.height) {
+        errors.push(`bombs.${bomb.id}: bomb circle must be inside world bounds`);
+      }
+      if (bomb.explosionRadius <= bomb.radius) {
+        errors.push(`bombs.${bomb.id}.explosionRadius: must be larger than the bomb radius`);
+      }
+    }
+
     for (const bot of level.bots ?? []) {
       addId(bot.id, `bots.${bot.id}`);
       if (bot.x - bot.radius < 0 || bot.x + bot.radius > level.world.width
