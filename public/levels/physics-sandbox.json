@@ -455,15 +455,15 @@
       "y": 760,
       "width": 150,
       "height": 120,
-      "material": "stone",
+      "material": "normal",
       "texture": {
-        "pattern": "stone-masonry",
-        "density": 2.0,
-        "opacity": 0.82,
+        "pattern": "asphalt-pavers",
+        "density": 1.05,
+        "opacity": 0.92,
         "seed": 52
       },
       "borders": {
-        "top": "stone",
+        "top": "asphalt",
         "right": "metal",
         "bottom": "none",
         "left": "metal"
@@ -569,6 +569,27 @@
       },
       "borders": {
         "top": "asphalt",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-metal-sheen",
+      "type": "box",
+      "x": 5920,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "normal",
+      "texture": {
+        "pattern": "metal-sheen",
+        "density": 0.9,
+        "opacity": 0.76,
+        "seed": 101
+      },
+      "borders": {
+        "top": "metal",
         "right": "metal",
         "bottom": "none",
         "left": "metal"
@@ -715,7 +736,7 @@
       "type": "text",
       "x": 4305,
       "y": 730,
-      "text": "STONE FRAGMENTS",
+      "text": "STONE PEBBLES",
       "color": "#dcecf6",
       "depth": 4
     },
@@ -733,7 +754,7 @@
       "type": "text",
       "x": 4665,
       "y": 730,
-      "text": "ICE STRATA",
+      "text": "SNOW & ICE CHIPS",
       "color": "#dcecf6",
       "depth": 4
     },
@@ -742,7 +763,7 @@
       "type": "text",
       "x": 4845,
       "y": 730,
-      "text": "STONE MASONRY",
+      "text": "CONCRETE PAVERS",
       "color": "#dcecf6",
       "depth": 4
     },
@@ -788,6 +809,15 @@
       "x": 5745,
       "y": 730,
       "text": "SAND SPECKS",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-10",
+      "type": "text",
+      "x": 5925,
+      "y": 730,
+      "text": "POLISHED METAL",
       "color": "#dcecf6",
       "depth": 4
     }

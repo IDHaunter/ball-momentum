@@ -11,6 +11,26 @@ export interface NormalizedSurfaceTextureOptions {
   seed: number;
 }
 
+/** Resolve deprecated JSON keys without rewriting the key stored by a level. */
+function resolveSurfaceTextureVisualFamily(pattern: SurfaceTexturePattern): SurfaceTexturePattern {
+  switch (pattern) {
+    case 'ice-crystals':
+      return 'ice-strata';
+    case 'stone-masonry':
+    case 'ice-facets':
+      return 'stone-fragments';
+    case 'asphalt-masonry':
+      return 'asphalt-pavers';
+    case 'metal-polish':
+      return 'metal-sheen';
+    case 'rubber-dots':
+    case 'rubber-chevrons':
+      return 'brick-masonry';
+    default:
+      return pattern;
+  }
+}
+
 export function normalizeSurfaceTexture(
   assignment: SurfaceTextureAssignment,
   fallbackSeed = 1,
@@ -18,7 +38,9 @@ export function normalizeSurfaceTexture(
   const options: SurfaceTextureOptions = typeof assignment === 'string'
     ? { pattern: assignment }
     : assignment;
-  const preset = SURFACE_TEXTURE_CATALOG[options.pattern];
+  // Legacy identifiers keep their original public key, but inherit defaults
+  // from the visual family they alias so their rendering is indistinguishable.
+  const preset = SURFACE_TEXTURE_CATALOG[resolveSurfaceTextureVisualFamily(options.pattern)];
   return {
     pattern: options.pattern,
     density: clamp(options.density ?? preset.defaultDensity, 0.25, 3),
@@ -85,7 +107,7 @@ export function drawSurfacePattern(
   context.lineJoin = 'round';
   context.lineWidth = Math.max(1, 1.35 / options.density);
 
-  switch (options.pattern) {
+  switch (resolveSurfaceTextureVisualFamily(options.pattern)) {
     case 'stone-fragments':
       drawStoneFragments(context, width, height, spacing, random);
       break;
@@ -93,16 +115,15 @@ export function drawSurfacePattern(
       drawStoneStrata(context, width, height, spacing, random);
       break;
     case 'ice-strata':
-    case 'ice-crystals': // Backward-compatible key; no longer draws snowflakes.
       drawIceStrata(context, width, height, spacing, random);
       break;
-    case 'stone-masonry':
-    case 'ice-facets': // Backward-compatible key; now renders stone masonry.
-      drawStoneMasonry(context, width, height, spacing, random);
+    case 'asphalt-pavers':
+      drawConcretePavers(context, width, height, spacing, random);
+      break;
+    case 'metal-sheen':
+      drawMetalSheen(context, width, height, spacing, random);
       break;
     case 'brick-masonry':
-    case 'rubber-dots': // Backward-compatible keys; now render brick masonry.
-    case 'rubber-chevrons':
       drawBrickMasonry(context, width, height, spacing, random);
       break;
     case 'glass-facets':
@@ -122,14 +143,15 @@ export function drawSurfacePattern(
 }
 
 function drawStoneFragments(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
-  const columns = Math.ceil(width / spacing) + 1;
-  const rows = Math.ceil(height / spacing) + 1;
+  const pebbleStep = spacing * 0.62;
+  const columns = Math.ceil(width / pebbleStep) + 2;
+  const rows = Math.ceil(height / pebbleStep) + 2;
   for (let row = 0; row < rows; row += 1) {
     for (let column = 0; column < columns; column += 1) {
-      if (random() < 0.16) continue;
-      const cx = column * spacing + (row % 2) * spacing * 0.48 + (random() - 0.5) * spacing * 0.3;
-      const cy = row * spacing + (random() - 0.5) * spacing * 0.3;
-      const radius = spacing * (0.14 + random() * 0.13);
+      if (random() < 0.08) continue;
+      const cx = column * pebbleStep + (row % 2) * pebbleStep * 0.48 + (random() - 0.5) * pebbleStep * 0.34;
+      const cy = row * pebbleStep + (random() - 0.5) * pebbleStep * 0.34;
+      const radius = pebbleStep * (0.19 + random() * 0.13);
       const sides = 5 + Math.floor(random() * 3);
       ctx.beginPath();
       for (let point = 0; point < sides; point += 1) {
@@ -174,77 +196,112 @@ function drawStoneStrata(ctx: CanvasRenderingContext2D, width: number, height: n
 }
 
 function drawIceStrata(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
-  // Compressed horizontal layers, like frozen sediment trapped inside a block.
-  // The old snowflake motif is intentionally not used for either current or legacy ice IDs.
-  const bandStep = Math.max(14, spacing * 0.54);
-  const segmentStep = Math.max(24, spacing * 0.62);
-  const rowCount = Math.ceil(height / bandStep) + 2;
-
-  for (let row = -1; row < rowCount; row += 1) {
-    const baseY = row * bandStep + (random() - 0.5) * bandStep * 0.16;
-    const bandHeight = bandStep * (0.34 + random() * 0.22);
-    const amplitude = bandStep * (0.035 + random() * 0.045);
-    const phase = random() * Math.PI * 2;
-    const top: Array<{ x: number; y: number }> = [];
-
-    for (let x = -segmentStep; x <= width + segmentStep; x += segmentStep) {
-      top.push({
-        x,
-        y: baseY + Math.sin(x / (segmentStep * 1.8) + phase) * amplitude + (random() - 0.5) * amplitude * 0.34,
-      });
-    }
-    const bottom = top.map((point) => ({ x: point.x, y: point.y + bandHeight }));
-
-    // A gently irregular translucent band gives the ice a compacted, layered body.
-    ctx.beginPath();
-    ctx.moveTo(top[0].x, top[0].y);
-    for (let index = 1; index < top.length; index += 1) ctx.lineTo(top[index].x, top[index].y);
-    for (let index = bottom.length - 1; index >= 0; index -= 1) ctx.lineTo(bottom[index].x, bottom[index].y);
-    ctx.closePath();
-    ctx.fillStyle = row % 2 === 0 ? 'rgba(224,249,255,0.15)' : 'rgba(42,126,164,0.10)';
-    ctx.fill();
-
-    // Soft upper and lower seams read as compressed ice strata, not surface decoration.
-    ctx.beginPath();
-    ctx.moveTo(top[0].x, top[0].y);
-    for (let index = 1; index < top.length; index += 1) ctx.lineTo(top[index].x, top[index].y);
-    ctx.strokeStyle = 'rgba(239,253,255,0.34)';
-    ctx.lineWidth = 1.1 + random() * 0.55;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(bottom[0].x, bottom[0].y);
-    for (let index = 1; index < bottom.length; index += 1) ctx.lineTo(bottom[index].x, bottom[index].y);
-    ctx.strokeStyle = 'rgba(38,105,145,0.22)';
-    ctx.lineWidth = 1.1;
-    ctx.stroke();
-
-    // Sparse short fractures interrupt a few layers without creating a busy grid.
-    if (random() > 0.58 && width > 42) {
-      const crackX = random() * Math.max(1, width - 42) + 16;
-      const crackY = baseY + bandHeight * (0.22 + random() * 0.55);
-      const crackLength = 15 + random() * 26;
-      const direction = random() > 0.5 ? 1 : -1;
+  // Snow is a soft, uneven blanket; translucent ice chips sit partly embedded in it.
+  ctx.fillStyle = 'rgba(218,240,248,0.16)';
+  ctx.fillRect(0, 0, width, height);
+  const step = Math.max(17, spacing * 0.48);
+  for (let y = -step; y < height + step; y += step) {
+    for (let x = -step; x < width + step; x += step) {
+      const cx = x + step * (0.35 + random() * 0.3);
+      const cy = y + step * (0.35 + random() * 0.3);
+      const moundW = step * (0.28 + random() * 0.28);
+      const moundH = step * (0.11 + random() * 0.12);
+      // Soft layered drift silhouette.
       ctx.beginPath();
-      ctx.moveTo(crackX, crackY);
-      ctx.lineTo(crackX + crackLength * 0.4 * direction, crackY + (random() - 0.5) * 4);
-      ctx.lineTo(crackX + crackLength * 0.72 * direction, crackY - 2 - random() * 4);
-      ctx.lineTo(crackX + crackLength * direction, crackY - 1 + random() * 4);
-      ctx.strokeStyle = 'rgba(246,254,255,0.42)';
+      ctx.ellipse(cx, cy, moundW, moundH, (random() - 0.5) * 0.18, Math.PI, Math.PI * 2);
+      ctx.lineTo(cx + moundW, cy + moundH * 0.55);
+      ctx.quadraticCurveTo(cx, cy + moundH * 1.15, cx - moundW, cy + moundH * 0.55);
+      ctx.closePath();
+      ctx.fillStyle = random() > 0.5 ? 'rgba(250,254,255,0.74)' : 'rgba(202,231,243,0.62)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
       ctx.lineWidth = 1;
       ctx.stroke();
+
+      if (random() > 0.44) {
+        const iceX = cx + (random() - 0.5) * step * 0.72;
+        const iceY = cy - step * (0.08 + random() * 0.12);
+        const r = step * (0.09 + random() * 0.1);
+        ctx.beginPath();
+        ctx.moveTo(iceX - r, iceY + r * 0.35);
+        ctx.lineTo(iceX - r * 0.48, iceY - r);
+        ctx.lineTo(iceX + r * 0.35, iceY - r * 0.82);
+        ctx.lineTo(iceX + r, iceY + r * 0.45);
+        ctx.lineTo(iceX + r * 0.15, iceY + r * 0.82);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(111,194,224,0.42)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(240,253,255,0.82)';
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(iceX - r * 0.35, iceY + r * 0.22);
+        ctx.lineTo(iceX - r * 0.08, iceY - r * 0.62);
+        ctx.strokeStyle = 'rgba(255,255,255,0.78)';
+        ctx.stroke();
+      }
     }
   }
+  // Fine snow dust keeps gaps natural rather than forming a repeated tile grid.
+  const flakes = Math.min(1800, Math.round(width * height / (step * step) * 8));
+  for (let i = 0; i < flakes; i += 1) {
+    const x = random() * width, y = random() * height;
+    ctx.fillStyle = 'rgba(255,255,255,0.58)';
+    ctx.beginPath(); ctx.arc(x, y, 0.5 + random() * 1.25, 0, Math.PI * 2); ctx.fill();
+  }
+}
 
-  // A few narrow air pockets suggest translucent compacted ice, not snowflakes.
-  const pocketCount = Math.max(2, Math.round((width * height) / (spacing * spacing) * 0.4));
-  for (let index = 0; index < pocketCount; index += 1) {
-    const x = random() * width;
-    const y = random() * height;
-    ctx.beginPath();
-    ctx.ellipse(x, y, 2.5 + random() * 5.5, 0.8 + random() * 1.5, (random() - 0.5) * 0.18, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(245,254,255,0.34)';
-    ctx.fill();
+function drawConcretePavers(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
+  const rowH = Math.max(15, spacing * 0.48);
+  const blockW = Math.max(22, spacing * 0.82);
+  const joint = Math.max(1.8, spacing * 0.045);
+  ctx.fillStyle = 'rgba(66,76,84,0.72)';
+  ctx.fillRect(0, 0, width, height);
+  for (let row = -1; row * rowH < height + rowH; row += 1) {
+    const offset = (row & 1) ? blockW * 0.5 : 0;
+    for (let x = -blockW + offset; x < width + blockW; x += blockW) {
+      const left = x + joint, top = row * rowH + joint;
+      const w = blockW - joint * 1.8, h = rowH - joint * 1.8;
+      const shade = 116 + Math.floor(random() * 34);
+      ctx.fillStyle = `rgba(${shade},${shade + 5},${shade + 8},0.96)`;
+      ctx.fillRect(left, top, w, h);
+      ctx.fillStyle = 'rgba(245,249,250,0.22)';
+      ctx.fillRect(left + 1, top + 1, Math.max(0, w - 2), Math.max(1, h * 0.1));
+      ctx.fillStyle = 'rgba(32,42,49,0.2)';
+      ctx.fillRect(left + 1, top + h - Math.max(1.5, h * 0.1), Math.max(0, w - 2), Math.max(1.5, h * 0.1));
+      // A restrained aggregate fleck, not a noisy asphalt grain.
+      if (random() > 0.45) {
+        ctx.fillStyle = 'rgba(42,52,59,0.16)';
+        ctx.beginPath(); ctx.arc(left + random() * w, top + random() * h, 0.7 + random(), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+}
+
+function drawMetalSheen(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
+  // Continuous brushed metal: broad soft light bands, no plates, rivets or seams.
+  const gradient = ctx.createLinearGradient(0, 0, width, height * 0.18);
+  gradient.addColorStop(0, 'rgba(35,49,62,0.18)');
+  gradient.addColorStop(0.28, 'rgba(226,239,246,0.24)');
+  gradient.addColorStop(0.52, 'rgba(112,135,151,0.12)');
+  gradient.addColorStop(0.76, 'rgba(245,250,252,0.3)');
+  gradient.addColorStop(1, 'rgba(45,62,75,0.16)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  const bands = Math.max(2, Math.ceil(height / Math.max(35, spacing * 1.5)));
+  for (let band = 0; band < bands; band += 1) {
+    const y = (band + 0.35 + random() * 0.3) * height / bands;
+    const bandGradient = ctx.createLinearGradient(0, y - 8, 0, y + 8);
+    bandGradient.addColorStop(0, 'rgba(255,255,255,0)');
+    bandGradient.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+    bandGradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = bandGradient;
+    ctx.fillRect(0, y - 8, width, 16);
+  }
+  for (let i = 0; i < Math.max(3, Math.round(width * height / (spacing * spacing) * 0.12)); i += 1) {
+    const x = random() * width, y = random() * height;
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.ellipse(x, y, 2 + random() * 3, 0.6 + random() * 1.1, -0.12, 0, Math.PI * 2); ctx.fill();
   }
 }
 

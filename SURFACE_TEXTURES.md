@@ -41,20 +41,21 @@ The texture is drawn procedurally to a cached CanvasTexture and clipped to the e
 
 | Pattern | Suggested materials | Visual motif |
 |---|---|---|
-| `stone-fragments` | stone, normal | Irregular rock chips, mineral flecks and small fractures |
+| `stone-fragments` | stone, normal | Loose scatter of small irregular pebbles, mineral flecks and shallow fractures |
 | `stone-strata` | stone, normal | Uneven sediment layers |
-| `stone-masonry` | stone, normal | Large dressed-stone blocks with recessed mortar joints |
-| `ice-strata` | ice | One clear ice style: compressed horizontal layers, subtle fractures and trapped air |
+| `ice-strata` | ice | Small soft snow drifts mixed with translucent ice chips |
+| `asphalt-pavers` | normal, stone | Neat rectangular concrete paving blocks in aligned, subtly staggered rows |
+| `metal-sheen` | metal, normal | Smooth continuous metal with broad soft reflections and restrained glints |
 | `brick-masonry` | brick, stone | Warm terracotta bricks in staggered courses with visible mortar |
 | `glass-facets` | glass | Soft translucent triangular colour planes and isolated glints, without drawn cross-seams |
 | `concrete-grain` | normal, stone | Fine aggregate speckles and scratches |
 | `wood-grain` | wood | Warm brown timber boards with visible fibres and knots |
 | `sand-specks` | sand, normal | Warm grains and tiny pebbles |
 
-Legacy JSON IDs are still accepted: `ice-crystals` maps to `ice-strata`, `ice-facets` maps to `stone-masonry`, and `rubber-dots` / `rubber-chevrons` map to `brick-masonry`. These aliases do not appear as separate entries in the Sandbox gallery.
+Legacy JSON IDs remain accepted and are never rewritten in stored level data. They render as their current visual family and inherit that family's default density and opacity: `ice-crystals` → `ice-strata`; `stone-masonry` and `ice-facets` → `stone-fragments`; `asphalt-masonry` → `asphalt-pavers`; `metal-polish` → `metal-sheen`; `rubber-dots` and `rubber-chevrons` → `brick-masonry`. Explicit per-solid density, opacity, and seed overrides continue to take precedence.
 
 The catalog metadata lives in `src/rendering/SurfaceTextureCatalog.ts`; rendering algorithms live in `src/rendering/SurfaceTextureGenerator.ts`. Add a new ID to `src/level/SurfaceTextureTypes.ts`, add metadata to the catalog, implement its drawing case in the generator, and add schema/catalog tests.
 
 ## Sandbox texture gallery
 
-The end of `physics-sandbox` contains a labelled nine-sample display row: stone fragments, stone strata, stone masonry, pressed ice strata, brick masonry, glass facets, concrete grain, warm wood grain, and sand specks. The goal trigger is placed after the gallery so players can inspect every sample before finishing the level. The brick and wood samples use their own warm material base colours so their textures do not inherit a grey stone fill.
+The end of `physics-sandbox` contains a labelled ten-sample display row covering every current gallery pattern: stone fragments, stone strata, snow drifts and ice chips, concrete paving blocks, polished metal, brick masonry, glass facets, concrete grain, warm wood grain, and sand specks. The goal trigger is placed after the gallery so players can inspect every sample before finishing the level. The brick and wood samples use their own material base colours, while the concrete paver and metal samples use the neutral material so their appearance remains independent of physical material tuning.

@@ -2,8 +2,9 @@
 export const SURFACE_TEXTURE_GALLERY_NAMES = [
   'stone-fragments',
   'stone-strata',
-  'stone-masonry',
   'ice-strata',
+  'asphalt-pavers',
+  'metal-sheen',
   'brick-masonry',
   'glass-facets',
   'concrete-grain',
@@ -18,8 +19,14 @@ export const SURFACE_TEXTURE_GALLERY_NAMES = [
 export const SURFACE_TEXTURE_LEGACY_NAMES = [
   /** @deprecated Use ice-strata. */
   'ice-crystals',
-  /** @deprecated Use stone-masonry. */
+  /** @deprecated Use stone-fragments. */
+  'stone-masonry',
+  /** @deprecated Use stone-fragments. */
   'ice-facets',
+  /** @deprecated Use asphalt-pavers. */
+  'asphalt-masonry',
+  /** @deprecated Use metal-sheen. */
+  'metal-polish',
   /** @deprecated Use brick-masonry. */
   'rubber-dots',
   /** @deprecated Use brick-masonry. */

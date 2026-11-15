@@ -7,6 +7,9 @@ function createTextureHarness() {
   const fillStyles: string[] = [];
   const context = new Proxy({}, {
     get(_target, property) {
+      if (property === 'createLinearGradient') {
+        return (..._args: unknown[]) => ({ addColorStop: (..._stopArgs: unknown[]) => { calls.push('addColorStop'); } });
+      }
       if (typeof property === 'string') {
         return (..._args: unknown[]) => { calls.push(property); };
       }
@@ -45,7 +48,7 @@ describe('SurfaceTextureGenerator', () => {
     }
   });
 
-  it('renders pressed ice strata as layered seams and cracks instead of snowflakes', () => {
+  it('renders ice as scattered snow mounds and translucent ice chips', () => {
     const harness = createTextureHarness();
     createSurfaceTextureCanvas(
       harness.scene,
@@ -57,9 +60,9 @@ describe('SurfaceTextureGenerator', () => {
       42,
     );
 
-    expect(harness.calls).toContain('lineTo');
+    expect(harness.calls).toContain('quadraticCurveTo');
     expect(harness.calls).toContain('ellipse');
-    expect(harness.calls).not.toContain('arc');
+    expect(harness.calls).toContain('arc');
     expect(harness.calls).toContain('stroke');
   });
 
@@ -80,7 +83,7 @@ describe('SurfaceTextureGenerator', () => {
     expect(harness.calls).not.toContain('stroke');
   });
 
-  it('keeps the old ice-crystals key as a snowflake-free compatibility alias', () => {
+  it('keeps the old ice-crystals key as a snow-and-ice compatibility alias', () => {
     const current = createTextureHarness();
     const legacy = createTextureHarness();
     const polygon = [{ x: 0, y: 0 }, { x: 140, y: 0 }, { x: 140, y: 90 }, { x: 0, y: 90 }];
@@ -88,10 +91,10 @@ describe('SurfaceTextureGenerator', () => {
     createSurfaceTextureCanvas(legacy.scene, 'ice-legacy', 140, 90, polygon, 'ice-crystals', 7);
 
     expect(legacy.calls).toEqual(current.calls);
-    expect(legacy.calls).not.toContain('arc');
+    expect(legacy.calls).toContain('arc');
   });
 
-  it('maps retired ice facets to stone masonry and retired rubber motifs to brick masonry', () => {
+  it('maps retired stone, ice and rubber identifiers to their current visual families', () => {
     const polygon = [{ x: 0, y: 0 }, { x: 140, y: 0 }, { x: 140, y: 90 }, { x: 0, y: 90 }];
     const render = (key: string, pattern: Parameters<typeof createSurfaceTextureCanvas>[5]) => {
       const harness = createTextureHarness();
@@ -99,7 +102,10 @@ describe('SurfaceTextureGenerator', () => {
       return harness.calls;
     };
 
-    expect(render('stone-masonry', 'stone-masonry')).toEqual(render('ice-facets', 'ice-facets'));
+    expect(render('stone-masonry', 'stone-masonry')).toEqual(render('stone-main', 'stone-fragments'));
+    expect(render('ice-facets', 'ice-facets')).toEqual(render('stone-main', 'stone-fragments'));
+    expect(render('asphalt-masonry', 'asphalt-masonry')).toEqual(render('pavers', 'asphalt-pavers'));
+    expect(render('metal-polish', 'metal-polish')).toEqual(render('metal', 'metal-sheen'));
     expect(render('brick-main', 'brick-masonry')).toEqual(render('rubber-dots', 'rubber-dots'));
     expect(render('brick-main-2', 'brick-masonry')).toEqual(render('rubber-chevrons', 'rubber-chevrons'));
   });

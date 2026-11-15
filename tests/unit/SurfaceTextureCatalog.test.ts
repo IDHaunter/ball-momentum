@@ -14,16 +14,44 @@ describe('SurfaceTextureCatalog', () => {
     }
   });
 
-  it('keeps one active ice texture and maps retired styles to masonry or brick aliases', () => {
+  it('keeps stable legacy identifiers and maps retired styles to their current visual families', () => {
     expect(SURFACE_TEXTURE_GALLERY_NAMES.filter((pattern) => pattern.startsWith('ice-'))).toEqual(['ice-strata']);
-    expect(SURFACE_TEXTURE_CATALOG['ice-strata']).toMatchObject({ label: 'Pressed ice strata', suggestedMaterials: ['ice'] });
-    expect(SURFACE_TEXTURE_CATALOG['stone-masonry'].label).toBe('Stone masonry');
+    expect(SURFACE_TEXTURE_CATALOG['ice-strata']).toMatchObject({ label: 'Snow drifts & ice chips', suggestedMaterials: ['ice'] });
+    expect(SURFACE_TEXTURE_CATALOG['stone-masonry'].description).toContain('Legacy key');
+    expect(SURFACE_TEXTURE_CATALOG['asphalt-pavers'].label).toBe('Concrete paving blocks');
+    expect(SURFACE_TEXTURE_CATALOG['metal-sheen'].label).toBe('Smooth polished metal');
     expect(SURFACE_TEXTURE_CATALOG['brick-masonry'].label).toBe('Brick masonry');
     expect(SURFACE_TEXTURE_CATALOG['ice-crystals'].description).toContain('Legacy key');
-    expect(SURFACE_TEXTURE_CATALOG['ice-facets'].description).toContain('stone-masonry');
+    expect(SURFACE_TEXTURE_CATALOG['ice-facets'].description).toContain('stone-fragments');
     expect(SURFACE_TEXTURE_CATALOG['rubber-dots'].description).toContain('brick-masonry');
     expect(SURFACE_TEXTURE_CATALOG['rubber-chevrons'].description).toContain('brick-masonry');
     expect(normalizeSurfaceTexture('ice-strata', 23).pattern).toBe('ice-strata');
+    expect(normalizeSurfaceTexture('ice-crystals', 23)).toMatchObject({
+      pattern: 'ice-crystals',
+      density: SURFACE_TEXTURE_CATALOG['ice-strata'].defaultDensity,
+      opacity: SURFACE_TEXTURE_CATALOG['ice-strata'].defaultOpacity,
+    });
+    expect(normalizeSurfaceTexture('stone-masonry', 23)).toMatchObject({
+      pattern: 'stone-masonry',
+      density: SURFACE_TEXTURE_CATALOG['stone-fragments'].defaultDensity,
+      opacity: SURFACE_TEXTURE_CATALOG['stone-fragments'].defaultOpacity,
+    });
+    const aliases = [
+      ['ice-crystals', 'ice-strata'],
+      ['stone-masonry', 'stone-fragments'],
+      ['ice-facets', 'stone-fragments'],
+      ['asphalt-masonry', 'asphalt-pavers'],
+      ['metal-polish', 'metal-sheen'],
+      ['rubber-dots', 'brick-masonry'],
+      ['rubber-chevrons', 'brick-masonry'],
+    ] as const;
+    for (const [legacyPattern, currentPattern] of aliases) {
+      expect(normalizeSurfaceTexture(legacyPattern, 23)).toMatchObject({
+        pattern: legacyPattern,
+        density: SURFACE_TEXTURE_CATALOG[currentPattern].defaultDensity,
+        opacity: SURFACE_TEXTURE_CATALOG[currentPattern].defaultOpacity,
+      });
+    }
   });
 
   it('shows every unique texture pattern in the Physics Sandbox gallery', () => {
@@ -44,6 +72,9 @@ describe('SurfaceTextureCatalog', () => {
     expect(new Set(galleryPatterns)).toEqual(new Set(expectedPatterns));
     expect(gallery.map((solid) => solid.material)).toContain('brick');
     expect(gallery.map((solid) => solid.material)).toContain('wood');
+    expect(gallery.find((solid) => solid.texture && (typeof solid.texture === 'string' ? solid.texture : solid.texture.pattern) === 'asphalt-pavers')?.material).toBe('normal');
+    expect(gallery.find((solid) => solid.texture && (typeof solid.texture === 'string' ? solid.texture : solid.texture.pattern) === 'metal-sheen')?.material).toBe('normal');
+    expect(sandbox.materials.normal).toEqual({ friction: 0.35, frictionStatic: 0.55, restitution: 0.02 });
     expect(sandbox.materials.brick).toEqual(sandbox.materials.rubber);
     expect(sandbox.materials.wood).toEqual(sandbox.materials.stone);
     expect(goal).toBeDefined();
