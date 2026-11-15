@@ -5,6 +5,9 @@ import type { BorderStyle, BoxBorderStyles, BoxSurfaceSide, PolygonBorderDefinit
 export interface BorderGraphicsLike {
   lineStyle(width: number, color: number, alpha?: number): unknown;
   lineBetween(x1: number, y1: number, x2: number, y2: number): unknown;
+  fillStyle(color: number, alpha?: number): unknown;
+  fillEllipse(x: number, y: number, width: number, height: number): unknown;
+  strokeEllipse(x: number, y: number, width: number, height: number): unknown;
 }
 
 export interface BorderPoint { x: number; y: number; }
@@ -123,13 +126,19 @@ export function drawSurfaceBorder(
       stroke(9, 0x34404c, 0.98);
       stroke(6, 0x8996a1, 1);
       stroke(1.3, 0xc1cbd1, 0.8, -1.4);
-      const chips = Math.max(2, Math.floor(length / 38));
-      for (let index = 1; index < chips; index += 1) {
-        const t = index / chips;
-        const x = a.x + dx * t;
-        const y = a.y + dy * t;
-        graphics.lineStyle(1.5, 0x4a5864, 0.85);
-        graphics.lineBetween(x - tangent.x * 3 + normal.x * 2, y - tangent.y * 3 + normal.y * 2, x + tangent.x * 3 - normal.x * 3, y + tangent.y * 3 - normal.y * 3);
+      if (normal.y < -0.35) {
+        // A decorative loose-pebble coat sits on the upper edge only. It is
+        // painted with graphics and never changes the underlying Matter body.
+        drawStonePebbleCoating(graphics, edge, length, tangent, normal);
+      } else {
+        const chips = Math.max(2, Math.floor(length / 38));
+        for (let index = 1; index < chips; index += 1) {
+          const t = index / chips;
+          const x = a.x + dx * t;
+          const y = a.y + dy * t;
+          graphics.lineStyle(1.5, 0x4a5864, 0.85);
+          graphics.lineBetween(x - tangent.x * 3 + normal.x * 2, y - tangent.y * 3 + normal.y * 2, x + tangent.x * 3 - normal.x * 3, y + tangent.y * 3 - normal.y * 3);
+        }
       }
       break;
     }
@@ -177,6 +186,81 @@ export function drawSurfaceBorder(
       break;
     }
   }
+}
+
+interface PebbleTone { body: number; shade: number; highlight: number; }
+
+const PEBBLE_TONES: readonly PebbleTone[] = [
+  { body: 0x9da7ad, shade: 0x56616a, highlight: 0xdce3e7 },
+  { body: 0x7f8b93, shade: 0x46535c, highlight: 0xc8d0d5 },
+  { body: 0xb1aaa0, shade: 0x645f58, highlight: 0xe3ddd3 },
+  { body: 0x687780, shade: 0x3e4a53, highlight: 0xb9c5cc },
+  { body: 0xaaaeb0, shade: 0x62696d, highlight: 0xe7eaeb },
+];
+
+/**
+ * Paints a shallow, irregular layer of rounded pebbles along an exposed upper
+ * stone edge. The small outward offset makes the coat visible without changing
+ * the edge coordinates used by physics or collision detection.
+ */
+function drawStonePebbleCoating(
+  graphics: BorderGraphicsLike,
+  edge: BorderEdgeSegment,
+  length: number,
+  tangent: BorderPoint,
+  normal: BorderPoint,
+): void {
+  const random = createEdgeRandom(edge);
+  const rows = 2;
+  const spacing = 9.2;
+  const count = Math.max(2, Math.ceil(length / spacing));
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let index = 0; index < count; index += 1) {
+      const tone = PEBBLE_TONES[Math.floor(random() * PEBBLE_TONES.length)];
+      const width = 6.1 + random() * 4.4;
+      const height = 3.2 + random() * 2.1;
+      const along = Math.min(length, Math.max(0, (index + 0.5 + row * 0.48) * spacing + (random() - 0.5) * 2.2));
+      const offset = (row === 0 ? 0.7 : -2.05) + (random() - 0.5) * 1.0;
+      const centerX = edge.a.x + tangent.x * along + normal.x * offset;
+      const centerY = edge.a.y + tangent.y * along + normal.y * offset;
+      const angleJitter = (random() - 0.5) * 0.22;
+      const xAxis = { x: tangent.x * Math.cos(angleJitter) - normal.x * Math.sin(angleJitter), y: tangent.y * Math.cos(angleJitter) - normal.y * Math.sin(angleJitter) };
+      const yAxis = { x: tangent.x * Math.sin(angleJitter) + normal.x * Math.cos(angleJitter), y: tangent.y * Math.sin(angleJitter) + normal.y * Math.cos(angleJitter) };
+
+      // A tiny contact shadow grounds each pebble on the flat collision plane.
+      graphics.fillStyle(0x26323a, 0.3);
+      graphics.fillEllipse(centerX - normal.x * 0.2, centerY - normal.y * 0.2, width * 1.02, height * 0.72);
+
+      graphics.fillStyle(tone.body, 0.98);
+      graphics.fillEllipse(centerX, centerY, width, height);
+      graphics.lineStyle(0.85, tone.shade, 0.92);
+      graphics.strokeEllipse(centerX, centerY, width, height);
+
+      // A short offset glint gives the rounded stones a soft, readable volume.
+      const glintX = centerX - yAxis.x * height * 0.16 - xAxis.x * width * 0.12;
+      const glintY = centerY - yAxis.y * height * 0.16 - xAxis.y * width * 0.12;
+      graphics.lineStyle(0.8, tone.highlight, 0.86);
+      graphics.lineBetween(
+        glintX - xAxis.x * width * 0.17,
+        glintY - xAxis.y * width * 0.17,
+        glintX + xAxis.x * width * 0.17,
+        glintY + xAxis.y * width * 0.17,
+      );
+    }
+  }
+}
+
+/** Stable per-edge pseudo-random values keep the decoration consistent per run. */
+function createEdgeRandom(edge: BorderEdgeSegment): () => number {
+  const rawSeed = Math.round(
+    edge.a.x * 73856093 + edge.a.y * 19349663 + edge.b.x * 83492791 + edge.b.y * 2654435761 + edge.edge * 97,
+  );
+  let state = rawSeed >>> 0 || 1;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
 }
 
 /** A bold black-and-yellow hazard tape used to identify spring-loaded edges. */

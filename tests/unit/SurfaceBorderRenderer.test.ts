@@ -10,13 +10,27 @@ import {
 
 class FakeGraphics implements BorderGraphicsLike {
   current = { width: 0, color: 0, alpha: 1 };
+  currentFill = { color: 0, alpha: 1 };
   lines: Array<{ x1: number; y1: number; x2: number; y2: number; width: number; color: number; alpha: number }> = [];
+  ellipses: Array<{ x: number; y: number; width: number; height: number; fill: boolean; color: number; alpha: number }> = [];
   lineStyle(width: number, color: number, alpha = 1): unknown {
     this.current = { width, color, alpha };
     return this;
   }
   lineBetween(x1: number, y1: number, x2: number, y2: number): unknown {
     this.lines.push({ ...this.current, x1, y1, x2, y2 });
+    return this;
+  }
+  fillStyle(color: number, alpha = 1): unknown {
+    this.currentFill = { color, alpha };
+    return this;
+  }
+  fillEllipse(x: number, y: number, width: number, height: number): unknown {
+    this.ellipses.push({ ...this.currentFill, x, y, width, height, fill: true });
+    return this;
+  }
+  strokeEllipse(x: number, y: number, width: number, height: number): unknown {
+    this.ellipses.push({ ...this.current, x, y, width, height, fill: false });
     return this;
   }
 }
@@ -50,6 +64,30 @@ describe('SurfaceBorderRenderer', () => {
     expect(graphics.lines.length).toBeGreaterThan(15);
     expect(graphics.lines.some((line) => line.color === 0x4d9953 && line.width === 6)).toBe(true);
     expect(graphics.lines.some((line) => line.y2 < line.y1)).toBe(true);
+  });
+
+  it('adds a shallow, varied pebble coat only to upper stone edges', () => {
+    const top = new FakeGraphics();
+    drawBoxBorders(top, 0, 0, 160, 40, { top: 'stone', right: 'none', bottom: 'none', left: 'none' });
+    expect(top.ellipses.length).toBeGreaterThan(40);
+    expect(top.ellipses.some((ellipse) => ellipse.fill && ellipse.width >= 6 && ellipse.height >= 3)).toBe(true);
+    expect(new Set(top.ellipses.filter((ellipse) => ellipse.fill).map((ellipse) => ellipse.color)).size).toBeGreaterThan(2);
+
+    const side = new FakeGraphics();
+    drawBoxBorders(side, 0, 0, 160, 40, { top: 'none', right: 'stone', bottom: 'none', left: 'none' });
+    expect(side.ellipses).toHaveLength(0);
+    expect(side.lines.some((line) => line.color === 0x4a5864)).toBe(true);
+  });
+
+  it('keeps the pebble arrangement deterministic and follows sloped upper polygon edges', () => {
+    const first = new FakeGraphics();
+    const second = new FakeGraphics();
+    const vertices: Array<[number, number]> = [[0, 50], [60, 0], [120, 50], [120, 100], [0, 100]];
+    const borders = [{ edge: 0, style: 'stone' as const }];
+    drawPolygonBorders(first, vertices, borders);
+    drawPolygonBorders(second, vertices, borders);
+    expect(first.ellipses).toEqual(second.ellipses);
+    expect(first.ellipses.length).toBeGreaterThan(10);
   });
 
   it('draws asphalt dashes along the selected box edge', () => {

@@ -56,6 +56,10 @@ Legacy JSON IDs remain accepted and are never rewritten in stored level data. Th
 
 The catalog metadata lives in `src/rendering/SurfaceTextureCatalog.ts`; rendering algorithms live in `src/rendering/SurfaceTextureGenerator.ts`. Add a new ID to `src/level/SurfaceTextureTypes.ts`, add metadata to the catalog, implement its drawing case in the generator, and add schema/catalog tests.
 
+## Stone top-edge coating
+
+Stone-style upper edges (`borders.top: "stone"` on boxes or a stone-styled polygon edge with an upward-facing outward normal) receive an additional shallow layer of rounded, varied pebbles. The coating is drawn by the border renderer as a deterministic visual overlay; it does not alter the solid polygon, Matter body, contact height, friction, restitution, or rolling behavior. Existing face textures such as `stone-fragments` remain unchanged. Side and bottom stone borders retain their previous engraved-chip treatment.
+
 ## Sandbox texture gallery
 
 The end of `physics-sandbox` contains a labelled ten-sample display row covering every current gallery pattern: stone fragments, stone strata, snow drifts and ice chips, concrete paving blocks, polished metal, brick masonry, glass facets, concrete grain, warm wood grain, and sand specks. The goal trigger is placed after the gallery so players can inspect every sample before finishing the level. The brick and wood samples use their own material base colours, while the concrete paver and metal samples use the neutral material so their appearance remains independent of physical material tuning.
