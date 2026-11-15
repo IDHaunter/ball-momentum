@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SURFACE_TEXTURE_CATALOG, createSurfaceTextureRandom, hashSurfaceTextureSeed } from '../../src/rendering/SurfaceTextureCatalog';
 import { normalizeSurfaceTexture } from '../../src/rendering/SurfaceTextureGenerator';
-import { SURFACE_TEXTURE_NAMES } from '../../src/level/SurfaceTextureTypes';
+import { SURFACE_TEXTURE_GALLERY_NAMES, SURFACE_TEXTURE_NAMES } from '../../src/level/SurfaceTextureTypes';
 
 describe('SurfaceTextureCatalog', () => {
   it('has a descriptive catalog entry for every schema pattern', () => {
@@ -14,12 +14,15 @@ describe('SurfaceTextureCatalog', () => {
     }
   });
 
-  it('defines pressed ice as the preferred ice pattern and retains the old key', () => {
-    expect(SURFACE_TEXTURE_CATALOG['ice-strata']).toMatchObject({
-      label: 'Pressed ice strata',
-      suggestedMaterials: ['ice'],
-    });
+  it('keeps one active ice texture and maps retired styles to masonry or brick aliases', () => {
+    expect(SURFACE_TEXTURE_GALLERY_NAMES.filter((pattern) => pattern.startsWith('ice-'))).toEqual(['ice-strata']);
+    expect(SURFACE_TEXTURE_CATALOG['ice-strata']).toMatchObject({ label: 'Pressed ice strata', suggestedMaterials: ['ice'] });
+    expect(SURFACE_TEXTURE_CATALOG['stone-masonry'].label).toBe('Stone masonry');
+    expect(SURFACE_TEXTURE_CATALOG['brick-masonry'].label).toBe('Brick masonry');
     expect(SURFACE_TEXTURE_CATALOG['ice-crystals'].description).toContain('Legacy key');
+    expect(SURFACE_TEXTURE_CATALOG['ice-facets'].description).toContain('stone-masonry');
+    expect(SURFACE_TEXTURE_CATALOG['rubber-dots'].description).toContain('brick-masonry');
+    expect(SURFACE_TEXTURE_CATALOG['rubber-chevrons'].description).toContain('brick-masonry');
     expect(normalizeSurfaceTexture('ice-strata', 23).pattern).toBe('ice-strata');
   });
 
@@ -27,17 +30,22 @@ describe('SurfaceTextureCatalog', () => {
     const sandbox = JSON.parse(readFileSync(resolve(process.cwd(), 'public/levels/physics-sandbox.json'), 'utf8')) as {
       world: { width: number };
       camera: { maxX: number };
-      solids: Array<{ id: string; x: number; width: number; texture?: string | { pattern: string } }>;
+      solids: Array<{ id: string; x: number; width: number; material?: string; texture?: string | { pattern: string } }>; 
       triggers: Array<{ id: string; x: number; width: number }>;
+      materials: Record<string, { friction: number; frictionStatic: number; restitution: number }>;
     };
     const gallery = sandbox.solids.filter((solid) => solid.id.startsWith('gallery-'));
     const galleryPatterns = gallery.map((solid) => typeof solid.texture === 'string' ? solid.texture : solid.texture?.pattern);
-    const expectedPatterns = SURFACE_TEXTURE_NAMES.filter((pattern) => pattern !== 'ice-crystals');
+    const expectedPatterns = SURFACE_TEXTURE_GALLERY_NAMES;
     const goal = sandbox.triggers.find((trigger) => trigger.id === 'sandbox-goal');
     const galleryRightEdge = gallery.reduce((rightmost, solid) => Math.max(rightmost, solid.x + solid.width), 0);
 
     expect(gallery).toHaveLength(expectedPatterns.length);
     expect(new Set(galleryPatterns)).toEqual(new Set(expectedPatterns));
+    expect(gallery.map((solid) => solid.material)).toContain('brick');
+    expect(gallery.map((solid) => solid.material)).toContain('wood');
+    expect(sandbox.materials.brick).toEqual(sandbox.materials.rubber);
+    expect(sandbox.materials.wood).toEqual(sandbox.materials.stone);
     expect(goal).toBeDefined();
     expect(sandbox.world.width).toBe(sandbox.camera.maxX);
     expect(goal!.x).toBeGreaterThan(galleryRightEdge);

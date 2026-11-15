@@ -1,46 +1,23 @@
-# Procedural Surface Textures — Feature Update
+# Surface Texture Library — Material Refresh
 
-## What changed
+## Visual changes
 
-- Added a shared surface texture type and Zod validation for named patterns or per-solid options (`density`, `opacity`, `seed`).
-- Added the `SURFACE_TEXTURE_CATALOG` reference with 10 unique documented visual presets plus one backwards-compatible legacy alias.
-- Added a deterministic CanvasTexture generator. Every generated canvas is clipped to the exact box or polygon outline.
-- Split terrain fill and outline rendering into separate depth layers so textures remain inside the fill and never cover borders or spring markers.
-- Added synchronized texture overlays for movable boxes; the pattern follows the Matter body position and rotation and is released when the block is removed or falls below the kill plane.
-- Applied example textures across level 01 and Physics Sandbox. The Sandbox includes stone, ice, rubber, glass, concrete and wood patterns.
-- Replaced active snowflake-style ice fill with pressed `ice-strata` layers and sparse fractures; `ice-crystals` remains as a backwards-compatible alias for existing user levels.
-- Removed crossing seam strokes from `glass-facets` while preserving the triangular colour planes and isolated highlights.
-- Added a labelled 10-pattern Surface Texture Gallery at the end of Physics Sandbox and moved the goal beyond the samples.
+- Removed the extra corner-to-corner, corner-to-centre and vertical strokes that `TerrainRenderer` previously drew over glass. Glass keeps its configured outer border, while its inside is filled only by translucent triangular colour panes and isolated glints.
+- Restored the earlier cool triangular-glass palette using large continuous translucent polygon panes with small inset triangular reflections. No shared centre spokes or seam strokes are drawn.
+- Replaced the second ice style with `stone-masonry`, leaving one active ice style: `ice-strata`.
+- Replaced the purple rubber-dot and chevron patterns with warm `brick-masonry`.
+- Retained the old IDs as compatibility aliases: `ice-facets` -> `stone-masonry`, `rubber-dots` / `rubber-chevrons` -> `brick-masonry`, and `ice-crystals` -> `ice-strata`.
+- Reworked `wood-grain` into warm brown timber planks with fibres and knots. The Sandbox wood sample and wooden movable props now use a warm wood material base.
+- Added visually named `brick` and `wood` materials. Their friction, static friction and restitution values exactly match the previous `rubber` and `stone` entries respectively, preserving physics response.
+- Rebuilt the Sandbox gallery to show nine distinct active patterns: stone fragments, stone strata, ice strata, stone masonry, brick masonry, glass facets, concrete grain, wood grain and sand specks.
 
-## JSON example
+## Compatibility and physics
 
-```json
-{
-  "id": "ice-platform",
-  "type": "box",
-  "x": 900,
-  "y": 700,
-  "width": 420,
-  "height": 90,
-  "material": "ice",
-  "texture": {
-    "pattern": "ice-strata",
-    "density": 1.1,
-    "opacity": 0.5,
-    "seed": 23
-  }
-}
-```
-
-The Sandbox now has a display gallery for all 10 unique visual patterns. The legacy `ice-crystals` ID still validates but renders the new pressed-ice strata design.
-
-The texture is visual only. It does not modify the physics material, collision geometry, mass, spring impulse, breakable threshold, or movable-block impact threshold.
+Old texture IDs remain accepted by the level schema and render as their closest replacement. This change is visual/material tuning only: no collision geometry, mass, friction on existing materials, spring impulses, bomb behaviour, breakable thresholds, bot behaviour or player physics logic was changed. The new `brick` coefficients exactly copy the former `rubber` coefficients, and `wood` exactly copies the former `stone` coefficients, so existing Sandbox physics response is preserved while the material names and colours match their appearance.
 
 ## Verification
 
-- 10/10 procedural pattern smoke checks passed using a CanvasTexture-compatible runtime harness.
-- Strict TypeScript check passed for changed production modules and related tests with narrow Phaser/Zod/Vitest API declarations.
-- Syntax transpile passed for all 116 TypeScript source and test files.
-- `level-01.json`: valid JSON, 10 solids, 10 textured solids.
-- `physics-sandbox.json`: valid JSON, 25 solids, 25 textured solids, with 10 labelled gallery samples and a goal after the gallery.
-- The unit suite contains 178 test cases across 29 files. The full Vitest suite and Vite production build were not run in this environment because project npm dependencies are not installed here.
+- Procedural generator runtime harness exercised every active pattern and all legacy aliases.
+- Glass CanvasTexture generator does not call `stroke`; glass TerrainRenderer no longer draws internal line segments.
+- Gallery JSON contains exactly one sample for each active pattern and the goal remains after the samples.
+- TypeScript syntax transpilation and JSON parsing are run as part of the packaging check.

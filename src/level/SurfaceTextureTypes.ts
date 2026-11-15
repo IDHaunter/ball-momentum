@@ -1,20 +1,38 @@
 /** Built-in procedural surface patterns available to level JSON files. */
-export const SURFACE_TEXTURE_NAMES = [
+export const SURFACE_TEXTURE_GALLERY_NAMES = [
   'stone-fragments',
   'stone-strata',
+  'stone-masonry',
   'ice-strata',
-  /** @deprecated Kept for existing level JSON; renders as ice-strata. */
-  'ice-crystals',
-  'ice-facets',
-  'rubber-dots',
-  'rubber-chevrons',
+  'brick-masonry',
   'glass-facets',
   'concrete-grain',
   'wood-grain',
   'sand-specks',
 ] as const;
 
+/**
+ * Legacy names remain accepted by the level schema so existing custom levels
+ * continue to load. They are aliases rendered with the newer material patterns.
+ */
+export const SURFACE_TEXTURE_LEGACY_NAMES = [
+  /** @deprecated Use ice-strata. */
+  'ice-crystals',
+  /** @deprecated Use stone-masonry. */
+  'ice-facets',
+  /** @deprecated Use brick-masonry. */
+  'rubber-dots',
+  /** @deprecated Use brick-masonry. */
+  'rubber-chevrons',
+] as const;
+
+export const SURFACE_TEXTURE_NAMES = [
+  ...SURFACE_TEXTURE_GALLERY_NAMES,
+  ...SURFACE_TEXTURE_LEGACY_NAMES,
+] as const;
+
 export type SurfaceTexturePattern = (typeof SURFACE_TEXTURE_NAMES)[number];
+export type SurfaceTextureGalleryPattern = (typeof SURFACE_TEXTURE_GALLERY_NAMES)[number];
 
 export interface SurfaceTextureOptions {
   pattern: SurfaceTexturePattern;

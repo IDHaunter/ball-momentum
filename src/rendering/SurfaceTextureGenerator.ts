@@ -96,15 +96,17 @@ export function drawSurfacePattern(
     case 'ice-crystals': // Backward-compatible key; no longer draws snowflakes.
       drawIceStrata(context, width, height, spacing, random);
       break;
-    case 'ice-facets':
-    case 'glass-facets':
-      drawFacets(context, width, height, spacing, random, options.pattern === 'glass-facets');
+    case 'stone-masonry':
+    case 'ice-facets': // Backward-compatible key; now renders stone masonry.
+      drawStoneMasonry(context, width, height, spacing, random);
       break;
-    case 'rubber-dots':
-      drawRubberDots(context, width, height, spacing, random);
-      break;
+    case 'brick-masonry':
+    case 'rubber-dots': // Backward-compatible keys; now render brick masonry.
     case 'rubber-chevrons':
-      drawRubberChevrons(context, width, height, spacing, random);
+      drawBrickMasonry(context, width, height, spacing, random);
+      break;
+    case 'glass-facets':
+      drawGlassFacets(context, width, height, spacing, random);
       break;
     case 'concrete-grain':
       drawConcreteGrain(context, width, height, spacing, random);
@@ -246,83 +248,197 @@ function drawIceStrata(ctx: CanvasRenderingContext2D, width: number, height: num
   }
 }
 
-function drawFacets(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number, glass: boolean): void {
-  const step = spacing * 0.95;
-  const columns = Math.ceil(width / step) + 1;
-  const rows = Math.ceil(height / step) + 1;
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      const x = column * step - step * 0.15;
-      const y = row * step - step * 0.15;
-      const jitterX = (random() - 0.5) * step * 0.36;
-      const jitterY = (random() - 0.5) * step * 0.36;
-      const midX = x + step * 0.5 + jitterX;
-      const midY = y + step * 0.5 + jitterY;
-      const facetColors = glass
-        ? [
-          'rgba(235,252,255,0.19)',
-          'rgba(93,178,207,0.12)',
-          'rgba(26,91,125,0.10)',
-          'rgba(213,245,252,0.15)',
-        ]
-        : [random() > 0.5 ? 'rgba(232,251,255,0.26)' : 'rgba(19,70,94,0.13)'];
-      const triangles: Array<Array<[number, number]>> = [
-        [[x, y], [x + step, y], [midX, midY]],
-        [[x + step, y], [x + step, y + step], [midX, midY]],
-        [[x + step, y + step], [x, y + step], [midX, midY]],
-        [[x, y + step], [x, y], [midX, midY]],
-      ];
-      triangles.forEach((triangle, index) => {
-        ctx.fillStyle = facetColors[index % facetColors.length];
+function drawStoneMasonry(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
+  const rowHeight = Math.max(16, spacing * 0.72);
+  const mortar = Math.max(2, spacing * 0.055);
+  const stoneColors = [
+    'rgba(151,165,175,0.84)',
+    'rgba(119,136,149,0.82)',
+    'rgba(169,179,185,0.78)',
+    'rgba(132,146,156,0.86)',
+  ];
+
+  // Recessed mortar bed makes the pattern read as masonry rather than another ice texture.
+  ctx.fillStyle = 'rgba(40,52,61,0.74)';
+  ctx.fillRect(0, 0, width, height);
+
+  for (let row = -1; row * rowHeight < height + rowHeight; row += 1) {
+    const y = row * rowHeight + mortar * 0.5;
+    const offset = (row & 1) * spacing * 0.72;
+    let x = -spacing + offset;
+    while (x < width + spacing) {
+      const blockWidth = spacing * (1.28 + random() * 0.72);
+      const blockHeight = rowHeight - mortar * (1.4 + random() * 0.25);
+      const inset = mortar * (0.7 + random() * 0.5);
+      const left = x + inset;
+      const top = y + mortar * 0.4;
+      const right = x + blockWidth - inset;
+      const bottom = top + blockHeight;
+      const bevel = Math.min(5, blockWidth * 0.08, blockHeight * 0.12);
+
+      ctx.beginPath();
+      ctx.moveTo(left + bevel, top);
+      ctx.lineTo(right - bevel * 0.6, top + (random() - 0.5) * 2);
+      ctx.lineTo(right, top + bevel);
+      ctx.lineTo(right - bevel * 0.25, bottom - bevel);
+      ctx.lineTo(right - bevel, bottom);
+      ctx.lineTo(left + bevel * 0.55, bottom - (random() - 0.5) * 2);
+      ctx.lineTo(left, bottom - bevel);
+      ctx.lineTo(left + bevel * 0.18, top + bevel);
+      ctx.closePath();
+      ctx.fillStyle = stoneColors[Math.floor(random() * stoneColors.length)];
+      ctx.fill();
+
+      // A shallow top-face highlight gives each block its own volume.
+      ctx.beginPath();
+      ctx.moveTo(left + bevel, top + 1);
+      ctx.lineTo(right - bevel, top + 1);
+      ctx.lineTo(right - bevel * 1.8, top + bevel * 1.8);
+      ctx.lineTo(left + bevel * 1.4, top + bevel * 1.8);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(235,244,248,0.18)';
+      ctx.fill();
+
+      if (random() > 0.56) {
+        ctx.fillStyle = 'rgba(43,56,64,0.16)';
         ctx.beginPath();
-        ctx.moveTo(triangle[0][0], triangle[0][1]);
-        ctx.lineTo(triangle[1][0], triangle[1][1]);
-        ctx.lineTo(triangle[2][0], triangle[2][1]);
-        ctx.closePath();
+        ctx.ellipse(left + blockWidth * (0.25 + random() * 0.5), top + blockHeight * (0.35 + random() * 0.3), 2 + random() * 3, 1 + random() * 1.8, random() * 0.4, 0, Math.PI * 2);
         ctx.fill();
-      });
-      if (!glass) {
-        // Ice facets retain a light structural seam; glass uses colour planes only.
-        ctx.strokeStyle = 'rgba(238,253,255,0.4)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(midX, midY); ctx.lineTo(x + step, y); ctx.stroke();
-      } else if (random() > 0.68) {
-        // Isolated glints preserve the crystalline read without drawing crossing seams.
-        ctx.fillStyle = 'rgba(255,255,255,0.78)';
-        ctx.beginPath(); ctx.arc(midX + (random() - 0.5) * step * 0.25, midY + (random() - 0.5) * step * 0.25, 1.8, 0, Math.PI * 2); ctx.fill();
+      }
+      x += blockWidth;
+    }
+  }
+}
+
+function drawBrickMasonry(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
+  const brickHeight = Math.max(13, spacing * 0.46);
+  const nominalBrickWidth = spacing * 1.18;
+  const mortar = Math.max(2, spacing * 0.055);
+  const brickColors = [
+    'rgba(177,91,57,0.96)',
+    'rgba(192,102,63,0.94)',
+    'rgba(158,77,51,0.96)',
+    'rgba(204,119,75,0.92)',
+    'rgba(169,82,53,0.95)',
+  ];
+
+  // Warm mortar is intentionally visible around every brick.
+  ctx.fillStyle = 'rgba(69,57,49,0.94)';
+  ctx.fillRect(0, 0, width, height);
+
+  for (let row = -1; row * brickHeight < height + brickHeight; row += 1) {
+    const y = row * brickHeight + mortar * 0.5;
+    const offset = (row & 1) * nominalBrickWidth * 0.5;
+    for (let x = -nominalBrickWidth + offset; x < width + nominalBrickWidth; x += nominalBrickWidth) {
+      const w = nominalBrickWidth * (0.91 + random() * 0.13);
+      const h = brickHeight - mortar * (1.35 + random() * 0.2);
+      const inset = mortar * 0.55;
+      const left = x + inset;
+      const top = y + mortar * 0.35;
+      const right = x + w - inset;
+      const bottom = top + h;
+      const bevel = Math.min(3.5, w * 0.045, h * 0.14);
+
+      ctx.beginPath();
+      ctx.moveTo(left + bevel, top);
+      ctx.lineTo(right - bevel, top);
+      ctx.lineTo(right, top + bevel);
+      ctx.lineTo(right - 0.5, bottom - bevel * 0.4);
+      ctx.lineTo(right - bevel, bottom);
+      ctx.lineTo(left + bevel, bottom - 0.5);
+      ctx.lineTo(left, bottom - bevel);
+      ctx.lineTo(left + 0.5, top + bevel);
+      ctx.closePath();
+      ctx.fillStyle = brickColors[Math.floor(random() * brickColors.length)];
+      ctx.fill();
+
+      // Thin warm highlight and lower shadow suggest fired-clay bevels, not rubber ridges.
+      ctx.fillStyle = 'rgba(255,205,156,0.2)';
+      ctx.fillRect(left + bevel, top + 1, Math.max(0, right - left - bevel * 2), Math.max(1, bevel * 0.42));
+      ctx.fillStyle = 'rgba(73,37,28,0.22)';
+      ctx.fillRect(left + bevel, bottom - Math.max(1, bevel * 0.45), Math.max(0, right - left - bevel * 2), Math.max(1, bevel * 0.45));
+
+      if (random() > 0.72) {
+        ctx.fillStyle = 'rgba(90,48,35,0.2)';
+        ctx.beginPath();
+        ctx.ellipse(left + w * (0.3 + random() * 0.4), top + h * (0.42 + random() * 0.2), 1.2 + random() * 1.6, 0.7 + random(), 0, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
   }
 }
 
-function drawRubberDots(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
-  const step = spacing * 0.45;
-  for (let y = step * 0.5; y < height; y += step) {
-    for (let x = step * 0.5; x < width; x += step) {
-      const px = x + (random() - 0.5) * step * 0.18;
-      const py = y + (random() - 0.5) * step * 0.18;
-      const radius = Math.max(1.4, spacing * (0.045 + random() * 0.018));
-      ctx.fillStyle = 'rgba(21,26,39,0.29)';
-      ctx.beginPath(); ctx.arc(px + 0.8, py + 1, radius * 1.1, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(222,221,255,0.23)';
-      ctx.beginPath(); ctx.arc(px - 0.5, py - 0.6, radius * 0.75, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-}
+/**
+ * Restores the earlier cool triangular-glass palette, but paints each pane as
+ * one continuous polygon. Small inset planes create facet variation without
+ * drawing shared corner-to-centre seams that can turn into visible crosses.
+ */
+function drawGlassFacets(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
+  const step = spacing * 1.08;
+  const columns = Math.ceil(width / step) + 1;
+  const rows = Math.ceil(height / step) + 1;
+  const paneColors = [
+    'rgba(232,251,255,0.24)',
+    'rgba(93,178,207,0.17)',
+    'rgba(26,91,125,0.14)',
+    'rgba(213,245,252,0.2)',
+  ];
 
-function drawRubberChevrons(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
-  const rowStep = spacing * 0.58;
-  const columnStep = spacing * 0.85;
-  for (let y = 0; y < height + rowStep; y += rowStep) {
-    for (let x = -columnStep; x < width + columnStep; x += columnStep) {
-      const offset = (Math.floor(y / rowStep) % 2) * columnStep * 0.5;
-      const px = x + offset;
-      const py = y + (random() - 0.5) * rowStep * 0.1;
-      const size = spacing * 0.19;
-      ctx.beginPath(); ctx.moveTo(px - size, py - size * 0.45); ctx.lineTo(px, py + size * 0.45); ctx.lineTo(px + size, py - size * 0.45);
-      ctx.strokeStyle = 'rgba(22,27,40,0.32)'; ctx.lineWidth = 2.2; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(px - size, py - size * 0.65); ctx.lineTo(px, py + size * 0.25); ctx.lineTo(px + size, py - size * 0.65);
-      ctx.strokeStyle = 'rgba(232,225,255,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      if (random() < 0.12) continue;
+      const cellX = column * step - step * 0.18 + (row % 2) * step * 0.12;
+      const cellY = row * step - step * 0.12;
+      const paneWidth = step * (0.84 + random() * 0.12);
+      const paneHeight = step * (0.82 + random() * 0.12);
+      const cx = cellX + step * (0.48 + (random() - 0.5) * 0.12);
+      const cy = cellY + step * (0.48 + (random() - 0.5) * 0.12);
+      const halfW = paneWidth * 0.5;
+      const halfH = paneHeight * 0.5;
+      const skew = (random() - 0.5) * paneWidth * 0.16;
+      const points: Array<[number, number]> = [
+        [cx - halfW * 0.94, cy - halfH * 0.18],
+        [cx - halfW * 0.62 + skew, cy - halfH * 0.94],
+        [cx + halfW * 0.28, cy - halfH * 0.86],
+        [cx + halfW * 0.96, cy - halfH * 0.14],
+        [cx + halfW * 0.78, cy + halfH * 0.78],
+        [cx - halfW * 0.12, cy + halfH * 0.96],
+        [cx - halfW * 0.9, cy + halfH * 0.34],
+      ];
+
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (let index = 1; index < points.length; index += 1) ctx.lineTo(points[index][0], points[index][1]);
+      ctx.closePath();
+      ctx.fillStyle = paneColors[Math.floor(random() * paneColors.length)];
+      ctx.fill();
+
+      // One inset triangular reflection per some panes; it never touches the pane edge.
+      if (random() > 0.4) {
+        const inset = Math.min(halfW, halfH) * 0.24;
+        ctx.beginPath();
+        ctx.moveTo(cx - halfW * 0.2, cy - halfH * 0.52);
+        ctx.lineTo(cx + halfW * 0.36, cy - halfH * 0.38);
+        ctx.lineTo(cx + halfW * 0.12, cy + halfH * 0.02);
+        ctx.closePath();
+        ctx.fillStyle = random() > 0.5 ? 'rgba(255,255,255,0.13)' : 'rgba(20,91,128,0.1)';
+        ctx.fill();
+      }
+
+      if (random() > 0.7) {
+        ctx.fillStyle = 'rgba(255,255,255,0.78)';
+        ctx.beginPath();
+        ctx.ellipse(
+          cx + (random() - 0.5) * paneWidth * 0.34,
+          cy - paneHeight * (0.18 + random() * 0.16),
+          1.4 + random() * 1.2,
+          0.8 + random() * 0.7,
+          random() * Math.PI,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
     }
   }
 }
@@ -340,19 +456,59 @@ function drawConcreteGrain(ctx: CanvasRenderingContext2D, width: number, height:
 }
 
 function drawWoodGrain(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
-  const rows = Math.ceil(height / (spacing * 0.42));
-  for (let row = 0; row <= rows; row += 1) {
-    const baseY = row * spacing * 0.42;
-    ctx.beginPath(); ctx.moveTo(-10, baseY);
-    for (let x = 0; x <= width + spacing; x += spacing * 0.4) {
-      ctx.lineTo(x, baseY + Math.sin(x / (spacing * 1.8) + row * 0.7) * spacing * 0.07 + (random() - 0.5) * 2);
+  const plankHeight = Math.max(18, spacing * 0.62);
+  const plankColors = [
+    'rgba(166,101,53,0.96)',
+    'rgba(184,117,64,0.96)',
+    'rgba(146,82,43,0.96)',
+    'rgba(198,132,75,0.94)',
+  ];
+
+  // Tint the entire clipped surface warm brown so wood never inherits a grey stone base.
+  ctx.fillStyle = 'rgba(113,65,36,0.94)';
+  ctx.fillRect(0, 0, width, height);
+
+  const rows = Math.ceil(height / plankHeight) + 1;
+  for (let row = -1; row < rows; row += 1) {
+    const y = row * plankHeight;
+    const color = plankColors[Math.floor(random() * plankColors.length)];
+    ctx.fillStyle = color;
+    ctx.fillRect(0, y + 1, width, plankHeight - 2);
+
+    // Dark seams between boards and a narrow amber edge highlight.
+    ctx.fillStyle = 'rgba(64,35,20,0.48)';
+    ctx.fillRect(0, y, width, 1.8);
+    ctx.fillStyle = 'rgba(255,207,143,0.25)';
+    ctx.fillRect(0, y + 2, width, 1.1);
+
+    const grainLines = 2 + Math.floor(random() * 3);
+    for (let line = 0; line < grainLines; line += 1) {
+      const baseY = y + plankHeight * (0.2 + (line + random() * 0.55) / grainLines);
+      const amplitude = 1.2 + random() * 2.2;
+      const phase = random() * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(-6, baseY);
+      for (let x = 0; x <= width + 8; x += Math.max(12, spacing * 0.38)) {
+        const wave = Math.sin(x / (spacing * (1.4 + random() * 0.5)) + phase) * amplitude;
+        ctx.lineTo(x, baseY + wave);
+      }
+      ctx.strokeStyle = line % 2 === 0 ? 'rgba(83,43,22,0.42)' : 'rgba(255,211,151,0.28)';
+      ctx.lineWidth = line % 2 === 0 ? 1.35 : 0.9;
+      ctx.stroke();
     }
-    ctx.strokeStyle = row % 2 ? 'rgba(42,25,15,0.28)' : 'rgba(255,225,172,0.27)';
-    ctx.lineWidth = row % 3 === 0 ? 1.8 : 1; ctx.stroke();
-    if (row % 4 === 1 && width > spacing * 1.5) {
-      const knotX = spacing * (1 + random() * Math.max(1, width / spacing - 1));
-      ctx.beginPath(); ctx.ellipse(knotX, baseY, spacing * 0.12, spacing * 0.055, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(43,25,14,0.3)'; ctx.lineWidth = 1.3; ctx.stroke();
+
+    if (random() > 0.48 && width > spacing * 1.3) {
+      const knotX = spacing * (0.8 + random() * Math.max(1, width / spacing - 1.2));
+      const knotY = y + plankHeight * (0.35 + random() * 0.3);
+      ctx.beginPath();
+      ctx.ellipse(knotX, knotY, spacing * (0.07 + random() * 0.035), plankHeight * 0.07, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(76,39,21,0.5)';
+      ctx.lineWidth = 1.15;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(knotX, knotY, spacing * 0.035, plankHeight * 0.035, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,211,151,0.24)';
+      ctx.fill();
     }
   }
 }

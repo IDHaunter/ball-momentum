@@ -1,38 +1,11 @@
-# Surface Texture Polish — Ice, Glass and Sandbox Gallery
+# Surface Texture Revision
 
-## Changes
+- Removed the decorative cross-diagonal and centre-to-corner lines previously drawn over glass solids by `TerrainRenderer`; glass now uses only its configured outer border and translucent internal facets.
+- Restored the earlier soft triangular glass-pane fill treatment, using large continuous translucent polygon panes and inset triangular reflections, with no shared centre spokes or stroked seam network.
+- Replaced the duplicate ice-facets visual with `stone-masonry`; the only active ice gallery pattern is `ice-strata`.
+- Replaced the purple rubber-dot and chevron visuals with warm `brick-masonry`.
+- Kept old texture IDs as schema-compatible aliases: `ice-facets` -> `stone-masonry`, `rubber-dots` / `rubber-chevrons` -> `brick-masonry`, and `ice-crystals` -> `ice-strata`.
+- Rebuilt wood grain as warm brown timber boards with fibres and knots, and assigned the wood sample a dedicated wood material base colour.
+- Updated the Sandbox gallery to nine distinct, labelled samples and added `brick` and `wood` physics material definitions for those examples.
 
-- Replaced the active ice snowflake motif with `ice-strata`: compressed horizontal bands, softly uneven frozen layers, sparse short cracks, and small elongated air pockets.
-- Updated all active ice solids in `level-01.json` and `physics-sandbox.json` to use `ice-strata`.
-- Retained `ice-crystals` as a backwards-compatible ID, but it now renders the same pressed-ice strata pattern rather than snowflakes.
-- Removed all crossing seam strokes from `glass-facets`. The texture keeps its translucent triangular colour planes and isolated highlights.
-- Extended Physics Sandbox from 4200 to 6600 world units, expanded the final floor, and added a labelled row of ten material/texture sample blocks at the end of the level.
-- Moved the Sandbox goal beyond the sample gallery. The camera range follows the expanded world.
-
-## Gallery samples
-
-1. Stone fragments
-2. Stone strata
-3. Pressed ice strata
-4. Ice facets
-5. Rubber dots
-6. Rubber chevrons
-7. Glass facets
-8. Concrete grain
-9. Wood grain
-10. Sand specks
-
-Each sample has an appropriate physical material and visible top/side border styles. The textures remain visual-only and do not modify collision, friction, restitution, spring, breakable, movable, bot, or bomb behavior.
-
-## Checks completed
-
-- Strict TypeScript check for the changed texture production modules and directly related tests — PASS.
-- CanvasTexture runtime harness for all 11 accepted pattern IDs — PASS.
-- Pressed-ice check: layered strokes and air pockets present; snowflake centre arcs absent — PASS.
-- Legacy `ice-crystals` alias produces the same draw calls as `ice-strata` — PASS.
-- Glass facets check: colour fills and glints remain; crossing stroke calls absent — PASS.
-- Both level JSON files parse. Every active ice solid uses `ice-strata` — PASS.
-- Sandbox gallery contains all 10 unique visual patterns, and the goal is beyond the rightmost sample — PASS.
-- TypeScript syntax transpile — 118 files PASS.
-
-The full Vitest suite and Vite production build were not run because this environment does not contain the project's npm dependencies (`node_modules` is absent).
+Physics calculations, collision geometry, breakable glass, spring surfaces, movable blocks and bot behaviour are unchanged.

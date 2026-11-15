@@ -95,12 +95,17 @@
       "y": 830,
       "width": 70,
       "height": 50,
-      "material": "stone",
+      "material": "wood",
       "movable": {
         "mass": 4,
         "minimumImpactEnergy": 32000
       },
-      "texture": "wood-grain",
+      "texture": {
+        "pattern": "wood-grain",
+        "density": 0.9,
+        "opacity": 0.96,
+        "seed": 47
+      },
       "borders": {
         "top": "wood",
         "right": "metal",
@@ -188,14 +193,19 @@
           880
         ]
       ],
-      "material": "rubber",
+      "material": "brick",
       "springSurfaces": [
         {
           "edge": 1,
           "impulse": 560
         }
       ],
-      "texture": "rubber-dots",
+      "texture": {
+        "pattern": "brick-masonry",
+        "density": 0.95,
+        "opacity": 0.96,
+        "seed": 61
+      },
       "borders": [
         {
           "edge": 0,
@@ -337,12 +347,17 @@
       "y": 840,
       "width": 64,
       "height": 40,
-      "material": "stone",
+      "material": "wood",
       "movable": {
         "mass": 3,
         "minimumImpactEnergy": 25000
       },
-      "texture": "wood-grain",
+      "texture": {
+        "pattern": "wood-grain",
+        "density": 0.9,
+        "opacity": 0.96,
+        "seed": 63
+      },
       "borders": {
         "top": "wood",
         "right": "metal",
@@ -422,7 +437,7 @@
       "material": "ice",
       "texture": {
         "pattern": "ice-strata",
-        "density": 0.95,
+        "density": 1.0,
         "opacity": 0.52,
         "seed": 45
       },
@@ -434,63 +449,42 @@
       }
     },
     {
-      "id": "gallery-ice-facets",
+      "id": "gallery-stone-masonry",
       "type": "box",
       "x": 4840,
       "y": 760,
       "width": 150,
       "height": 120,
-      "material": "ice",
+      "material": "stone",
       "texture": {
-        "pattern": "ice-facets",
-        "density": 0.95,
-        "opacity": 0.52,
+        "pattern": "stone-masonry",
+        "density": 2.0,
+        "opacity": 0.82,
         "seed": 52
       },
       "borders": {
-        "top": "ice",
+        "top": "stone",
         "right": "metal",
         "bottom": "none",
         "left": "metal"
       }
     },
     {
-      "id": "gallery-rubber-dots",
+      "id": "gallery-brick-masonry",
       "type": "box",
       "x": 5020,
       "y": 760,
       "width": 150,
       "height": 120,
-      "material": "rubber",
+      "material": "brick",
       "texture": {
-        "pattern": "rubber-dots",
+        "pattern": "brick-masonry",
         "density": 1.0,
-        "opacity": 0.46,
+        "opacity": 0.9,
         "seed": 59
       },
       "borders": {
-        "top": "metal",
-        "right": "metal",
-        "bottom": "none",
-        "left": "metal"
-      }
-    },
-    {
-      "id": "gallery-rubber-chevrons",
-      "type": "box",
-      "x": 5200,
-      "y": 760,
-      "width": 150,
-      "height": 120,
-      "material": "rubber",
-      "texture": {
-        "pattern": "rubber-chevrons",
-        "density": 1.0,
-        "opacity": 0.46,
-        "seed": 66
-      },
-      "borders": {
-        "top": "metal",
+        "top": "stone",
         "right": "metal",
         "bottom": "none",
         "left": "metal"
@@ -499,14 +493,14 @@
     {
       "id": "gallery-glass-facets",
       "type": "box",
-      "x": 5380,
+      "x": 5200,
       "y": 760,
       "width": 150,
       "height": 120,
       "material": "glass",
       "texture": {
         "pattern": "glass-facets",
-        "density": 0.95,
+        "density": 1.0,
         "opacity": 0.62,
         "seed": 73
       },
@@ -520,7 +514,7 @@
     {
       "id": "gallery-concrete-grain",
       "type": "box",
-      "x": 5560,
+      "x": 5380,
       "y": 760,
       "width": 150,
       "height": 120,
@@ -541,15 +535,15 @@
     {
       "id": "gallery-wood-grain",
       "type": "box",
-      "x": 5740,
+      "x": 5560,
       "y": 760,
       "width": 150,
       "height": 120,
-      "material": "stone",
+      "material": "wood",
       "texture": {
         "pattern": "wood-grain",
         "density": 1.0,
-        "opacity": 0.46,
+        "opacity": 0.9,
         "seed": 87
       },
       "borders": {
@@ -562,7 +556,7 @@
     {
       "id": "gallery-sand-specks",
       "type": "box",
-      "x": 5920,
+      "x": 5740,
       "y": 760,
       "width": 150,
       "height": 120,
@@ -574,7 +568,7 @@
         "seed": 94
       },
       "borders": {
-        "top": "grass",
+        "top": "asphalt",
         "right": "metal",
         "bottom": "none",
         "left": "metal"
@@ -616,6 +610,16 @@
       "friction": 0.08,
       "frictionStatic": 0.12,
       "restitution": 0.34
+    },
+    "brick": {
+      "friction": 0.7,
+      "frictionStatic": 0.9,
+      "restitution": 0.12
+    },
+    "wood": {
+      "friction": 0.45,
+      "frictionStatic": 0.65,
+      "restitution": 0.01
     }
   },
   "camera": {
@@ -698,6 +702,15 @@
       "depth": 4
     },
     {
+      "id": "gallery-title",
+      "type": "text",
+      "x": 4300,
+      "y": 660,
+      "text": "SURFACE TEXTURE GALLERY",
+      "color": "#f5c451",
+      "depth": 4
+    },
+    {
       "id": "gallery-label-01",
       "type": "text",
       "x": 4305,
@@ -729,7 +742,7 @@
       "type": "text",
       "x": 4845,
       "y": 730,
-      "text": "ICE FACETS",
+      "text": "STONE MASONRY",
       "color": "#dcecf6",
       "depth": 4
     },
@@ -738,7 +751,7 @@
       "type": "text",
       "x": 5025,
       "y": 730,
-      "text": "RUBBER DOTS",
+      "text": "BRICK MASONRY",
       "color": "#dcecf6",
       "depth": 4
     },
@@ -747,7 +760,7 @@
       "type": "text",
       "x": 5205,
       "y": 730,
-      "text": "RUBBER CHEVRONS",
+      "text": "GLASS FACETS",
       "color": "#dcecf6",
       "depth": 4
     },
@@ -756,7 +769,7 @@
       "type": "text",
       "x": 5385,
       "y": 730,
-      "text": "GLASS FACETS",
+      "text": "CONCRETE GRAIN",
       "color": "#dcecf6",
       "depth": 4
     },
@@ -765,7 +778,7 @@
       "type": "text",
       "x": 5565,
       "y": 730,
-      "text": "CONCRETE GRAIN",
+      "text": "WOOD GRAIN",
       "color": "#dcecf6",
       "depth": 4
     },
@@ -774,26 +787,8 @@
       "type": "text",
       "x": 5745,
       "y": 730,
-      "text": "WOOD GRAIN",
-      "color": "#dcecf6",
-      "depth": 4
-    },
-    {
-      "id": "gallery-label-10",
-      "type": "text",
-      "x": 5925,
-      "y": 730,
       "text": "SAND SPECKS",
       "color": "#dcecf6",
-      "depth": 4
-    },
-    {
-      "id": "gallery-title",
-      "type": "text",
-      "x": 4300,
-      "y": 660,
-      "text": "SURFACE TEXTURE GALLERY",
-      "color": "#f5c451",
       "depth": 4
     }
   ],

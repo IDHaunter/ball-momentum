@@ -43,20 +43,18 @@ The texture is drawn procedurally to a cached CanvasTexture and clipped to the e
 |---|---|---|
 | `stone-fragments` | stone, normal | Irregular rock chips, mineral flecks and small fractures |
 | `stone-strata` | stone, normal | Uneven sediment layers |
-| `ice-strata` | ice | Compressed horizontal layers, subtle fractures and trapped air pockets |
-| `ice-crystals` | ice | Legacy alias; now renders as pressed ice strata for backward compatibility |
-| `ice-facets` | ice, glass | Angular translucent facets |
-| `rubber-dots` | rubber | Raised dimples and grip grooves |
-| `rubber-chevrons` | rubber | Repeated V-shaped traction grooves |
-| `glass-facets` | glass, ice | Soft triangular colour planes with isolated highlights; no crossing seam strokes |
+| `stone-masonry` | stone, normal | Large dressed-stone blocks with recessed mortar joints |
+| `ice-strata` | ice | One clear ice style: compressed horizontal layers, subtle fractures and trapped air |
+| `brick-masonry` | brick, stone | Warm terracotta bricks in staggered courses with visible mortar |
+| `glass-facets` | glass | Soft translucent triangular colour planes and isolated glints, without drawn cross-seams |
 | `concrete-grain` | normal, stone | Fine aggregate speckles and scratches |
-| `wood-grain` | wood, stone, normal | Flowing grain lines and occasional knots |
+| `wood-grain` | wood | Warm brown timber boards with visible fibres and knots |
 | `sand-specks` | sand, normal | Warm grains and tiny pebbles |
 
-There are 10 distinct visual patterns. `ice-crystals` is accepted only as a backwards-compatible alias for `ice-strata`; it no longer draws snowflakes.
+Legacy JSON IDs are still accepted: `ice-crystals` maps to `ice-strata`, `ice-facets` maps to `stone-masonry`, and `rubber-dots` / `rubber-chevrons` map to `brick-masonry`. These aliases do not appear as separate entries in the Sandbox gallery.
 
 The catalog metadata lives in `src/rendering/SurfaceTextureCatalog.ts`; rendering algorithms live in `src/rendering/SurfaceTextureGenerator.ts`. Add a new ID to `src/level/SurfaceTextureTypes.ts`, add metadata to the catalog, implement its drawing case in the generator, and add schema/catalog tests.
 
 ## Sandbox texture gallery
 
-The end of `physics-sandbox` contains a labelled display row for every unique built-in visual pattern: stone fragments, stone strata, pressed ice strata, ice facets, rubber dots, rubber chevrons, glass facets, concrete grain, wood grain, and sand specks. The goal trigger is placed after the gallery so players can inspect every sample before finishing the level.
+The end of `physics-sandbox` contains a labelled nine-sample display row: stone fragments, stone strata, stone masonry, pressed ice strata, brick masonry, glass facets, concrete grain, warm wood grain, and sand specks. The goal trigger is placed after the gallery so players can inspect every sample before finishing the level. The brick and wood samples use their own warm material base colours so their textures do not inherit a grey stone fill.

@@ -1,5 +1,4 @@
 import type Phaser from 'phaser';
-import { polygonCentroid } from '../utils/GeometryUtils';
 import type { LevelDefinition, SolidDefinition, TerrainMaterialDefinition } from '../level/LevelTypes';
 import { drawBoxBorders, drawPolygonBorders, drawSpringTape, getBoxBorderSegments, getPolygonBorderSegments } from './SurfaceBorderRenderer';
 import {
@@ -17,6 +16,7 @@ const MATERIAL_COLORS: Record<string, number> = {
   glass: 0x72d8ea,
   wood: 0x9b704d,
   sand: 0xc5a46b,
+  brick: 0xb9684b,
 };
 
 export class TerrainRenderer {
@@ -106,20 +106,8 @@ export class TerrainRenderer {
     const defaultBorderColor = isGlass ? 0xc5f7ff : 0x91a5bb;
     if (solid.type === 'box') {
       drawBoxBorders(this.overlayGraphics, solid.x, solid.y, solid.width, solid.height, solid.borders, defaultBorderColor);
-      if (isGlass) {
-        this.overlayGraphics.lineStyle(1.5, 0xd9fbff, 0.7);
-        this.overlayGraphics.lineBetween(solid.x + 8, solid.y + 8, solid.x + solid.width - 8, solid.y + solid.height - 8);
-        this.overlayGraphics.lineBetween(solid.x + solid.width - 8, solid.y + 8, solid.x + 8, solid.y + solid.height - 8);
-        this.overlayGraphics.lineBetween(solid.x + solid.width * 0.5, solid.y + 5, solid.x + solid.width * 0.5, solid.y + solid.height - 5);
-      }
     } else {
-      const points = solid.vertices;
-      drawPolygonBorders(this.overlayGraphics, points, solid.borders, defaultBorderColor);
-      if (isGlass) {
-        const centroid = polygonCentroid(points.map(([x, y]) => ({ x, y })));
-        this.overlayGraphics.lineStyle(1.5, 0xd9fbff, 0.72);
-        for (const [x, y] of points) this.overlayGraphics.lineBetween(centroid.x, centroid.y, x, y);
-      }
+      drawPolygonBorders(this.overlayGraphics, solid.vertices, solid.borders, defaultBorderColor);
     }
 
     // Springs override the configured edge style with a high-contrast hazard

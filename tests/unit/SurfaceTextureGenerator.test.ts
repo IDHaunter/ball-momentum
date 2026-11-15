@@ -4,12 +4,17 @@ import { createSurfaceTextureCanvas, normalizeSurfaceTexture } from '../../src/r
 
 function createTextureHarness() {
   const calls: string[] = [];
+  const fillStyles: string[] = [];
   const context = new Proxy({}, {
     get(_target, property) {
       if (typeof property === 'string') {
         return (..._args: unknown[]) => { calls.push(property); };
       }
       return undefined;
+    },
+    set(_target, property, value) {
+      if (property === 'fillStyle') fillStyles.push(String(value));
+      return true;
     },
   }) as CanvasRenderingContext2D;
   const texture = { getContext: () => context, refresh: vi.fn() };
@@ -18,7 +23,7 @@ function createTextureHarness() {
     createCanvas: vi.fn(() => texture),
   };
   const scene = { textures } as unknown as Parameters<typeof createSurfaceTextureCanvas>[0];
-  return { scene, textures, texture, calls };
+  return { scene, textures, texture, calls, fillStyles };
 }
 
 describe('SurfaceTextureGenerator', () => {
@@ -58,7 +63,7 @@ describe('SurfaceTextureGenerator', () => {
     expect(harness.calls).toContain('stroke');
   });
 
-  it('keeps glass facets while removing the crossing seam strokes', () => {
+  it('restores the original soft triangular glass panes without drawn seam strokes', () => {
     const harness = createTextureHarness();
     createSurfaceTextureCanvas(
       harness.scene,
@@ -71,6 +76,7 @@ describe('SurfaceTextureGenerator', () => {
     );
 
     expect(harness.calls).toContain('fill');
+    expect(harness.calls).toContain('lineTo');
     expect(harness.calls).not.toContain('stroke');
   });
 
@@ -83,6 +89,35 @@ describe('SurfaceTextureGenerator', () => {
 
     expect(legacy.calls).toEqual(current.calls);
     expect(legacy.calls).not.toContain('arc');
+  });
+
+  it('maps retired ice facets to stone masonry and retired rubber motifs to brick masonry', () => {
+    const polygon = [{ x: 0, y: 0 }, { x: 140, y: 0 }, { x: 140, y: 90 }, { x: 0, y: 90 }];
+    const render = (key: string, pattern: Parameters<typeof createSurfaceTextureCanvas>[5]) => {
+      const harness = createTextureHarness();
+      createSurfaceTextureCanvas(harness.scene, key, 140, 90, polygon, pattern, 7);
+      return harness.calls;
+    };
+
+    expect(render('stone-masonry', 'stone-masonry')).toEqual(render('ice-facets', 'ice-facets'));
+    expect(render('brick-main', 'brick-masonry')).toEqual(render('rubber-dots', 'rubber-dots'));
+    expect(render('brick-main-2', 'brick-masonry')).toEqual(render('rubber-chevrons', 'rubber-chevrons'));
+  });
+
+  it('renders wood as warm planks and brick as staggered masonry rather than grey grain or purple grip', () => {
+    const polygon = [{ x: 0, y: 0 }, { x: 160, y: 0 }, { x: 160, y: 100 }, { x: 0, y: 100 }];
+    const wood = createTextureHarness();
+    const brick = createTextureHarness();
+    createSurfaceTextureCanvas(wood.scene, 'wood-sample', 160, 100, polygon, 'wood-grain', 9);
+    createSurfaceTextureCanvas(brick.scene, 'brick-sample', 160, 100, polygon, 'brick-masonry', 9);
+    expect(wood.calls).toContain('fillRect');
+    expect(wood.calls).toContain('stroke');
+    expect(wood.fillStyles).toContain('rgba(113,65,36,0.94)');
+    expect(wood.fillStyles).toContain('rgba(166,101,53,0.96)');
+    expect(brick.calls).toContain('fillRect');
+    expect(brick.calls).toContain('lineTo');
+    expect(brick.fillStyles).toContain('rgba(69,57,49,0.94)');
+    expect(brick.fillStyles).toContain('rgba(177,91,57,0.96)');
   });
 
   it('reuses an existing cached texture without redrawing it', () => {
