@@ -40,6 +40,51 @@ describe('SurfaceTextureGenerator', () => {
     }
   });
 
+  it('renders pressed ice strata as layered seams and cracks instead of snowflakes', () => {
+    const harness = createTextureHarness();
+    createSurfaceTextureCanvas(
+      harness.scene,
+      'pressed-ice',
+      180,
+      120,
+      [{ x: 0, y: 0 }, { x: 180, y: 0 }, { x: 180, y: 120 }, { x: 0, y: 120 }],
+      'ice-strata',
+      42,
+    );
+
+    expect(harness.calls).toContain('lineTo');
+    expect(harness.calls).toContain('ellipse');
+    expect(harness.calls).not.toContain('arc');
+    expect(harness.calls).toContain('stroke');
+  });
+
+  it('keeps glass facets while removing the crossing seam strokes', () => {
+    const harness = createTextureHarness();
+    createSurfaceTextureCanvas(
+      harness.scene,
+      'soft-glass-facets',
+      180,
+      120,
+      [{ x: 0, y: 0 }, { x: 180, y: 0 }, { x: 180, y: 120 }, { x: 0, y: 120 }],
+      'glass-facets',
+      17,
+    );
+
+    expect(harness.calls).toContain('fill');
+    expect(harness.calls).not.toContain('stroke');
+  });
+
+  it('keeps the old ice-crystals key as a snowflake-free compatibility alias', () => {
+    const current = createTextureHarness();
+    const legacy = createTextureHarness();
+    const polygon = [{ x: 0, y: 0 }, { x: 140, y: 0 }, { x: 140, y: 90 }, { x: 0, y: 90 }];
+    createSurfaceTextureCanvas(current.scene, 'ice-current', 140, 90, polygon, 'ice-strata', 7);
+    createSurfaceTextureCanvas(legacy.scene, 'ice-legacy', 140, 90, polygon, 'ice-crystals', 7);
+
+    expect(legacy.calls).toEqual(current.calls);
+    expect(legacy.calls).not.toContain('arc');
+  });
+
   it('reuses an existing cached texture without redrawing it', () => {
     const harness = createTextureHarness();
     harness.textures.exists = vi.fn(() => true);

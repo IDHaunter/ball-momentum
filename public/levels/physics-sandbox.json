@@ -4,7 +4,7 @@
   "title": "Physics Sandbox",
   "description": "A safe course for testing momentum, slopes, and repeated jumps.",
   "world": {
-    "width": 4200,
+    "width": 6600,
     "height": 1500,
     "killPlaneY": 1420,
     "backgroundColor": "#18212f"
@@ -80,7 +80,7 @@
       "width": 300,
       "height": 520,
       "material": "ice",
-      "texture": "ice-crystals",
+      "texture": "ice-strata",
       "borders": {
         "top": "ice",
         "right": "ice",
@@ -216,7 +216,7 @@
       "type": "box",
       "x": 2600,
       "y": 880,
-      "width": 1600,
+      "width": 4000,
       "height": 520,
       "material": "normal",
       "texture": "concrete-grain",
@@ -369,15 +369,225 @@
         "bottom": "none",
         "left": "ice"
       }
+    },
+    {
+      "id": "gallery-stone-fragments",
+      "type": "box",
+      "x": 4300,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "stone",
+      "texture": {
+        "pattern": "stone-fragments",
+        "density": 1.0,
+        "opacity": 0.46,
+        "seed": 31
+      },
+      "borders": {
+        "top": "stone",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-stone-strata",
+      "type": "box",
+      "x": 4480,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "stone",
+      "texture": {
+        "pattern": "stone-strata",
+        "density": 1.0,
+        "opacity": 0.46,
+        "seed": 38
+      },
+      "borders": {
+        "top": "stone",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-ice-strata",
+      "type": "box",
+      "x": 4660,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "ice",
+      "texture": {
+        "pattern": "ice-strata",
+        "density": 0.95,
+        "opacity": 0.52,
+        "seed": 45
+      },
+      "borders": {
+        "top": "ice",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-ice-facets",
+      "type": "box",
+      "x": 4840,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "ice",
+      "texture": {
+        "pattern": "ice-facets",
+        "density": 0.95,
+        "opacity": 0.52,
+        "seed": 52
+      },
+      "borders": {
+        "top": "ice",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-rubber-dots",
+      "type": "box",
+      "x": 5020,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "rubber",
+      "texture": {
+        "pattern": "rubber-dots",
+        "density": 1.0,
+        "opacity": 0.46,
+        "seed": 59
+      },
+      "borders": {
+        "top": "metal",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-rubber-chevrons",
+      "type": "box",
+      "x": 5200,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "rubber",
+      "texture": {
+        "pattern": "rubber-chevrons",
+        "density": 1.0,
+        "opacity": 0.46,
+        "seed": 66
+      },
+      "borders": {
+        "top": "metal",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-glass-facets",
+      "type": "box",
+      "x": 5380,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "glass",
+      "texture": {
+        "pattern": "glass-facets",
+        "density": 0.95,
+        "opacity": 0.62,
+        "seed": 73
+      },
+      "borders": {
+        "top": "ice",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-concrete-grain",
+      "type": "box",
+      "x": 5560,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "normal",
+      "texture": {
+        "pattern": "concrete-grain",
+        "density": 1.0,
+        "opacity": 0.46,
+        "seed": 80
+      },
+      "borders": {
+        "top": "asphalt",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-wood-grain",
+      "type": "box",
+      "x": 5740,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "stone",
+      "texture": {
+        "pattern": "wood-grain",
+        "density": 1.0,
+        "opacity": 0.46,
+        "seed": 87
+      },
+      "borders": {
+        "top": "wood",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
+    },
+    {
+      "id": "gallery-sand-specks",
+      "type": "box",
+      "x": 5920,
+      "y": 760,
+      "width": 150,
+      "height": 120,
+      "material": "normal",
+      "texture": {
+        "pattern": "sand-specks",
+        "density": 1.0,
+        "opacity": 0.46,
+        "seed": 94
+      },
+      "borders": {
+        "top": "grass",
+        "right": "metal",
+        "bottom": "none",
+        "left": "metal"
+      }
     }
   ],
   "triggers": [
     {
       "id": "sandbox-goal",
       "type": "goal",
-      "x": 4050,
+      "x": 6420,
       "y": 650,
-      "width": 90,
+      "width": 100,
       "height": 230
     }
   ],
@@ -412,7 +622,7 @@
     "followOffsetX": 0.38,
     "smoothing": 0.1,
     "minX": 0,
-    "maxX": 4200
+    "maxX": 6600
   },
   "decorations": [
     {
@@ -485,6 +695,105 @@
       "y": 805,
       "text": "TIME BOMB · 3 SEC BLAST",
       "color": "#ffbd70",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-01",
+      "type": "text",
+      "x": 4305,
+      "y": 730,
+      "text": "STONE FRAGMENTS",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-02",
+      "type": "text",
+      "x": 4485,
+      "y": 730,
+      "text": "STONE STRATA",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-03",
+      "type": "text",
+      "x": 4665,
+      "y": 730,
+      "text": "ICE STRATA",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-04",
+      "type": "text",
+      "x": 4845,
+      "y": 730,
+      "text": "ICE FACETS",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-05",
+      "type": "text",
+      "x": 5025,
+      "y": 730,
+      "text": "RUBBER DOTS",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-06",
+      "type": "text",
+      "x": 5205,
+      "y": 730,
+      "text": "RUBBER CHEVRONS",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-07",
+      "type": "text",
+      "x": 5385,
+      "y": 730,
+      "text": "GLASS FACETS",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-08",
+      "type": "text",
+      "x": 5565,
+      "y": 730,
+      "text": "CONCRETE GRAIN",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-09",
+      "type": "text",
+      "x": 5745,
+      "y": 730,
+      "text": "WOOD GRAIN",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-label-10",
+      "type": "text",
+      "x": 5925,
+      "y": 730,
+      "text": "SAND SPECKS",
+      "color": "#dcecf6",
+      "depth": 4
+    },
+    {
+      "id": "gallery-title",
+      "type": "text",
+      "x": 4300,
+      "y": 660,
+      "text": "SURFACE TEXTURE GALLERY",
+      "color": "#f5c451",
       "depth": 4
     }
   ],

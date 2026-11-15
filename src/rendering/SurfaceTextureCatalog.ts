@@ -24,12 +24,19 @@ export const SURFACE_TEXTURE_CATALOG: Record<SurfaceTexturePattern, SurfaceTextu
     defaultDensity: 0.85,
     defaultOpacity: 0.34,
   },
-  'ice-crystals': {
-    label: 'Ice crystals',
-    description: 'Small six-armed frost crystals and bright frozen glints.',
+  'ice-strata': {
+    label: 'Pressed ice strata',
+    description: 'Compact horizontal ice layers with subtle frozen cracks and trapped air.',
     suggestedMaterials: ['ice'],
-    defaultDensity: 0.8,
-    defaultOpacity: 0.48,
+    defaultDensity: 0.9,
+    defaultOpacity: 0.5,
+  },
+  'ice-crystals': {
+    label: 'Pressed ice strata (legacy alias)',
+    description: 'Legacy key retained for old levels; rendered as compact ice layers rather than snowflakes.',
+    suggestedMaterials: ['ice'],
+    defaultDensity: 0.9,
+    defaultOpacity: 0.5,
   },
   'ice-facets': {
     label: 'Ice facets',
@@ -54,7 +61,7 @@ export const SURFACE_TEXTURE_CATALOG: Record<SurfaceTexturePattern, SurfaceTextu
   },
   'glass-facets': {
     label: 'Glass facets',
-    description: 'Fine triangular facets, fracture seams and small glints.',
+    description: 'Soft translucent triangular colour planes with isolated specular glints and no crossing seams.',
     suggestedMaterials: ['glass', 'ice'],
     defaultDensity: 1,
     defaultOpacity: 0.58,

@@ -218,13 +218,18 @@ describe('surface textures', () => {
         {
           id: 'ice-slope', type: 'polygon',
           vertices: [[100, 100], [180, 40], [260, 100]],
-          texture: { pattern: 'ice-crystals', density: 1.4, opacity: 0.62, seed: 17 },
+          texture: { pattern: 'ice-strata', density: 1.4, opacity: 0.62, seed: 17 },
         },
       ],
     };
     const validated = validator.validate(level);
     expect(validated.solids[0].texture).toBe('stone-fragments');
-    expect(validated.solids[1].texture).toMatchObject({ pattern: 'ice-crystals', density: 1.4, opacity: 0.62, seed: 17 });
+    expect(validated.solids[1].texture).toMatchObject({ pattern: 'ice-strata', density: 1.4, opacity: 0.62, seed: 17 });
+  });
+
+  it('continues accepting the legacy ice-crystals pattern ID', () => {
+    const legacy = { ...validLevel, solids: [{ ...validLevel.solids[0], texture: 'ice-crystals' }] };
+    expect(validator.validate(legacy).solids[0].texture).toBe('ice-crystals');
   });
 
   it('rejects unknown patterns and invalid texture tuning values', () => {

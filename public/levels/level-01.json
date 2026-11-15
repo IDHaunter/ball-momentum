@@ -194,7 +194,7 @@
       "width": 420,
       "height": 430,
       "material": "ice",
-      "texture": "ice-crystals",
+      "texture": "ice-strata",
       "borders": {
         "top": "ice",
         "right": "ice",

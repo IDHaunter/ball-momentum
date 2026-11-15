@@ -2,6 +2,8 @@
 export const SURFACE_TEXTURE_NAMES = [
   'stone-fragments',
   'stone-strata',
+  'ice-strata',
+  /** @deprecated Kept for existing level JSON; renders as ice-strata. */
   'ice-crystals',
   'ice-facets',
   'rubber-dots',

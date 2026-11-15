@@ -92,8 +92,9 @@ export function drawSurfacePattern(
     case 'stone-strata':
       drawStoneStrata(context, width, height, spacing, random);
       break;
-    case 'ice-crystals':
-      drawIceCrystals(context, width, height, spacing, random);
+    case 'ice-strata':
+    case 'ice-crystals': // Backward-compatible key; no longer draws snowflakes.
+      drawIceStrata(context, width, height, spacing, random);
       break;
     case 'ice-facets':
     case 'glass-facets':
@@ -170,40 +171,78 @@ function drawStoneStrata(ctx: CanvasRenderingContext2D, width: number, height: n
   drawSmallFlecks(ctx, width, height, spacing * 0.5, random, 0.32);
 }
 
-function drawIceCrystals(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
-  const columns = Math.ceil(width / spacing) + 1;
-  const rows = Math.ceil(height / spacing) + 1;
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      if (random() < 0.38) continue;
-      const x = column * spacing + (row % 2) * spacing * 0.5 + random() * spacing * 0.2;
-      const y = row * spacing + random() * spacing * 0.2;
-      const size = spacing * (0.15 + random() * 0.12);
-      ctx.strokeStyle = 'rgba(239,253,255,0.72)';
-      ctx.lineWidth = 1.2;
-      for (let arm = 0; arm < 6; arm += 1) {
-        const angle = arm * Math.PI / 3;
-        const dx = Math.cos(angle) * size;
-        const dy = Math.sin(angle) * size;
-        ctx.beginPath();
-        ctx.moveTo(x - dx, y - dy);
-        ctx.lineTo(x + dx, y + dy);
-        ctx.stroke();
-        for (const end of [-1, 1]) {
-          const ex = x + dx * end;
-          const ey = y + dy * end;
-          const branch = size * 0.3;
-          ctx.beginPath();
-          ctx.moveTo(ex, ey);
-          ctx.lineTo(ex - Math.cos(angle - 0.75) * branch * end, ey - Math.sin(angle - 0.75) * branch * end);
-          ctx.moveTo(ex, ey);
-          ctx.lineTo(ex - Math.cos(angle + 0.75) * branch * end, ey - Math.sin(angle + 0.75) * branch * end);
-          ctx.stroke();
-        }
-      }
-      ctx.fillStyle = 'rgba(255,255,255,0.76)';
-      ctx.beginPath(); ctx.arc(x, y, 1.7, 0, Math.PI * 2); ctx.fill();
+function drawIceStrata(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
+  // Compressed horizontal layers, like frozen sediment trapped inside a block.
+  // The old snowflake motif is intentionally not used for either current or legacy ice IDs.
+  const bandStep = Math.max(14, spacing * 0.54);
+  const segmentStep = Math.max(24, spacing * 0.62);
+  const rowCount = Math.ceil(height / bandStep) + 2;
+
+  for (let row = -1; row < rowCount; row += 1) {
+    const baseY = row * bandStep + (random() - 0.5) * bandStep * 0.16;
+    const bandHeight = bandStep * (0.34 + random() * 0.22);
+    const amplitude = bandStep * (0.035 + random() * 0.045);
+    const phase = random() * Math.PI * 2;
+    const top: Array<{ x: number; y: number }> = [];
+
+    for (let x = -segmentStep; x <= width + segmentStep; x += segmentStep) {
+      top.push({
+        x,
+        y: baseY + Math.sin(x / (segmentStep * 1.8) + phase) * amplitude + (random() - 0.5) * amplitude * 0.34,
+      });
     }
+    const bottom = top.map((point) => ({ x: point.x, y: point.y + bandHeight }));
+
+    // A gently irregular translucent band gives the ice a compacted, layered body.
+    ctx.beginPath();
+    ctx.moveTo(top[0].x, top[0].y);
+    for (let index = 1; index < top.length; index += 1) ctx.lineTo(top[index].x, top[index].y);
+    for (let index = bottom.length - 1; index >= 0; index -= 1) ctx.lineTo(bottom[index].x, bottom[index].y);
+    ctx.closePath();
+    ctx.fillStyle = row % 2 === 0 ? 'rgba(224,249,255,0.15)' : 'rgba(42,126,164,0.10)';
+    ctx.fill();
+
+    // Soft upper and lower seams read as compressed ice strata, not surface decoration.
+    ctx.beginPath();
+    ctx.moveTo(top[0].x, top[0].y);
+    for (let index = 1; index < top.length; index += 1) ctx.lineTo(top[index].x, top[index].y);
+    ctx.strokeStyle = 'rgba(239,253,255,0.34)';
+    ctx.lineWidth = 1.1 + random() * 0.55;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(bottom[0].x, bottom[0].y);
+    for (let index = 1; index < bottom.length; index += 1) ctx.lineTo(bottom[index].x, bottom[index].y);
+    ctx.strokeStyle = 'rgba(38,105,145,0.22)';
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
+    // Sparse short fractures interrupt a few layers without creating a busy grid.
+    if (random() > 0.58 && width > 42) {
+      const crackX = random() * Math.max(1, width - 42) + 16;
+      const crackY = baseY + bandHeight * (0.22 + random() * 0.55);
+      const crackLength = 15 + random() * 26;
+      const direction = random() > 0.5 ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(crackX, crackY);
+      ctx.lineTo(crackX + crackLength * 0.4 * direction, crackY + (random() - 0.5) * 4);
+      ctx.lineTo(crackX + crackLength * 0.72 * direction, crackY - 2 - random() * 4);
+      ctx.lineTo(crackX + crackLength * direction, crackY - 1 + random() * 4);
+      ctx.strokeStyle = 'rgba(246,254,255,0.42)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  // A few narrow air pockets suggest translucent compacted ice, not snowflakes.
+  const pocketCount = Math.max(2, Math.round((width * height) / (spacing * spacing) * 0.4));
+  for (let index = 0; index < pocketCount; index += 1) {
+    const x = random() * width;
+    const y = random() * height;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 2.5 + random() * 5.5, 0.8 + random() * 1.5, (random() - 0.5) * 0.18, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(245,254,255,0.34)';
+    ctx.fill();
   }
 }
 
@@ -219,21 +258,37 @@ function drawFacets(ctx: CanvasRenderingContext2D, width: number, height: number
       const jitterY = (random() - 0.5) * step * 0.36;
       const midX = x + step * 0.5 + jitterX;
       const midY = y + step * 0.5 + jitterY;
-      const color = random() > 0.5 ? 'rgba(232,251,255,0.26)' : 'rgba(19,70,94,0.13)';
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(x, y); ctx.lineTo(x + step, y); ctx.lineTo(midX, midY); ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x + step, y); ctx.lineTo(x + step, y + step); ctx.lineTo(midX, midY); ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x + step, y + step); ctx.lineTo(x, y + step); ctx.lineTo(midX, midY); ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x, y + step); ctx.lineTo(x, y); ctx.lineTo(midX, midY); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = glass ? 'rgba(218,250,255,0.52)' : 'rgba(238,253,255,0.4)';
-      ctx.lineWidth = glass ? 1.35 : 1;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(midX, midY); ctx.lineTo(x + step, y); ctx.stroke();
-      if (glass && random() > 0.68) {
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      const facetColors = glass
+        ? [
+          'rgba(235,252,255,0.19)',
+          'rgba(93,178,207,0.12)',
+          'rgba(26,91,125,0.10)',
+          'rgba(213,245,252,0.15)',
+        ]
+        : [random() > 0.5 ? 'rgba(232,251,255,0.26)' : 'rgba(19,70,94,0.13)'];
+      const triangles: Array<Array<[number, number]>> = [
+        [[x, y], [x + step, y], [midX, midY]],
+        [[x + step, y], [x + step, y + step], [midX, midY]],
+        [[x + step, y + step], [x, y + step], [midX, midY]],
+        [[x, y + step], [x, y], [midX, midY]],
+      ];
+      triangles.forEach((triangle, index) => {
+        ctx.fillStyle = facetColors[index % facetColors.length];
+        ctx.beginPath();
+        ctx.moveTo(triangle[0][0], triangle[0][1]);
+        ctx.lineTo(triangle[1][0], triangle[1][1]);
+        ctx.lineTo(triangle[2][0], triangle[2][1]);
+        ctx.closePath();
+        ctx.fill();
+      });
+      if (!glass) {
+        // Ice facets retain a light structural seam; glass uses colour planes only.
+        ctx.strokeStyle = 'rgba(238,253,255,0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(midX, midY); ctx.lineTo(x + step, y); ctx.stroke();
+      } else if (random() > 0.68) {
+        // Isolated glints preserve the crystalline read without drawing crossing seams.
+        ctx.fillStyle = 'rgba(255,255,255,0.78)';
         ctx.beginPath(); ctx.arc(midX + (random() - 0.5) * step * 0.25, midY + (random() - 0.5) * step * 0.25, 1.8, 0, Math.PI * 2); ctx.fill();
       }
     }
