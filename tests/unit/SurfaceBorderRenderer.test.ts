@@ -5,6 +5,8 @@ import {
   drawSpringTape,
   getBoxBorderSegments,
   getPolygonBorderSegments,
+  getSpikeTriangles,
+  SPIKE_SURFACE_HEIGHT_PX,
   type BorderGraphicsLike,
 } from '../../src/rendering/SurfaceBorderRenderer';
 
@@ -54,6 +56,36 @@ describe('SurfaceBorderRenderer', () => {
     expect(edges).toHaveLength(3);
     expect(edges[0].edge).toBe(0);
     expect(edges[0].normal.y).toBeLessThan(0);
+  });
+
+  it('draws raised, sharp spike teeth and shares their exact geometry with hazard sensors', () => {
+    const edge = getBoxBorderSegments(10, 20, 120, 40)[0];
+    const triangles = getSpikeTriangles(edge);
+    expect(triangles.length).toBeGreaterThan(5);
+    expect(triangles[0].points[1].y).toBe(20 - SPIKE_SURFACE_HEIGHT_PX);
+    expect(triangles[0].points[0].y).toBe(20);
+
+    const graphics = new FakeGraphics();
+    drawBoxBorders(graphics, 10, 20, 120, 40, { top: 'spikes', right: 'none', bottom: 'none', left: 'none' });
+    expect(graphics.polygons.length).toBe(triangles.length * 2);
+    expect(graphics.polygons.some((polygon) => polygon.color === 0x17212b)).toBe(true);
+    expect(graphics.lines.length).toBeGreaterThan(triangles.length * 2);
+  });
+
+  it('orients lethal spike geometry outward on vertical and sloped edges', () => {
+    const right = getBoxBorderSegments(0, 0, 100, 50)[1];
+    const rightTip = getSpikeTriangles(right)[0].points[1];
+    expect(rightTip.x).toBe(right.a.x + SPIKE_SURFACE_HEIGHT_PX);
+
+    const slope = getPolygonBorderSegments([[0, 60], [60, 0], [130, 70]])[0];
+    const triangle = getSpikeTriangles(slope)[0];
+    const baseMid = {
+      x: (triangle.points[0].x + triangle.points[2].x) / 2,
+      y: (triangle.points[0].y + triangle.points[2].y) / 2,
+    };
+    const dx = triangle.points[1].x - baseMid.x;
+    const dy = triangle.points[1].y - baseMid.y;
+    expect(dx * slope.normal.x + dy * slope.normal.y).toBeCloseTo(SPIKE_SURFACE_HEIGHT_PX, 5);
   });
 
   it('skips a box edge styled as none while retaining default edges', () => {

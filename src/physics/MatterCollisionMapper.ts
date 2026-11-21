@@ -10,11 +10,12 @@ export interface CollisionPairLike {
 export interface CollisionEventLike { pairs: CollisionPairLike[]; }
 
 export interface PhysicsBodyMetadata {
-  kind: 'ball' | 'terrain' | 'trigger' | 'movable' | 'bot' | 'bomb' | 'bird' | 'vomitEnemy';
+  kind: 'ball' | 'terrain' | 'trigger' | 'spike' | 'movable' | 'bot' | 'bomb' | 'bird' | 'vomitEnemy';
   id: string;
   mass?: number;
   minimumImpactEnergy?: number;
   triggerType?: 'hazard' | 'checkpoint' | 'goal' | 'poop';
+  spikeParentId?: string;
   breakable?: boolean;
   breakableThresholdEnergy?: number;
   springSurfaces?: Array<{ id: string; normal: Vector2; impulse: number }>;
@@ -31,6 +32,29 @@ export class MatterCollisionMapper {
     const metaA = this.metadata.get(bodyA);
     const metaB = this.metadata.get(bodyB);
     if (!metaA || !metaB) return [];
+
+    // Raised spike triangles are sensors, not ordinary terrain. Any ball-like
+    // character touching the raised volume is killed; merely touching the base
+    // platform remains safe. The scene decides whether to respawn or remove it.
+    const spikeIsA = metaA.kind === 'spike';
+    const spikeMeta = spikeIsA ? metaA : metaB.kind === 'spike' ? metaB : null;
+    const entityMeta = spikeIsA ? metaB : metaA;
+    if (phase === 'start' && spikeMeta) {
+      const entityKind = entityMeta.kind === 'ball' ? 'player'
+        : entityMeta.kind === 'bot' ? 'bot'
+          : entityMeta.kind === 'bird' ? 'bird'
+            : entityMeta.kind === 'vomitEnemy' ? 'vomitEnemy' : null;
+      if (entityKind) {
+        const entityBody = spikeIsA ? bodyB : bodyA;
+        return [{
+          type: 'SPIKE_ENTITY_HIT',
+          spikeId: spikeMeta.id,
+          entityKind,
+          entityId: entityMeta.id,
+          position: { x: entityBody.position.x, y: entityBody.position.y },
+        }];
+      }
+    }
 
     // Enemy rolling characters can collect poop boosts too. Keep this event
     // separate from player trigger events so the scene can boost the bot body.

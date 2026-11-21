@@ -364,3 +364,48 @@ describe('MatterCollisionMapper enemy poop pickups', () => {
     expect(mapper.mapPair({ bodyA: bot, bodyB: checkpoint, collision: { normal: { x: 1, y: 0 } } }, 'start')).toEqual([]);
   });
 });
+
+
+describe('MatterCollisionMapper raised spikes', () => {
+  it('kills the player only when the raised spike sensor is contacted', () => {
+    const ball = body(80, 90);
+    const spike = body(80, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball', mass: 1 }],
+      [spike, { kind: 'spike', id: 'floor:spike:top:2', spikeParentId: 'floor' }],
+    ]));
+
+    expect(mapper.mapPair({ bodyA: ball, bodyB: spike, collision: { normal: { x: 0, y: -1 } } }, 'start')).toEqual([
+      expect.objectContaining({
+        type: 'SPIKE_ENTITY_HIT', entityKind: 'player', entityId: 'ball',
+        spikeId: 'floor:spike:top:2', position: { x: 80, y: 90 },
+      }),
+    ]);
+    expect(mapper.mapPair({ bodyA: ball, bodyB: spike, collision: { normal: { x: 0, y: -1 } } }, 'active')).toEqual([]);
+  });
+
+  it('maps enemy contacts to removal events rather than player respawns', () => {
+    const bot = body(140, 80);
+    const spike = body(140, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [bot, { kind: 'bot', id: 'patrol-bot', mass: 1.2 }],
+      [spike, { kind: 'spike', id: 'wall:spike:left:1', spikeParentId: 'wall' }],
+    ]));
+    const event = mapper.mapPair({ bodyA: spike, bodyB: bot, collision: { normal: { x: 1, y: 0 } } }, 'start')[0];
+    expect(event).toEqual(expect.objectContaining({ type: 'SPIKE_ENTITY_HIT', entityKind: 'bot', entityId: 'patrol-bot' }));
+  });
+
+  it.each([
+    ['bird', 'nest-guardian', 'bird'],
+    ['vomitEnemy', 'green-gremlin', 'vomitEnemy'],
+  ] as const)('maps %s spike contact to the correct enemy removal kind', (metadataKind: 'bird' | 'vomitEnemy', id: string, eventKind: 'bird' | 'vomitEnemy') => {
+    const enemy = body(140, 80);
+    const spike = body(140, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [enemy, { kind: metadataKind, id }],
+      [spike, { kind: 'spike', id: 'wall:spike:left:1', spikeParentId: 'wall' }],
+    ]));
+    const event = mapper.mapPair({ bodyA: enemy, bodyB: spike, collision: { normal: { x: 1, y: 0 } } }, 'start')[0];
+    expect(event).toEqual(expect.objectContaining({ type: 'SPIKE_ENTITY_HIT', entityKind: eventKind, entityId: id }));
+  });
+});

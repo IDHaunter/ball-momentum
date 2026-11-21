@@ -610,6 +610,48 @@
         "bottom": "none",
         "left": "stone"
       }
+    },
+    {
+      "id": "sandbox-spike-pit-platform",
+      "type": "box",
+      "x": 6305,
+      "y": 1000,
+      "width": 292,
+      "height": 28,
+      "material": "normal",
+      "texture": {
+        "pattern": "metal-sheen",
+        "density": 0.9,
+        "opacity": 0.42,
+        "seed": 137
+      },
+      "borders": {
+        "top": "spikes",
+        "right": "none",
+        "bottom": "none",
+        "left": "none"
+      }
+    },
+    {
+      "id": "sandbox-spike-finish-wall",
+      "type": "box",
+      "x": 6915,
+      "y": 700,
+      "width": 32,
+      "height": 180,
+      "material": "stone",
+      "texture": {
+        "pattern": "stone-strata",
+        "density": 0.8,
+        "opacity": 0.38,
+        "seed": 149
+      },
+      "borders": {
+        "top": "none",
+        "right": "none",
+        "bottom": "none",
+        "left": "spikes"
+      }
     }
   ],
   "triggers": [
@@ -863,24 +905,33 @@
       "width": 300,
       "height": 510,
       "color": "#0b121b",
-      "depth": 1
+      "depth": -50
     },
     {
       "id": "sandbox-vomit-enemy-hint",
       "type": "text",
-      "x": 6075,
+      "x": 6170,
       "y": 790,
-      "text": "GREEN GREMLIN · DODGE THE GOO!",
+      "text": "GREEN GREMLIN",
       "color": "#b8f27b",
       "depth": 4
     },
     {
-      "id": "sandbox-vomit-pit-hint",
+      "id": "sandbox-spike-pit-hint",
       "type": "text",
-      "x": 6380,
-      "y": 820,
-      "text": "SLIME PIT",
-      "color": "#8dd65d",
+      "x": 6448,
+      "y": 800,
+      "text": "SPIKE PIT · DON'T LAND!",
+      "color": "#ff9b87",
+      "depth": 4
+    },
+    {
+      "id": "sandbox-spike-wall-hint",
+      "type": "text",
+      "x": 6900,
+      "y": 665,
+      "text": "SPIKE WALL",
+      "color": "#ff9b87",
       "depth": 4
     }
   ],

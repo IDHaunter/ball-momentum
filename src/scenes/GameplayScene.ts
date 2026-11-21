@@ -288,6 +288,7 @@ export class GameplayScene extends Phaser.Scene {
     const target = this.respawn.advance(stepMs);
     if (!target || !this.ball) return;
     this.ball.resetAt(target.x, target.y);
+    this.physicsWorld.clearSpikeVictim('player', 'ball');
     this.ballRenderer?.setVisible(true);
     this.emitBoostState();
     this.inputQueue.clear();
@@ -298,6 +299,18 @@ export class GameplayScene extends Phaser.Scene {
     const events = this.physicsEvents;
     this.physicsEvents = [];
     for (const event of events) {
+      if (event.type === 'SPIKE_ENTITY_HIT') {
+        if (event.entityKind === 'player') {
+          if (this.gameRegistry.flow.state === 'PLAYING') {
+            this.effects.spikeSoul(event.position.x, event.position.y);
+            this.die(`spikes:${event.spikeId}`);
+          }
+        } else {
+          this.effects.spikeSoul(event.position.x, event.position.y);
+          this.physicsWorld.removeEnemyAfterSpikeHit(event.entityKind, event.entityId);
+        }
+        continue;
+      }
       if (event.type === 'BOMB_EXPLODED') {
         if (this.gameRegistry.flow.state === 'PLAYING') {
           this.effects.bombExplosion(event.position.x, event.position.y, event.radius, event.explosionEnergy);

@@ -23,6 +23,8 @@ export interface BallPhysicsOptions {
 /** `impulse` is the fixed outgoing normal speed in px/s, preventing cumulative spring energy. */
 export interface SpringSurfacePhysicsDefinition { id: string; normal: Vector2; impulse: number; }
 
+export interface SpikeSensorOptions { id: string; parentTerrainId: string; vertices: Vector2[]; }
+
 export interface StaticBoxOptions {
   id: string; x: number; y: number; width: number; height: number;
   friction: number; frictionStatic: number; restitution: number; breakable?: boolean; breakableThresholdEnergy?: number; springSurfaces?: SpringSurfacePhysicsDefinition[];
@@ -118,7 +120,10 @@ export interface SensorOptions {
   x: number; y: number; width: number; height: number;
 }
 
+export type SpikeEntityKind = 'player' | 'bot' | 'bird' | 'vomitEnemy';
+
 export type PhysicsEvent =
+  | { type: 'SPIKE_ENTITY_HIT'; spikeId: string; entityKind: SpikeEntityKind; entityId: string; position: Vector2 }
   | { type: 'BALL_TERRAIN_CONTACT_STARTED' | 'BALL_TERRAIN_CONTACT_ACTIVE'; terrainId: string; supportNormal: Vector2; impactSpeed: number }
   | { type: 'BALL_TERRAIN_CONTACT_ENDED'; terrainId: string }
   | { type: 'BALL_MOVABLE_IMPACT'; movableId: string; normal: Vector2; incomingVelocity: Vector2; normalImpactSpeed: number; impactEnergy: number; ballMass: number }

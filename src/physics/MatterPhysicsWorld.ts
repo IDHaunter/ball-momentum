@@ -2,7 +2,7 @@ import { COLLISION_CATEGORIES } from './CollisionCategories';
 import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
-import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
+import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, SpikeEntityKind, SpikeSensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
@@ -12,7 +12,7 @@ import { calculateBlastEnergy, calculateBlastVelocityDelta, distanceToPatrolGeom
 import type Phaser from 'phaser';
 import { createSurfaceTextureCanvas, createSurfaceTextureKey } from '../rendering/SurfaceTextureGenerator';
 import { hashSurfaceTextureSeed } from '../rendering/SurfaceTextureCatalog';
-import { drawBoxBorders } from '../rendering/SurfaceBorderRenderer';
+import { drawBoxBorders, getBoxBorderSegments, getSpikeTriangles } from '../rendering/SurfaceBorderRenderer';
 import { BirdRenderer, type BirdRendererSceneLike } from '../rendering/BirdRenderer';
 import { VomitEnemyRenderer, type VomitRendererSceneLike } from '../rendering/VomitEnemyRenderer';
 import { FIXED_STEP_SECONDS } from '../utils/TimeUtils';
@@ -161,8 +161,11 @@ interface BombRecord {
   activated: boolean;
 }
 
+interface MovableSpikeSensorRecord { object: MatterGameObjectLike; localCenter: Vector2; }
+
 interface MovableBlockRecord {
   object: MatterGameObjectLike;
+  spikeSensors: MovableSpikeSensorRecord[];
   marker: MatterTextLike;
   textureOverlay: Phaser.GameObjects.Image | null;
   borderOverlay: Phaser.GameObjects.Graphics;
@@ -181,6 +184,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private ballObject: MatterGameObjectLike | null = null;
   private readonly listeners = new Set<(event: PhysicsEvent) => void>();
   private readonly activeTriggers = new Set<string>();
+  private readonly spikeVictims = new Set<string>();
   private readonly movableBlocks = new Map<string, MovableBlockRecord>();
   private readonly bots = new Map<string, BotRecord>();
   private readonly birds = new Map<string, BirdRecord>();
@@ -362,8 +366,23 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       minimumImpactEnergy: definition.minimumImpactEnergy,
       patrolGeometry: { type: 'box', x: definition.x, y: definition.y, width: definition.width, height: definition.height },
     });
+    const spikeSensors: MovableSpikeSensorRecord[] = [];
+    const movableEdges = getBoxBorderSegments(definition.x, definition.y, definition.width, definition.height);
+    for (const edge of movableEdges) {
+      if (definition.borders?.[edge.side!] !== 'spikes') continue;
+      for (const [index, triangle] of getSpikeTriangles(edge).entries()) {
+        const sensorId = `${definition.id}:spike:${edge.side}:${index}`;
+        const sensorObject = this.createSpikeSensorObject({ id: sensorId, parentTerrainId: definition.id, vertices: triangle.points });
+        const localCenter = polygonCentroid(triangle.points.map((point) => ({
+          x: point.x - centerX,
+          y: point.y - centerY,
+        })));
+        spikeSensors.push({ object: sensorObject, localCenter });
+      }
+    }
     this.movableBlocks.set(definition.id, {
       object,
+      spikeSensors,
       marker,
       textureOverlay,
       borderOverlay,
@@ -473,7 +492,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BIRD,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY,
       },
     });
     rawBody.label = `BIRD:${definition.id}`;
@@ -518,7 +537,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       collisionFilter: {
         category: COLLISION_CATEGORIES.VOMIT_ENEMY,
         mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE
-          | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY,
+          | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY,
       },
     });
     rawBody.label = `VOMIT_ENEMY:${definition.id}`;
@@ -655,6 +674,33 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.updateBombVisual(bomb);
   }
 
+  createSpikeSensor(definition: SpikeSensorOptions): void {
+    this.createSpikeSensorObject(definition);
+  }
+
+  private createSpikeSensorObject(definition: SpikeSensorOptions): MatterGameObjectLike {
+    const center = polygonCentroid(definition.vertices);
+    const local = definition.vertices.map((point) => ({ x: point.x - center.x, y: point.y - center.y }));
+    const rawBody = this.factory.fromVertices(center.x, center.y, [local], {
+      label: `SPIKE:${definition.id}`,
+      isStatic: true,
+      isSensor: true,
+      friction: 0,
+      frictionStatic: 0,
+      restitution: 0,
+      collisionFilter: {
+        category: COLLISION_CATEGORIES.TRIGGER,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY,
+      },
+    }, true);
+    rawBody.label = `SPIKE:${definition.id}`;
+    const scene = this.scene as unknown as MatterSceneLike;
+    const object = this.factory.gameObject(scene.add.zone(center.x, center.y, 1, 1), rawBody, true);
+    object.body.label = `SPIKE:${definition.id}`;
+    this.registerLevelObject(object, { kind: 'spike', id: definition.id, spikeParentId: definition.parentTerrainId });
+    return object;
+  }
+
   createSensor(definition: SensorOptions): void {
     const rawBody = this.factory.rectangle(
       definition.x + definition.width / 2,
@@ -687,12 +733,32 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     object.destroy();
   }
 
+  removeEnemyAfterSpikeHit(kind: Exclude<SpikeEntityKind, 'player'>, id: string): void {
+    if (kind === 'bot') this.removeBot(id);
+    else if (kind === 'bird') this.removeBird(id);
+    else if (kind === 'vomitEnemy') this.removeVomitEnemy(id);
+    this.spikeVictims.delete(`${kind}:${id}`);
+  }
+
+  clearSpikeVictim(kind: SpikeEntityKind, id: string): void {
+    this.spikeVictims.delete(`${kind}:${id}`);
+  }
+
   removeTerrainBody(id: string): void {
     const index = this.levelObjects.findIndex((object) => {
       const meta = this.metadata.get(object.body);
       return (meta?.kind === 'terrain' || meta?.kind === 'movable') && meta.id === id;
     });
     if (index < 0) return;
+    // Remove every lethal sensor attached to this solid as well as its collider.
+    for (let sensorIndex = this.levelObjects.length - 1; sensorIndex >= 0; sensorIndex -= 1) {
+      const sensor = this.levelObjects[sensorIndex];
+      const sensorMeta = this.metadata.get(sensor.body);
+      if (sensorMeta?.kind !== 'spike' || sensorMeta.spikeParentId !== id) continue;
+      this.levelObjects.splice(sensorIndex, 1);
+      this.metadata.delete(sensor.body);
+      sensor.destroy();
+    }
     const [object] = this.levelObjects.splice(index, 1);
     this.metadata.delete(object.body);
     const movable = this.movableBlocks.get(id);
@@ -733,6 +799,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.preStepVelocities.clear();
     this.levelObjects.length = 0;
     this.activeTriggers.clear();
+    this.spikeVictims.clear();
   }
 
   onPhysicsEvent(listener: (event: PhysicsEvent) => void): () => void {
@@ -765,6 +832,11 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       this.handleBotCollision(pair, phase);
       const mapped = this.mapper.mapPair(pair, phase, this.preStepBallVelocity);
       for (const item of mapped) {
+        if (item.type === 'SPIKE_ENTITY_HIT') {
+          const victimKey = `${item.entityKind}:${item.entityId}`;
+          if (this.spikeVictims.has(victimKey)) continue;
+          this.spikeVictims.add(victimKey);
+        }
         if (item.type === 'BALL_MOVABLE_IMPACT') {
           this.activateMovableBlock(item);
           continue;
@@ -1530,6 +1602,17 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       block.marker.setPosition(position.x, position.y).setRotation(block.object.body.angle);
       block.textureOverlay?.setPosition(position.x, position.y).setRotation(block.object.body.angle);
       block.borderOverlay.setPosition(position.x, position.y).setRotation(block.object.body.angle);
+      const angle = block.object.body.angle;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      for (const sensor of block.spikeSensors) {
+        const local = sensor.localCenter;
+        sensor.object.setPosition(
+          position.x + local.x * cos - local.y * sin,
+          position.y + local.x * sin + local.y * cos,
+        );
+        sensor.object.setRotation?.(angle);
+      }
     }
   }
 }

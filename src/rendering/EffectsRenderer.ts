@@ -305,6 +305,57 @@ export class EffectsRenderer {
     });
   }
 
+  /** A comic ghost pops out of a character when it touches a raised spike. */
+  spikeSoul(x: number, y: number): void {
+    if (this.reducedMotion) return;
+
+    const smokeTones = [0xe7edf2, 0xd5e0e8, 0xf5f8fa];
+    for (let index = 0; index < 6; index += 1) {
+      const angle = (Math.PI * 2 * index) / 6 + (Math.random() - 0.5) * 0.36;
+      const distance = 5 + Math.random() * 9;
+      const puff = this.trackEffect(this.scene.add.ellipse(
+        x + Math.cos(angle) * distance,
+        y + Math.sin(angle) * distance,
+        10 + Math.random() * 10,
+        8 + Math.random() * 9,
+        smokeTones[index % smokeTones.length],
+        0.76,
+      ).setStrokeStyle(0.8, 0xa9bac8, 0.38).setDepth(17));
+      this.scene.tweens.add({
+        targets: puff,
+        x: puff.x + Math.cos(angle) * (12 + Math.random() * 11),
+        y: puff.y - 28 - Math.random() * 24,
+        scaleX: 1.55,
+        scaleY: 1.7,
+        alpha: 0,
+        duration: 520 + Math.random() * 180,
+        ease: 'Sine.easeOut',
+        onComplete: () => this.finishEffect(puff),
+      });
+    }
+
+    // The scream face is intentionally readable as a tiny floating soul,
+    // with smoke puffs trailing behind it as it escapes upward.
+    const soul = this.trackEffect(this.scene.add.text(x, y - 2, '😱', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '34px',
+      color: '#ffffff',
+      stroke: '#8b9eac',
+      strokeThickness: 2,
+      shadow: { color: '#1c2933', blur: 5, fill: true, offsetX: 1, offsetY: 2 },
+    }).setOrigin(0.5).setDepth(19).setScale(0.55).setAlpha(0.2));
+    this.scene.tweens.add({
+      targets: soul,
+      y: y - 78,
+      scale: 1.14,
+      alpha: 0,
+      rotation: 0.16,
+      duration: 740,
+      ease: 'Back.easeOut',
+      onComplete: () => this.finishEffect(soul),
+    });
+  }
+
   landing(x: number, y: number, intensity: number): void {
     if (this.reducedMotion) return;
     const count = Math.max(2, Math.min(7, Math.round(intensity / 110)));

@@ -2,6 +2,7 @@ import type { IPhysicsWorld } from '../physics/IPhysicsWorld';
 import type { BoxSolidDefinition, LevelDefinition, PolygonSolidDefinition, SolidDefinition, TerrainMaterialDefinition } from './LevelTypes';
 import { polygonEdgeOutwardNormal } from '../utils/GeometryUtils';
 import type { TerrainRenderer } from '../rendering/TerrainRenderer';
+import { getBoxBorderSegments, getPolygonBorderSegments, getSpikeTriangles } from '../rendering/SurfaceBorderRenderer';
 
 const DEFAULT_MATERIAL: TerrainMaterialDefinition = { friction: 0.35, frictionStatic: 0.55, restitution: 0.02 };
 
@@ -31,6 +32,30 @@ function getPolygonSpringSurfaces(
   }));
 }
 
+function createSpikeSensorsForBox(world: IPhysicsWorld, solid: BoxSolidDefinition): void {
+  const segments = getBoxBorderSegments(solid.x, solid.y, solid.width, solid.height);
+  for (const edge of segments) {
+    if (solid.borders?.[edge.side!] !== 'spikes') continue;
+    getSpikeTriangles(edge).forEach((triangle, index) => world.createSpikeSensor({
+      id: `${solid.id}:spike:${edge.side}:${index}`,
+      parentTerrainId: solid.id,
+      vertices: triangle.points,
+    }));
+  }
+}
+
+function createSpikeSensorsForPolygon(world: IPhysicsWorld, solid: PolygonSolidDefinition): void {
+  const assignments = new Map((solid.borders ?? []).map((border) => [border.edge, border.style]));
+  for (const edge of getPolygonBorderSegments(solid.vertices)) {
+    if (assignments.get(edge.edge) !== 'spikes') continue;
+    getSpikeTriangles(edge).forEach((triangle, index) => world.createSpikeSensor({
+      id: `${solid.id}:spike:edge-${edge.edge}:${index}`,
+      parentTerrainId: solid.id,
+      vertices: triangle.points,
+    }));
+  }
+}
+
 export class TerrainFactory {
   constructor(private readonly world: IPhysicsWorld, private readonly renderer: TerrainRenderer) {}
 
@@ -58,6 +83,7 @@ export class TerrainFactory {
             ...(solid.breakable ? { breakableThresholdEnergy: solid.breakable.thresholdEnergy } : {}),
             springSurfaces: solid.material === 'glass' ? [] : getBoxSpringSurfaces(solid),
           });
+          createSpikeSensorsForBox(this.world, solid);
         }
       } else {
         const collisionVertices = getCollisionVertices(solid, level.solids);
@@ -69,6 +95,7 @@ export class TerrainFactory {
           ...(solid.breakable ? { breakableThresholdEnergy: solid.breakable.thresholdEnergy } : {}),
           springSurfaces: solid.material === 'glass' ? [] : getPolygonSpringSurfaces(solid, collisionVertices),
         });
+        createSpikeSensorsForPolygon(this.world, solid);
       }
     }
     this.renderer.render(level);

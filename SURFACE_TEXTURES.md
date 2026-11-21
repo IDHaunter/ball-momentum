@@ -79,3 +79,13 @@ Brick-style edges (`borders: { top: "brick", right: "brick", bottom: "brick", le
 ### Stone and metal edge details
 
 Stone keeps its established two-row rounded-pebble coat along upper edges. Side and bottom edges use a single row of slightly irregular rounded pebbles instead of diagonal scratch marks. Metal borders remain smooth continuous bands without repeated rivet-like points, and the `metal-sheen` face uses broad soft reflection bands without isolated bright dots. These are visual-only details and do not affect collision geometry or material physics.
+
+## Dangerous spike borders
+
+Use `spikes` on any box side or polygon edge to create a visibly raised lethal edge:
+
+```json
+"borders": { "top": "spikes", "right": "none", "bottom": "none", "left": "none" }
+```
+
+The default spike height is 28 px. The renderer and Matter sensors share the same triangle geometry, so the lethal volume matches the visible teeth. Contact with the protruding triangles kills the main player (respawn at the current checkpoint) or removes an enemy character. Contact with the base solid outside the raised triangles does not trigger death. Static boxes and polygons create fixed sensors; movable boxes keep their spike sensors synchronized with their translation and rotation. A short ghost/soul effect plays at the contact point. Spikes are gameplay geometry, not a friction or restitution material.

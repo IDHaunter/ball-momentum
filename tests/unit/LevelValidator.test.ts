@@ -35,6 +35,24 @@ describe('LevelValidator', () => {
   });
   it('requires a goal trigger', () => expect(() => validator.validate({ ...validLevel, triggers: [] })).toThrow(/goal trigger/));
 
+  it('accepts raised lethal spike borders on box sides and polygon edges', () => {
+    const level = {
+      ...validLevel,
+      solids: [
+        { ...validLevel.solids[0], borders: { top: 'spikes', right: 'none', bottom: 'none', left: 'none' } },
+        { id: 'spike-wall', type: 'polygon', vertices: [[300, 200], [360, 150], [400, 220]], borders: [
+          { edge: 0, style: 'spikes' }, { edge: 1, style: 'none' }, { edge: 2, style: 'none' },
+        ] },
+      ],
+    };
+    const validated = validator.validate(level);
+    const box = validated.solids[0];
+    const polygon = validated.solids[1];
+    if (box.type !== 'box' || polygon.type !== 'polygon') throw new Error('Expected a box and a polygon');
+    expect(box.borders?.top).toBe('spikes');
+    expect(polygon.borders?.[0].style).toBe('spikes');
+  });
+
   it('accepts the glass border style without changing the physical glass material', () => {
     const level = {
       ...validLevel,

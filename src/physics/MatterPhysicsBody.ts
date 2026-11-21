@@ -15,6 +15,7 @@ export interface MatterBodyLike {
 export interface MatterGameObjectLike {
   body: MatterBodyLike;
   setPosition(x: number, y: number): unknown;
+  setRotation?(value: number): unknown;
   setVelocity(x: number, y: number): unknown;
   setAngularVelocity(value: number): unknown;
   setAwake(): unknown;

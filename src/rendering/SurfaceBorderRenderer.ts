@@ -41,6 +41,44 @@ export function getPolygonBorderSegments(vertices: Array<[number, number]>): Bor
   }));
 }
 
+
+export const SPIKE_SURFACE_HEIGHT_PX = 28;
+export const SPIKE_SURFACE_PITCH_PX = 15;
+
+export interface SpikeTriangle {
+  points: [BorderPoint, BorderPoint, BorderPoint];
+}
+
+/** Geometry shared by the visible spikes and their lethal Matter sensors. */
+export function getSpikeTriangles(
+  edge: BorderEdgeSegment,
+  height = SPIKE_SURFACE_HEIGHT_PX,
+): SpikeTriangle[] {
+  const dx = edge.b.x - edge.a.x;
+  const dy = edge.b.y - edge.a.y;
+  const length = Math.hypot(dx, dy);
+  if (length < 4) return [];
+  const tangent = { x: dx / length, y: dy / length };
+  const count = Math.max(1, Math.floor(length / SPIKE_SURFACE_PITCH_PX));
+  const spacing = length / count;
+  return Array.from({ length: count }, (_, index) => {
+    const along = (index + 0.5) * spacing;
+    const halfBase = Math.min(8.2, spacing * 0.56);
+    const base = { x: edge.a.x + tangent.x * along, y: edge.a.y + tangent.y * along };
+    const point = (offset: number, outward: number): BorderPoint => ({
+      x: base.x + tangent.x * offset + edge.normal.x * outward,
+      y: base.y + tangent.y * offset + edge.normal.y * outward,
+    });
+    return {
+      points: [
+        point(-halfBase, 0),
+        point(0, height),
+        point(halfBase, 0),
+      ],
+    };
+  });
+}
+
 export function drawBoxBorders(
   graphics: BorderGraphicsLike,
   x: number,
@@ -147,6 +185,10 @@ export function drawSurfaceBorder(
       drawBrickMasonryBorder(graphics, edge, length, tangent, normal);
       break;
     }
+    case 'spikes': {
+      drawSpikeBorder(graphics, edge);
+      break;
+    }
     case 'glass': {
       // Keep the border inside the muted graphite / blue-grey palette of the
       // glass facets. Low alpha lets the face texture visually continue into
@@ -207,6 +249,50 @@ export function drawSurfaceBorder(
       break;
     }
   }
+}
+
+
+function drawSpikeBorder(graphics: BorderGraphicsLike, edge: BorderEdgeSegment): void {
+  const triangles = getSpikeTriangles(edge);
+  if (triangles.length === 0) return;
+  const { normal } = edge;
+
+  // A dark mounting rail makes the exposed edge look embedded in the solid.
+  graphics.lineStyle(7, 0x202a35, 1);
+  graphics.lineBetween(edge.a.x, edge.a.y, edge.b.x, edge.b.y);
+  graphics.lineStyle(2, 0x7b8792, 0.95);
+  graphics.lineBetween(
+    edge.a.x - normal.x * 1.7, edge.a.y - normal.y * 1.7,
+    edge.b.x - normal.x * 1.7, edge.b.y - normal.y * 1.7,
+  );
+
+  triangles.forEach((triangle, index) => {
+    const [left, tip, right] = triangle.points;
+    const baseWidth = Math.hypot(right.x - left.x, right.y - left.y);
+    const inset = Math.min(2.1, baseWidth * 0.16);
+    const innerTip = { x: tip.x - normal.x * 3.2, y: tip.y - normal.y * 3.2 };
+    const dx = right.x - left.x;
+    const dy = right.y - left.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const tangent = { x: dx / length, y: dy / length };
+    const inner = [
+      { x: left.x + tangent.x * inset + normal.x * 1.2, y: left.y + tangent.y * inset + normal.y * 1.2 },
+      innerTip,
+      { x: right.x - tangent.x * inset + normal.x * 1.2, y: right.y - tangent.y * inset + normal.y * 1.2 },
+    ];
+    graphics.fillStyle(0x17212b, 1);
+    graphics.fillPoints(triangle.points, true, true);
+    graphics.lineStyle(1.2, 0x111922, 1);
+    graphics.lineBetween(left.x, left.y, tip.x, tip.y);
+    graphics.lineBetween(tip.x, tip.y, right.x, right.y);
+    graphics.fillStyle(index % 2 === 0 ? 0xaab7c4 : 0x8797a6, 1);
+    graphics.fillPoints(inner, true, true);
+    graphics.lineStyle(1.2, 0x586978, 0.98);
+    graphics.lineBetween(inner[0].x, inner[0].y, inner[1].x, inner[1].y);
+    graphics.lineBetween(inner[1].x, inner[1].y, inner[2].x, inner[2].y);
+    graphics.lineStyle(1.05, 0xeaf3f7, 0.9);
+    graphics.lineBetween(inner[0].x, inner[0].y, innerTip.x, innerTip.y);
+  });
 }
 
 interface PebbleTone { body: number; shade: number; highlight: number; }

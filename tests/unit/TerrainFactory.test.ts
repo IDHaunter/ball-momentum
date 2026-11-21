@@ -218,6 +218,67 @@ describe('TerrainFactory movable border styles', () => {
   });
 });
 
+describe('TerrainFactory spike hazard sensors', () => {
+  it('creates lethal sensors only for edges explicitly styled as spikes', () => {
+    const captured: Array<Parameters<IPhysicsWorld['createSpikeSensor']>[0]> = [];
+    const world = {
+      createStaticBox: () => undefined,
+      createStaticPolygon: () => undefined,
+      createSpikeSensor: (definition: Parameters<IPhysicsWorld['createSpikeSensor']>[0]) => captured.push(definition),
+      removeTerrainBody: () => undefined,
+      createSensor: () => undefined,
+      removeLevelBodies: () => undefined,
+      step: () => undefined,
+      setGravity: () => undefined,
+      setTimeScale: () => undefined,
+      onPhysicsEvent: () => () => undefined,
+      createBall: () => { throw new Error('not used'); },
+    } as unknown as IPhysicsWorld;
+    new TerrainFactory(world, { render: () => undefined } as unknown as TerrainRenderer).build({
+      schemaVersion: 1, id: 'spike-sensor-test', title: 'Spike sensor test',
+      world: { width: 400, height: 300, killPlaneY: 280 }, spawn: { x: 20, y: 20 }, triggers: [],
+      solids: [{
+        id: 'spike-platform', type: 'box', x: 80, y: 100, width: 120, height: 40,
+        borders: { top: 'spikes', right: 'none', bottom: 'none', left: 'none' },
+      }],
+    });
+
+    expect(captured.length).toBeGreaterThan(5);
+    expect(captured.every((sensor) => sensor.parentTerrainId === 'spike-platform')).toBe(true);
+    expect(captured[0].vertices[1].y).toBeLessThan(100);
+  });
+
+  it('creates spike sensors for explicitly styled polygon edges only', () => {
+    const captured: Array<Parameters<IPhysicsWorld['createSpikeSensor']>[0]> = [];
+    const world = {
+      createStaticBox: () => undefined,
+      createStaticPolygon: () => undefined,
+      createSpikeSensor: (definition: Parameters<IPhysicsWorld['createSpikeSensor']>[0]) => captured.push(definition),
+      removeTerrainBody: () => undefined,
+      createSensor: () => undefined,
+      removeLevelBodies: () => undefined,
+      step: () => undefined,
+      setGravity: () => undefined,
+      setTimeScale: () => undefined,
+      onPhysicsEvent: () => () => undefined,
+      createBall: () => { throw new Error('not used'); },
+    } as unknown as IPhysicsWorld;
+
+    new TerrainFactory(world, { render: () => undefined } as unknown as TerrainRenderer).build({
+      schemaVersion: 1, id: 'spike-polygon-test', title: 'Spike polygon test',
+      world: { width: 400, height: 300, killPlaneY: 280 }, spawn: { x: 20, y: 20 }, triggers: [],
+      solids: [{
+        id: 'spike-slope', type: 'polygon', vertices: [[80, 150], [170, 80], [220, 180]],
+        borders: [{ edge: 0, style: 'spikes' }, { edge: 1, style: 'none' }, { edge: 2, style: 'none' }],
+      }],
+    });
+
+    expect(captured.length).toBeGreaterThan(4);
+    expect(captured.every((sensor) => sensor.parentTerrainId === 'spike-slope')).toBe(true);
+    expect(captured.every((sensor) => sensor.id.includes(':edge-0:'))).toBe(true);
+  });
+});
+
 describe('TerrainFactory spring surfaces', () => {
   function makeWorld(captured: {
     boxes: Array<Parameters<IPhysicsWorld['createStaticBox']>[0]>;
