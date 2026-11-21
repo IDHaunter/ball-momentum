@@ -618,9 +618,9 @@
       "y": 1000,
       "width": 292,
       "height": 28,
-      "material": "normal",
+      "material": "stone",
       "texture": {
-        "pattern": "metal-sheen",
+        "pattern": "stone-fragments",
         "density": 0.9,
         "opacity": 0.42,
         "seed": 137
@@ -904,7 +904,7 @@
       "y": 1135,
       "width": 300,
       "height": 510,
-      "color": "#0b121b",
+      "color": "#18212f",
       "depth": -50
     },
     {
