@@ -73,7 +73,7 @@ export interface MovableBoxOptions {
 }
 
 export interface SensorOptions {
-  id: string; type: 'hazard' | 'checkpoint' | 'goal';
+  id: string; type: 'hazard' | 'checkpoint' | 'goal' | 'poop';
   x: number; y: number; width: number; height: number;
 }
 
@@ -85,5 +85,5 @@ export type PhysicsEvent =
   | { type: 'BALL_WALL_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; penetrationDepth: number; breakable?: boolean }
   | { type: 'BALL_TERRAIN_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; penetrationDepth: number }
   | { type: 'BOMB_EXPLODED'; bombId: string; position: Vector2; radius: number; explosionEnergy: number; breakableIds: string[] }
-  | { type: 'BALL_ENTERED_TRIGGER'; triggerId: string; triggerType: 'hazard' | 'checkpoint' | 'goal' }
+  | { type: 'BALL_ENTERED_TRIGGER'; triggerId: string; triggerType: 'hazard' | 'checkpoint' | 'goal' | 'poop' }
   | { type: 'BALL_EXITED_TRIGGER'; triggerId: string };

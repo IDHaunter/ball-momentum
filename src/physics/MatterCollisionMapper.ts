@@ -14,7 +14,7 @@ export interface PhysicsBodyMetadata {
   id: string;
   mass?: number;
   minimumImpactEnergy?: number;
-  triggerType?: 'hazard' | 'checkpoint' | 'goal';
+  triggerType?: 'hazard' | 'checkpoint' | 'goal' | 'poop';
   breakable?: boolean;
   breakableThresholdEnergy?: number;
   springSurfaces?: Array<{ id: string; normal: Vector2; impulse: number }>;

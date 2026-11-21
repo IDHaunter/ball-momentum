@@ -3,27 +3,33 @@ import type { IPhysicsWorld } from '../physics/IPhysicsWorld';
 import type { LevelDefinition } from './LevelTypes';
 import { TerrainFactory } from './TerrainFactory';
 import { TriggerFactory } from './TriggerFactory';
+import { PoopPickupFactory } from './PoopPickupFactory';
 import { TerrainRenderer } from '../rendering/TerrainRenderer';
 import { TriggerRenderer } from '../rendering/TriggerRenderer';
+import { PoopPickupRenderer } from '../rendering/PoopPickupRenderer';
 import { BackgroundRenderer } from '../rendering/BackgroundRenderer';
 import { BreakableTerrainManager } from './BreakableTerrainManager';
-import type { BreakableSolidDefinition } from './LevelTypes';
+import type { BreakableSolidDefinition, PoopPickupDefinition } from './LevelTypes';
 
 export class LevelBuilder {
   private readonly terrainRenderer: TerrainRenderer;
   private readonly triggerRenderer: TriggerRenderer;
+  private readonly poopPickupRenderer: PoopPickupRenderer;
   private readonly backgroundRenderer: BackgroundRenderer;
   private readonly terrainFactory: TerrainFactory;
   private readonly triggerFactory: TriggerFactory;
+  private readonly poopPickupFactory: PoopPickupFactory;
   private decorations: Phaser.GameObjects.GameObject[] = [];
   private breakables = new BreakableTerrainManager([]);
 
   constructor(private readonly scene: Phaser.Scene, private readonly world: IPhysicsWorld) {
     this.terrainRenderer = new TerrainRenderer(scene);
     this.triggerRenderer = new TriggerRenderer(scene);
+    this.poopPickupRenderer = new PoopPickupRenderer(scene);
     this.backgroundRenderer = new BackgroundRenderer(scene);
     this.terrainFactory = new TerrainFactory(world, this.terrainRenderer);
     this.triggerFactory = new TriggerFactory(world, this.triggerRenderer);
+    this.poopPickupFactory = new PoopPickupFactory(world, this.poopPickupRenderer);
   }
 
   build(level: LevelDefinition): void {
@@ -32,6 +38,7 @@ export class LevelBuilder {
     this.backgroundRenderer.render(level);
     this.terrainFactory.build(level);
     this.triggerFactory.build(level);
+    this.poopPickupFactory.build(level.poopPickups ?? []);
     for (const bot of level.bots ?? []) {
       this.world.createBot({
         id: bot.id,
@@ -78,6 +85,14 @@ export class LevelBuilder {
     }
   }
 
+  collectPoopPickup(id: string): PoopPickupDefinition | null {
+    return this.poopPickupFactory.collect(id);
+  }
+
+  setReducedMotion(enabled: boolean): void {
+    this.poopPickupRenderer.setReducedMotion(enabled);
+  }
+
   activateCheckpoint(id: string): void {
     this.triggerRenderer.setActiveCheckpoint(id);
   }
@@ -99,6 +114,7 @@ export class LevelBuilder {
     this.backgroundRenderer.clear();
     this.terrainRenderer.clear();
     this.triggerRenderer.render([]);
+    this.poopPickupFactory.clear();
     for (const item of this.decorations) item.destroy();
     this.decorations = [];
     this.breakables.reset();
@@ -108,6 +124,7 @@ export class LevelBuilder {
     this.clear();
     this.terrainRenderer.destroy();
     this.triggerRenderer.destroy();
+    this.poopPickupRenderer.destroy();
     this.backgroundRenderer.destroy();
   }
 }

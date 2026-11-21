@@ -89,6 +89,15 @@ const botSchema = z.object({
 });
 
 
+const poopPickupSchema = z.object({
+  id: z.string().min(1),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  radius: z.number().finite().min(10).max(48),
+  speedBoostPercent: z.number().finite().min(0).max(200),
+  spinBoostPercent: z.number().finite().min(0).max(300),
+});
+
 const bombSchema = z.object({
   id: z.string().min(1),
   x: z.number().finite(),
@@ -131,6 +140,7 @@ export const LevelSchema = z.object({
   triggers: z.array(triggerSchema),
   bots: z.array(botSchema).max(24).optional(),
   bombs: z.array(bombSchema).max(24).optional(),
+  poopPickups: z.array(poopPickupSchema).max(48).optional(),
   materials: z.record(z.string(), materialSchema).optional(),
   decorations: z.array(decorationSchema).optional(),
   camera: z.object({

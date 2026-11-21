@@ -11,6 +11,7 @@ export interface IPhysicsWorld {
   createBomb(definition: BombPhysicsOptions): void;
   removeTerrainBody(id: string): void;
   createSensor(definition: SensorOptions): void;
+  removeSensor(id: string): void;
   removeLevelBodies(): void;
   setGravity(x: number, y: number, scale: number): void;
   setTimeScale(value: number): void;

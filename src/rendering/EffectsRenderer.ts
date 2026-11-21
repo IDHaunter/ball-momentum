@@ -194,6 +194,62 @@ export class EffectsRenderer {
     }
   }
 
+  poopBoost(x: number, y: number, radius: number, speedBoostPercent: number, spinBoostPercent: number): void {
+    if (this.reducedMotion) return;
+
+    const ring = this.trackEffect(this.scene.add.circle(x, y, radius * 0.65, 0xffffff, 0)
+      .setStrokeStyle(3, 0xd69a55, 0.95)
+      .setDepth(14));
+    this.scene.tweens.add({
+      targets: ring, scale: 2.8, alpha: 0, duration: 330, ease: 'Back.easeOut',
+      onComplete: () => this.finishEffect(ring),
+    });
+
+    const flash = this.trackEffect(this.scene.add.circle(x, y, radius * 0.8, 0xffdc83, 0.72).setDepth(13));
+    flash.setScale(0.35);
+    this.scene.tweens.add({
+      targets: flash, scale: 2.1, alpha: 0, duration: 210, ease: 'Quad.easeOut',
+      onComplete: () => this.finishEffect(flash),
+    });
+
+    const colors = [0x8b4d2c, 0xb87943, 0xe6b56d, 0xffe8ad, 0x9b6037];
+    const count = 15;
+    for (let index = 0; index < count; index += 1) {
+      const angle = (Math.PI * 2 * index) / count + (Math.random() - 0.5) * 0.35;
+      const distance = radius * (1.2 + Math.random() * 1.65);
+      const particle = this.trackEffect(this.scene.add.circle(
+        x + Math.cos(angle) * 4,
+        y + Math.sin(angle) * 4,
+        1.8 + Math.random() * 2.8,
+        colors[index % colors.length],
+        0.96,
+      ).setDepth(15));
+      this.scene.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance - 8,
+        alpha: 0, scale: 0.2, rotation: (Math.random() - 0.5) * 4,
+        duration: 300 + Math.random() * 190, ease: 'Quad.easeOut',
+        onComplete: () => this.finishEffect(particle),
+      });
+    }
+
+    const caption = this.trackEffect(this.scene.add.text(
+      x, y - radius - 16,
+      `ZOOM!  +${Math.round(speedBoostPercent)}% SPEED  +${Math.round(spinBoostPercent)}% SPIN`,
+      {
+        fontFamily: 'Arial, sans-serif', fontSize: '13px', fontStyle: 'bold',
+        color: '#ffe6a1', stroke: '#56301d', strokeThickness: 4,
+        shadow: { color: '#24160f', blur: 5, fill: true, offsetX: 1, offsetY: 2 },
+      },
+    ).setOrigin(0.5).setDepth(16));
+    this.scene.tweens.add({
+      targets: caption, y: caption.y - 34, alpha: 0, scale: 1.12,
+      duration: 660, ease: 'Quad.easeOut',
+      onComplete: () => this.finishEffect(caption),
+    });
+  }
+
   landing(x: number, y: number, intensity: number): void {
     if (this.reducedMotion) return;
     const count = Math.max(2, Math.min(7, Math.round(intensity / 110)));

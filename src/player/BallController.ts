@@ -139,6 +139,41 @@ export class BallController {
     return { landed, grounded };
   }
 
+  /** Apply a one-shot percentage boost while preserving the ball's travel direction. */
+  applySpeedSpinBoost(speedBoostPercent: number, spinBoostPercent: number): {
+    speedBefore: number; speedAfter: number; spinBefore: number; spinAfter: number;
+  } {
+    const snapshot = this.body.getSnapshot();
+    const speedBefore = Math.hypot(snapshot.velocity.x, snapshot.velocity.y);
+    const speedFactor = 1 + clamp(speedBoostPercent, 0, 200) / 100;
+    const velocity = {
+      x: clamp(snapshot.velocity.x * speedFactor, -this.config.limits.maxHorizontalSpeed, this.config.limits.maxHorizontalSpeed),
+      y: clamp(snapshot.velocity.y * speedFactor, -this.config.limits.maxUpwardSpeed, this.config.limits.maxDownwardSpeed),
+    };
+    this.body.setVelocity(velocity);
+
+    const spinBefore = snapshot.angularVelocity;
+    const spinPercent = clamp(spinBoostPercent, 0, 300);
+    const spinFactor = 1 + spinPercent / 100;
+    // If the ball is moving but has almost no spin yet (for example, just after
+    // leaving a spring), seed a gentle rolling spin so the pickup is still felt.
+    const rollingSpin = spinPercent > 0 && speedBefore > 1
+      ? Math.sign(snapshot.velocity.x || snapshot.velocity.y || 1)
+        * (speedBefore / Math.max(1, this.config.ball.radiusPx)) * FIXED_STEP_SECONDS
+      : 0;
+    const spinBase = Math.abs(spinBefore) > 0.0001 ? spinBefore : rollingSpin;
+    const spinAfter = spinBase * spinFactor;
+    this.body.setAngularVelocity(spinAfter);
+    this.body.setAwake();
+
+    return {
+      speedBefore,
+      speedAfter: Math.hypot(velocity.x, velocity.y),
+      spinBefore,
+      spinAfter,
+    };
+  }
+
   /** Pierce a removed breakable solid, retaining the incoming direction. */
   breakThroughTerrain(
     incomingVelocity: { x: number; y: number },

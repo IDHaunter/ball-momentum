@@ -62,6 +62,16 @@ export interface BotDefinition {
   patrolRange?: BotPatrolRangeDefinition;
 }
 
+/** One-shot pickup that multiplies the ball's current linear and angular velocity. */
+export interface PoopPickupDefinition {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  speedBoostPercent: number;
+  spinBoostPercent: number;
+}
+
 export interface BoxSolidDefinition {
   id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string;
   breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition; texture?: SurfaceTextureAssignment; borders?: BoxBorderStyles;
@@ -97,6 +107,7 @@ export interface LevelDefinition {
   triggers: TriggerDefinition[];
   bots?: BotDefinition[];
   bombs?: BombDefinition[];
+  poopPickups?: PoopPickupDefinition[];
   materials?: Record<string, TerrainMaterialDefinition>;
   decorations?: DecorationDefinition[];
   camera?: { followOffsetX?: number; smoothing?: number; minX?: number; maxX?: number };

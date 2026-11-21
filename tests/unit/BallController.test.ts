@@ -36,6 +36,7 @@ class FakeWorld implements IPhysicsWorld {
   createBomb(_definition: BombPhysicsOptions): void {}
   removeTerrainBody(_id: string): void {}
   createSensor(_definition: SensorOptions): void {}
+  removeSensor(_id: string): void {}
   removeLevelBodies(): void {}
   setGravity(): void {}
   setTimeScale(): void {}
@@ -58,6 +59,50 @@ describe('BallController', () => {
     clock.advance(100);
     ball.stepBeforePhysics([action('MOVE_LEFT', 1)]);
     expect(ball.snapshot.velocity.x).toBeLessThan(0);
+    ball.dispose();
+  });
+
+  it('increases both linear speed and axial spin by the configured percentages', () => {
+    const world = new FakeWorld();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, new GameClock(), { x: 20, y: 20 });
+    ball.currentBody.setVelocity({ x: 240, y: -60 });
+    ball.currentBody.setAngularVelocity(0.08);
+
+    const result = ball.applySpeedSpinBoost(25, 50);
+
+    expect(result.speedBefore).toBeCloseTo(Math.hypot(240, -60));
+    expect(result.speedAfter).toBeCloseTo(result.speedBefore * 1.25);
+    expect(ball.snapshot.velocity.x).toBeCloseTo(300);
+    expect(ball.snapshot.velocity.y).toBeCloseTo(-75);
+    expect(result.spinAfter).toBeCloseTo(0.12);
+    expect(ball.snapshot.angularVelocity).toBeCloseTo(0.12);
+    ball.dispose();
+  });
+
+  it('does not add spin when a pickup has a zero spin percentage', () => {
+    const world = new FakeWorld();
+    const ball = new BallController(world, createPhysicsConfig(), new GameClock(), { x: 20, y: 20 });
+    ball.currentBody.setVelocity({ x: 300, y: 0 });
+
+    const result = ball.applySpeedSpinBoost(20, 0);
+
+    expect(result.speedAfter).toBeCloseTo(360);
+    expect(result.spinAfter).toBe(0);
+    ball.dispose();
+  });
+
+  it('seeds a gentle rolling spin when a moving ball has no current spin', () => {
+    const world = new FakeWorld();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, new GameClock(), { x: 20, y: 20 });
+    ball.currentBody.setVelocity({ x: 300, y: 0 });
+
+    const result = ball.applySpeedSpinBoost(20, 50);
+
+    expect(result.speedAfter).toBeCloseTo(360);
+    expect(result.spinAfter).toBeGreaterThan(0);
+    expect(result.spinAfter).toBeCloseTo((300 / config.ball.radiusPx / 60) * 1.5);
     ball.dispose();
   });
 

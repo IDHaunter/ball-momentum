@@ -88,6 +88,14 @@ export class LevelValidator {
       }
     }
 
+    for (const pickup of level.poopPickups ?? []) {
+      addId(pickup.id, `poopPickups.${pickup.id}`);
+      if (pickup.x - pickup.radius < 0 || pickup.x + pickup.radius > level.world.width
+        || pickup.y - pickup.radius < 0 || pickup.y + pickup.radius > level.world.height) {
+        errors.push(`poopPickups.${pickup.id}: pickup circle must be inside world bounds`);
+      }
+    }
+
     for (const bot of level.bots ?? []) {
       addId(bot.id, `bots.${bot.id}`);
       if (bot.x - bot.radius < 0 || bot.x + bot.radius > level.world.width

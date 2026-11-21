@@ -120,9 +120,10 @@ export class GameplayScene extends Phaser.Scene {
       this.physicsEvents = [];
       this.physicsWorld.setGravity(this.physicsConfig.world.gravityX, this.physicsConfig.world.gravityY, this.physicsConfig.world.gravityScale);
       this.physicsWorld.setTimeScale(this.physicsConfig.world.timeScale);
+      const preferences = this.progress.getPreferences();
+      this.levelBuilder.setReducedMotion(preferences.reducedMotion);
       this.levelBuilder.build(level);
       this.checkpoint = new CheckpointManager(level.spawn);
-      const preferences = this.progress.getPreferences();
       this.effects.setReducedMotion(preferences.reducedMotion);
       this.ball = new BallController(this.physicsWorld, this.physicsConfig, this.clock, level.spawn);
       this.ballRenderer = new BallRenderer(this, this.physicsConfig.ball.radiusPx, preferences.ballSkin);
@@ -190,6 +191,7 @@ export class GameplayScene extends Phaser.Scene {
   setReducedMotion(enabled: boolean): void {
     this.effects?.setReducedMotion(enabled);
     this.ballVisual?.setReducedMotion(enabled);
+    this.levelBuilder?.setReducedMotion(enabled);
   }
 
   toggleDebug(): void {
@@ -344,6 +346,22 @@ export class GameplayScene extends Phaser.Scene {
         continue;
       }
       if (event.type !== 'BALL_ENTERED_TRIGGER' || this.gameRegistry.flow.state !== 'PLAYING') continue;
+      if (event.triggerType === 'poop') {
+        if (!this.ball || !this.levelBuilder) continue;
+        const pickup = this.levelBuilder.collectPoopPickup(event.triggerId);
+        if (!pickup) continue;
+        const boost = this.ball.applySpeedSpinBoost(pickup.speedBoostPercent, pickup.spinBoostPercent);
+        this.effects.poopBoost(
+          pickup.x, pickup.y, pickup.radius, pickup.speedBoostPercent, pickup.spinBoostPercent,
+        );
+        this.gameRegistry.events.emit('pickupCollected', {
+          id: pickup.id, type: 'poop',
+          speedBoostPercent: pickup.speedBoostPercent, spinBoostPercent: pickup.spinBoostPercent,
+          speedBefore: boost.speedBefore, speedAfter: boost.speedAfter,
+          spinBefore: boost.spinBefore, spinAfter: boost.spinAfter,
+        });
+        continue;
+      }
       if (event.triggerType === 'hazard') this.die(`hazard:${event.triggerId}`);
       else if (event.triggerType === 'checkpoint' && this.checkpoint && this.level) {
         const trigger = this.level.triggers.find((item) => item.id === event.triggerId);

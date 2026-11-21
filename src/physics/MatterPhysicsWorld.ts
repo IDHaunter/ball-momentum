@@ -496,6 +496,18 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.registerLevelObject(object, { kind: 'trigger', id: definition.id, triggerType: definition.type });
   }
 
+  removeSensor(id: string): void {
+    const index = this.levelObjects.findIndex((object) => {
+      const meta = this.metadata.get(object.body);
+      return meta?.kind === 'trigger' && meta.id === id;
+    });
+    this.activeTriggers.delete(id);
+    if (index < 0) return;
+    const [object] = this.levelObjects.splice(index, 1);
+    this.metadata.delete(object.body);
+    object.destroy();
+  }
+
   removeTerrainBody(id: string): void {
     const index = this.levelObjects.findIndex((object) => {
       const meta = this.metadata.get(object.body);

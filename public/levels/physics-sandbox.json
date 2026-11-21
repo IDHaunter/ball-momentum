@@ -820,6 +820,15 @@
       "text": "POLISHED METAL",
       "color": "#dcecf6",
       "depth": 4
+    },
+    {
+      "id": "sandbox-poop-boost-hint",
+      "type": "text",
+      "x": 3890,
+      "y": 815,
+      "text": "POOP BOOST · +25% SPEED / +45% SPIN",
+      "color": "#d6a16e",
+      "depth": 4
     }
   ],
   "bots": [
@@ -858,6 +867,16 @@
       "explosionEnergy": 300000,
       "restitution": 0.58,
       "friction": 0.08
+    }
+  ],
+  "poopPickups": [
+    {
+      "id": "sandbox-poop-boost",
+      "x": 4050,
+      "y": 861,
+      "radius": 19,
+      "speedBoostPercent": 25,
+      "spinBoostPercent": 45
     }
   ]
 }

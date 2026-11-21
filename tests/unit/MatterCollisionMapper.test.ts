@@ -254,6 +254,23 @@ describe('MatterCollisionMapper spring surfaces', () => {
 });
 
 
+describe('MatterCollisionMapper collectible sensors', () => {
+  it('emits a one-shot poop pickup trigger event on contact start', () => {
+    const ball = body(100, 100);
+    const pickup = body(120, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball' }],
+      [pickup, { kind: 'trigger', id: 'poop-boost', triggerType: 'poop' }],
+    ]));
+    const pair: CollisionPairLike = { bodyA: ball, bodyB: pickup, collision: { normal: { x: 1, y: 0 } } };
+
+    expect(mapper.mapPair(pair, 'start')).toEqual([
+      { type: 'BALL_ENTERED_TRIGGER', triggerId: 'poop-boost', triggerType: 'poop' },
+    ]);
+    expect(mapper.mapPair(pair, 'active')).toEqual([]);
+  });
+});
+
 describe('MatterCollisionMapper movable blocks', () => {
   function createMapper(ball: MatterBodyLike, block: MatterBodyLike) {
     return new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([

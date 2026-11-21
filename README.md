@@ -201,3 +201,24 @@ Settings are available from the main menu, the pause menu, and the level-complet
 ## Surface textures
 
 Level solids can optionally define a procedural `texture` independently of their physics `material`. See [`SURFACE_TEXTURES.md`](./SURFACE_TEXTURES.md) for the built-in catalog, per-solid options (`density`, `opacity`, `seed`), and JSON examples. Textures are CanvasTexture overlays clipped to each box or polygon; the movable-block overlay follows its physics body.
+
+## Poop speed-and-spin pickups
+
+Levels can define optional one-shot cartoon poop collectibles in the top-level `poopPickups` array. The character body stays still while its oversized pupils glance around independently; the old floating motion and decorative yellow sparkle are intentionally absent. When the player ball touches one, the pickup disappears, a comic burst animation plays, and the ball's current linear velocity and axial spin are multiplied by the configured percentages. Linear velocity keeps its incoming direction and remains within the normal movement speed limits. If the ball is moving but has almost no spin at collection time, the pickup seeds a gentle rolling spin before applying the spin multiplier.
+
+```json
+{
+  "poopPickups": [
+    {
+      "id": "sandbox-poop-boost",
+      "x": 4050,
+      "y": 861,
+      "radius": 19,
+      "speedBoostPercent": 25,
+      "spinBoostPercent": 45
+    }
+  ]
+}
+```
+
+`x` and `y` are the pickup center coordinates. `radius` controls its visible size and the square sensor bounds around the character. `speedBoostPercent` accepts 0–200 and `spinBoostPercent` accepts 0–300. Pickups are collected once and reset when the level is restarted. The Physics Sandbox includes one example placed on its long concrete platform.

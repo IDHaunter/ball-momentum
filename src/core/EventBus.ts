@@ -9,6 +9,16 @@ export interface GameEventMap {
   error: { message: string };
   debugChanged: { enabled: boolean };
   boostChanged: { available: boolean; used: boolean };
+  pickupCollected: {
+    id: string;
+    type: 'poop';
+    speedBoostPercent: number;
+    spinBoostPercent: number;
+    speedBefore: number;
+    speedAfter: number;
+    spinBefore: number;
+    spinAfter: number;
+  };
 }
 
 type Listener<T> = (payload: T) => void;

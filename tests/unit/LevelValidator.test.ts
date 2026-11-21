@@ -56,6 +56,27 @@ describe('LevelValidator', () => {
     expect(validated.materials?.glass).toEqual({ friction: 0.08, frictionStatic: 0.12, restitution: 0.34 });
   });
 
+  it('accepts configurable poop pickups that boost linear speed and spin', () => {
+    const level = {
+      ...validLevel,
+      poopPickups: [{
+        id: 'poop-boost', x: 420, y: 180, radius: 18,
+        speedBoostPercent: 25, spinBoostPercent: 45,
+      }],
+    };
+    expect(validator.validate(level).poopPickups?.[0]).toMatchObject({
+      id: 'poop-boost', speedBoostPercent: 25, spinBoostPercent: 45, radius: 18,
+    });
+  });
+
+  it('rejects poop pickups with invalid percentages, out-of-bounds positions or duplicate IDs', () => {
+    const basePickup = { id: 'poop-boost', x: 420, y: 180, radius: 18, speedBoostPercent: 25, spinBoostPercent: 45 };
+    expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, speedBoostPercent: -1 }] })).toThrow(/speedBoostPercent/);
+    expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, spinBoostPercent: 301 }] })).toThrow(/spinBoostPercent/);
+    expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, x: 5 }] })).toThrow(/pickup circle must be inside world bounds/);
+    expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, id: 'floor' }] })).toThrow(/duplicate ID/);
+  });
+
   it('accepts a valid timed bomb with an energy-based blast configuration', () => {
     const level = {
       ...validLevel,
