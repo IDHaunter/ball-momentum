@@ -74,3 +74,8 @@ Glass solids can use `borders: { top: "glass", right: "glass", ... }` (or polygo
 ## Terracotta brick border
 
 Brick-style edges (`borders: { top: "brick", right: "brick", bottom: "brick", left: "brick" }` or polygon edge assignments with `style: "brick"`) use miniature chamfered terracotta blocks with warm dark mortar joints. Upward-facing edges use one course of larger, individually skewed hand-laid bricks, with occasional raised corners and subtle height variation; vertical and bottom edges retain their compact, neat single course. The palette matches the fired-clay tones used by `brick-masonry`. This is a decorative overlay only and does not affect the solid geometry, Matter body, friction, restitution, spring behavior or movement.
+
+
+### Stone and metal edge details
+
+Stone keeps its established two-row rounded-pebble coat along upper edges. Side and bottom edges use a single row of slightly irregular rounded pebbles instead of diagonal scratch marks. Metal borders remain smooth continuous bands without repeated rivet-like points, and the `metal-sheen` face uses broad soft reflection bands without isolated bright dots. These are visual-only details and do not affect collision geometry or material physics.

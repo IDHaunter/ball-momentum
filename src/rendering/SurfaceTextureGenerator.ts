@@ -302,11 +302,8 @@ function drawMetalSheen(ctx: CanvasRenderingContext2D, width: number, height: nu
     ctx.fillStyle = bandGradient;
     ctx.fillRect(0, y - 8, width, 16);
   }
-  for (let i = 0; i < Math.max(3, Math.round(width * height / (spacing * spacing) * 0.12)); i += 1) {
-    const x = random() * width, y = random() * height;
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath(); ctx.ellipse(x, y, 2 + random() * 3, 0.6 + random() * 1.1, -0.12, 0, Math.PI * 2); ctx.fill();
-  }
+  // Broad gradient bands provide the sheen. Avoid isolated bright flecks:
+  // their repeated pinpoints made the surface look dotted instead of smooth.
 }
 
 function drawStoneMasonry(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {

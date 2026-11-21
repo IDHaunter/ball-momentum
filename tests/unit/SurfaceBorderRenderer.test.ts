@@ -71,17 +71,25 @@ describe('SurfaceBorderRenderer', () => {
     expect(graphics.lines.some((line) => line.y2 < line.y1)).toBe(true);
   });
 
-  it('adds a shallow, varied pebble coat only to upper stone edges', () => {
+  it('keeps the two-row upper pebble coat and adds one rounded pebble row to side and bottom stone edges', () => {
     const top = new FakeGraphics();
     drawBoxBorders(top, 0, 0, 160, 40, { top: 'stone', right: 'none', bottom: 'none', left: 'none' });
     expect(top.ellipses.length).toBeGreaterThan(40);
     expect(top.ellipses.some((ellipse) => ellipse.fill && ellipse.width >= 6 && ellipse.height >= 3)).toBe(true);
     expect(new Set(top.ellipses.filter((ellipse) => ellipse.fill).map((ellipse) => ellipse.color)).size).toBeGreaterThan(2);
 
+    const pebbleBodyColors = new Set([0x9da7ad, 0x7f8b93, 0xb1aaa0, 0x687780, 0xaaaeb0]);
     const side = new FakeGraphics();
-    drawBoxBorders(side, 0, 0, 160, 40, { top: 'none', right: 'stone', bottom: 'none', left: 'none' });
-    expect(side.ellipses).toHaveLength(0);
-    expect(side.lines.some((line) => line.color === 0x4a5864)).toBe(true);
+    drawBoxBorders(side, 0, 0, 160, 160, { top: 'none', right: 'stone', bottom: 'none', left: 'none' });
+    const sidePebbles = side.polygons.filter((polygon) => pebbleBodyColors.has(polygon.color));
+    expect(sidePebbles.length).toBeGreaterThan(10);
+    expect(sidePebbles.every((polygon) => polygon.points.length === 10)).toBe(true);
+    expect(side.lines.some((line) => line.color === 0x4a5864)).toBe(false);
+    expect(side.lines.some((line) => line.color === 0xdce3e7)).toBe(true);
+
+    const bottom = new FakeGraphics();
+    drawBoxBorders(bottom, 0, 0, 160, 160, { top: 'none', right: 'none', bottom: 'stone', left: 'none' });
+    expect(bottom.polygons.filter((polygon) => pebbleBodyColors.has(polygon.color)).length).toBeGreaterThan(10);
   });
 
 
@@ -132,6 +140,16 @@ describe('SurfaceBorderRenderer', () => {
     drawPolygonBorders(second, vertices, borders);
     expect(first.polygons).toEqual(second.polygons);
     expect(first.polygons.length).toBeGreaterThan(10);
+  });
+
+  it('keeps metal borders smooth and removes repeated rivet-like pinpoints', () => {
+    const graphics = new FakeGraphics();
+    drawBoxBorders(graphics, 0, 0, 180, 40, { top: 'metal', right: 'none', bottom: 'none', left: 'none' });
+
+    expect(graphics.lines).toHaveLength(3);
+    expect(graphics.lines.map((line) => line.width)).toEqual([9, 6, 1.3]);
+    expect(graphics.lines.some((line) => line.color === 0xe2edf2)).toBe(false);
+    expect(graphics.ellipses).toHaveLength(0);
   });
 
   it('draws a subdued graphite glass rim with soft reflections and no ice-like strokes', () => {

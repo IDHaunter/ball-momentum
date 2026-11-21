@@ -40,7 +40,7 @@ export const SURFACE_TEXTURE_CATALOG: Record<SurfaceTexturePattern, SurfaceTextu
   },
   'metal-sheen': {
     label: 'Smooth polished metal',
-    description: 'A calm continuous metal face with broad soft reflections and restrained specular glints.',
+    description: 'A smooth brushed-metal face with broad, continuous reflections and no repeated bright speckles.',
     suggestedMaterials: ['metal', 'normal'],
     defaultDensity: 0.9,
     defaultOpacity: 0.76,

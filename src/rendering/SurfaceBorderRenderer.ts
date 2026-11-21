@@ -124,34 +124,21 @@ export function drawSurfaceBorder(
       stroke(6, 0x8996a1, 1);
       stroke(1.3, 0xc1cbd1, 0.8, -1.4);
       if (normal.y < -0.35) {
-        // A decorative loose-pebble coat sits on the upper edge only. It is
-        // painted with graphics and never changes the underlying Matter body.
+        // Keep the established two-row loose-pebble coat on top surfaces.
         drawStonePebbleCoating(graphics, edge, length, tangent, normal);
       } else {
-        const chips = Math.max(2, Math.floor(length / 38));
-        for (let index = 1; index < chips; index += 1) {
-          const t = index / chips;
-          const x = a.x + dx * t;
-          const y = a.y + dy * t;
-          graphics.lineStyle(1.5, 0x4a5864, 0.85);
-          graphics.lineBetween(x - tangent.x * 3 + normal.x * 2, y - tangent.y * 3 + normal.y * 2, x + tangent.x * 3 - normal.x * 3, y + tangent.y * 3 - normal.y * 3);
-        }
+        // Side and bottom faces get a single row of soft, irregular pebbles
+        // instead of the old repeated diagonal scratch marks.
+        drawStonePebbleSideCourse(graphics, edge, length, tangent, normal);
       }
       break;
     }
     case 'metal': {
+      // A clean brushed-metal rim: continuous tonal bands with no repeating
+      // rivets or bright pinpoints competing with the broad reflections.
       stroke(9, 0x182633, 1);
       stroke(6, 0x7f96a8, 1);
-      stroke(1.3, 0xd7e5ed, 0.95, -1.8);
-      const rivets = Math.max(2, Math.floor(length / 54));
-      for (let index = 1; index < rivets; index += 1) {
-        const t = index / rivets;
-        const x = a.x + dx * t;
-        const y = a.y + dy * t;
-        graphics.lineStyle(2, 0xe2edf2, 0.95);
-        graphics.lineBetween(x - tangent.x * 2.2, y - tangent.y * 2.2, x + tangent.x * 2.2, y + tangent.y * 2.2);
-        graphics.lineBetween(x - normal.x * 2.2, y - normal.y * 2.2, x + normal.x * 2.2, y + normal.y * 2.2);
-      }
+      stroke(1.3, 0xd7e5ed, 0.82, -1.8);
       break;
     }
     case 'brick': {
@@ -282,6 +269,85 @@ function drawStonePebbleCoating(
         glintY + xAxis.y * width * 0.17,
       );
     }
+  }
+}
+
+/**
+ * Paints one playful row of rounded, slightly wonky pebbles along side and
+ * bottom stone edges. Points are built in the edge's tangent/normal frame so
+ * the stones follow vertical, horizontal and sloped edges naturally.
+ */
+function drawStonePebbleSideCourse(
+  graphics: BorderGraphicsLike,
+  edge: BorderEdgeSegment,
+  length: number,
+  tangent: BorderPoint,
+  normal: BorderPoint,
+): void {
+  const random = createEdgeRandom(edge);
+  const spacing = 10.4;
+  const count = Math.max(2, Math.ceil(length / spacing));
+
+  for (let index = 0; index < count; index += 1) {
+    const tone = PEBBLE_TONES[Math.floor(random() * PEBBLE_TONES.length)];
+    const pebbleLength = 8.1 + random() * 3.2;
+    const pebbleDepth = 4.8 + random() * 1.9;
+    const along = Math.min(length, Math.max(0.2,
+      (index + 0.5) * spacing + (random() - 0.5) * 1.9,
+    ));
+    const outward = (random() - 0.5) * 1.0;
+    const center = {
+      x: edge.a.x + tangent.x * along + normal.x * outward,
+      y: edge.a.y + tangent.y * along + normal.y * outward,
+    };
+    const points: BorderPoint[] = [];
+    const pointCount = 10;
+    const wobble = 0.08 + random() * 0.06;
+    const rotation = (random() - 0.5) * 0.2;
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+
+    for (let pointIndex = 0; pointIndex < pointCount; pointIndex += 1) {
+      const angle = (pointIndex / pointCount) * Math.PI * 2;
+      const radius = 1 + (random() - 0.5) * wobble * 2;
+      const localAlong = Math.cos(angle) * pebbleLength * 0.5 * radius;
+      const localNormal = Math.sin(angle) * pebbleDepth * 0.5 * radius;
+      const rotatedAlong = localAlong * cos - localNormal * sin;
+      const rotatedNormal = localAlong * sin + localNormal * cos;
+      points.push({
+        x: center.x + tangent.x * rotatedAlong + normal.x * rotatedNormal,
+        y: center.y + tangent.y * rotatedAlong + normal.y * rotatedNormal,
+      });
+    }
+
+    const shadow = points.map((point) => ({
+      x: point.x + normal.x * 0.8,
+      y: point.y + normal.y * 0.8,
+    }));
+    graphics.fillStyle(0x26323a, 0.28);
+    graphics.fillPoints(shadow, true, true);
+    graphics.fillStyle(tone.body, 0.98);
+    graphics.fillPoints(points, true, true);
+
+    graphics.lineStyle(0.85, tone.shade, 0.92);
+    for (let pointIndex = 0; pointIndex < points.length; pointIndex += 1) {
+      const current = points[pointIndex];
+      const next = points[(pointIndex + 1) % points.length];
+      graphics.lineBetween(current.x, current.y, next.x, next.y);
+    }
+
+    // Tiny soft highlight, deliberately offset and varied rather than a dot.
+    const highlightCenter = {
+      x: center.x - normal.x * pebbleDepth * 0.12 - tangent.x * pebbleLength * 0.08,
+      y: center.y - normal.y * pebbleDepth * 0.12 - tangent.y * pebbleLength * 0.08,
+    };
+    graphics.lineStyle(0.75, tone.highlight, 0.76);
+    graphics.lineBetween(
+      highlightCenter.x - tangent.x * pebbleLength * 0.16,
+      highlightCenter.y - tangent.y * pebbleLength * 0.16,
+      highlightCenter.x + tangent.x * pebbleLength * 0.16,
+      highlightCenter.y + tangent.y * pebbleLength * 0.16,
+    );
   }
 }
 

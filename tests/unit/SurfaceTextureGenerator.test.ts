@@ -83,6 +83,24 @@ describe('SurfaceTextureGenerator', () => {
     expect(harness.calls).not.toContain('stroke');
   });
 
+  it('renders metal with broad smooth reflections and no isolated bright dots', () => {
+    const harness = createTextureHarness();
+    createSurfaceTextureCanvas(
+      harness.scene,
+      'smooth-metal-sheen',
+      220,
+      140,
+      [{ x: 0, y: 0 }, { x: 220, y: 0 }, { x: 220, y: 140 }, { x: 0, y: 140 }],
+      'metal-sheen',
+      27,
+    );
+
+    expect(harness.calls.filter((call) => call === 'addColorStop').length).toBeGreaterThan(5);
+    expect(harness.calls.filter((call) => call === 'fillRect').length).toBeGreaterThan(2);
+    expect(harness.calls).not.toContain('ellipse');
+    expect(harness.calls).not.toContain('arc');
+  });
+
   it('renders concrete pavers with a restrained mix of warm, cool and mineral grey slabs', () => {
     const harness = createTextureHarness();
     createSurfaceTextureCanvas(
