@@ -9,7 +9,7 @@ export interface TerrainMaterialDefinition {
 export type BoxSurfaceSide = 'top' | 'right' | 'bottom' | 'left';
 
 /** Visual-only style applied to one exposed shape edge. */
-export type BorderStyle = 'default' | 'none' | 'grass' | 'asphalt' | 'stone' | 'metal' | 'ice' | 'glass' | 'brick' | 'wood';
+export type BorderStyle = 'default' | 'none' | 'grass' | 'pavers' | 'stone' | 'metal' | 'ice' | 'glass' | 'brick' | 'wood';
 export type BoxBorderStyles = Partial<Record<BoxSurfaceSide, BorderStyle>>;
 export interface PolygonBorderDefinition { edge: number; style: BorderStyle; }
 

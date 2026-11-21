@@ -11,26 +11,6 @@ export interface NormalizedSurfaceTextureOptions {
   seed: number;
 }
 
-/** Resolve deprecated JSON keys without rewriting the key stored by a level. */
-function resolveSurfaceTextureVisualFamily(pattern: SurfaceTexturePattern): SurfaceTexturePattern {
-  switch (pattern) {
-    case 'ice-crystals':
-      return 'ice-strata';
-    case 'stone-masonry':
-    case 'ice-facets':
-      return 'stone-fragments';
-    case 'asphalt-masonry':
-      return 'asphalt-pavers';
-    case 'metal-polish':
-      return 'metal-sheen';
-    case 'rubber-dots':
-    case 'rubber-chevrons':
-      return 'brick-masonry';
-    default:
-      return pattern;
-  }
-}
-
 export function normalizeSurfaceTexture(
   assignment: SurfaceTextureAssignment,
   fallbackSeed = 1,
@@ -38,9 +18,7 @@ export function normalizeSurfaceTexture(
   const options: SurfaceTextureOptions = typeof assignment === 'string'
     ? { pattern: assignment }
     : assignment;
-  // Legacy identifiers keep their original public key, but inherit defaults
-  // from the visual family they alias so their rendering is indistinguishable.
-  const preset = SURFACE_TEXTURE_CATALOG[resolveSurfaceTextureVisualFamily(options.pattern)];
+  const preset = SURFACE_TEXTURE_CATALOG[options.pattern];
   return {
     pattern: options.pattern,
     density: clamp(options.density ?? preset.defaultDensity, 0.25, 3),
@@ -107,7 +85,7 @@ export function drawSurfacePattern(
   context.lineJoin = 'round';
   context.lineWidth = Math.max(1, 1.35 / options.density);
 
-  switch (resolveSurfaceTextureVisualFamily(options.pattern)) {
+  switch (options.pattern) {
     case 'stone-fragments':
       drawStoneFragments(context, width, height, spacing, random);
       break;
@@ -117,7 +95,7 @@ export function drawSurfacePattern(
     case 'ice-strata':
       drawIceStrata(context, width, height, spacing, random);
       break;
-    case 'asphalt-pavers':
+    case 'pavers':
       drawConcretePavers(context, width, height, spacing, random);
       break;
     case 'metal-sheen':

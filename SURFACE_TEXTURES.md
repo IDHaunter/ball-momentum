@@ -44,15 +44,13 @@ The texture is drawn procedurally to a cached CanvasTexture and clipped to the e
 | `stone-fragments` | stone, normal | Loose scatter of small irregular pebbles, mineral flecks and shallow fractures |
 | `stone-strata` | stone, normal | Uneven sediment layers |
 | `ice-strata` | ice | Small soft snow drifts mixed with translucent ice chips |
-| `asphalt-pavers` | normal, stone | Neat staggered concrete pavers in restrained warm, cool and mineral-grey tones; the matching `asphalt` edge uses one larger, gently irregular top course and compact regular side/bottom blocks |
+| `pavers` | normal, stone | Neat staggered concrete pavers in restrained warm, cool and mineral-grey tones; the matching `pavers` edge uses one larger, gently irregular top course and compact regular side/bottom blocks |
 | `metal-sheen` | metal, normal | Smooth continuous metal with broad soft reflections and restrained glints |
 | `brick-masonry` | brick, stone | Warm terracotta bricks in staggered courses with visible mortar |
 | `glass-facets` | glass | Soft translucent triangular colour planes and isolated glints, without drawn cross-seams |
 | `concrete-grain` | normal, stone | Fine aggregate speckles and scratches |
 | `wood-grain` | wood | Warm brown timber boards with visible fibres and knots |
 | `sand-specks` | sand, normal | Warm grains and tiny pebbles |
-
-Legacy JSON IDs remain accepted and are never rewritten in stored level data. They render as their current visual family and inherit that family's default density and opacity: `ice-crystals` → `ice-strata`; `stone-masonry` and `ice-facets` → `stone-fragments`; `asphalt-masonry` → `asphalt-pavers`; `metal-polish` → `metal-sheen`; `rubber-dots` and `rubber-chevrons` → `brick-masonry`. Explicit per-solid density, opacity, and seed overrides continue to take precedence.
 
 The catalog metadata lives in `src/rendering/SurfaceTextureCatalog.ts`; rendering algorithms live in `src/rendering/SurfaceTextureGenerator.ts`. Add a new ID to `src/level/SurfaceTextureTypes.ts`, add metadata to the catalog, implement its drawing case in the generator, and add schema/catalog tests.
 

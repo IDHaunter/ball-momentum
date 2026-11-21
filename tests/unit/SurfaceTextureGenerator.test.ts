@@ -83,33 +83,6 @@ describe('SurfaceTextureGenerator', () => {
     expect(harness.calls).not.toContain('stroke');
   });
 
-  it('keeps the old ice-crystals key as a snow-and-ice compatibility alias', () => {
-    const current = createTextureHarness();
-    const legacy = createTextureHarness();
-    const polygon = [{ x: 0, y: 0 }, { x: 140, y: 0 }, { x: 140, y: 90 }, { x: 0, y: 90 }];
-    createSurfaceTextureCanvas(current.scene, 'ice-current', 140, 90, polygon, 'ice-strata', 7);
-    createSurfaceTextureCanvas(legacy.scene, 'ice-legacy', 140, 90, polygon, 'ice-crystals', 7);
-
-    expect(legacy.calls).toEqual(current.calls);
-    expect(legacy.calls).toContain('arc');
-  });
-
-  it('maps retired stone, ice and rubber identifiers to their current visual families', () => {
-    const polygon = [{ x: 0, y: 0 }, { x: 140, y: 0 }, { x: 140, y: 90 }, { x: 0, y: 90 }];
-    const render = (key: string, pattern: Parameters<typeof createSurfaceTextureCanvas>[5]) => {
-      const harness = createTextureHarness();
-      createSurfaceTextureCanvas(harness.scene, key, 140, 90, polygon, pattern, 7);
-      return harness.calls;
-    };
-
-    expect(render('stone-masonry', 'stone-masonry')).toEqual(render('stone-main', 'stone-fragments'));
-    expect(render('ice-facets', 'ice-facets')).toEqual(render('stone-main', 'stone-fragments'));
-    expect(render('asphalt-masonry', 'asphalt-masonry')).toEqual(render('pavers', 'asphalt-pavers'));
-    expect(render('metal-polish', 'metal-polish')).toEqual(render('metal', 'metal-sheen'));
-    expect(render('brick-main', 'brick-masonry')).toEqual(render('rubber-dots', 'rubber-dots'));
-    expect(render('brick-main-2', 'brick-masonry')).toEqual(render('rubber-chevrons', 'rubber-chevrons'));
-  });
-
   it('renders concrete pavers with a restrained mix of warm, cool and mineral grey slabs', () => {
     const harness = createTextureHarness();
     createSurfaceTextureCanvas(
@@ -118,7 +91,7 @@ describe('SurfaceTextureGenerator', () => {
       220,
       140,
       [{ x: 0, y: 0 }, { x: 220, y: 0 }, { x: 220, y: 140 }, { x: 0, y: 140 }],
-      { pattern: 'asphalt-pavers', seed: 31 },
+      { pattern: 'pavers', seed: 31 },
     );
 
     expect(harness.fillStyles).toContain('rgba(57,67,73,0.86)');
@@ -168,8 +141,8 @@ describe('SurfaceTextureGenerator', () => {
   });
 
   it('clamps runtime overrides and keeps the selected seed deterministic', () => {
-    expect(normalizeSurfaceTexture({ pattern: 'rubber-dots', density: 8, opacity: 0.75, seed: 12 }, 5)).toEqual({
-      pattern: 'rubber-dots', density: 3, opacity: 0.75, seed: 12,
+    expect(normalizeSurfaceTexture({ pattern: 'brick-masonry', density: 8, opacity: 0.75, seed: 12 }, 5)).toEqual({
+      pattern: 'brick-masonry', density: 3, opacity: 0.75, seed: 12,
     });
   });
 });

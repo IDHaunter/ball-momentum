@@ -205,11 +205,11 @@ describe('SurfaceBorderRenderer', () => {
     expect(first.ellipses.length).toBeGreaterThan(10);
   });
 
-  it('draws one gently irregular larger concrete-paver course along upper asphalt edges', () => {
+  it('draws one gently irregular larger concrete-paver course along upper paver edges', () => {
     const first = new FakeGraphics();
     const second = new FakeGraphics();
-    drawBoxBorders(first, 0, 0, 180, 42, { top: 'asphalt', right: 'none', bottom: 'none', left: 'none' });
-    drawBoxBorders(second, 0, 0, 180, 42, { top: 'asphalt', right: 'none', bottom: 'none', left: 'none' });
+    drawBoxBorders(first, 0, 0, 180, 42, { top: 'pavers', right: 'none', bottom: 'none', left: 'none' });
+    drawBoxBorders(second, 0, 0, 180, 42, { top: 'pavers', right: 'none', bottom: 'none', left: 'none' });
 
     const bodyColors = new Set([0x929a99, 0xa69f91, 0x7f8c90, 0xb1a99a, 0x8d9088, 0x87979a, 0x9ba49b]);
     const upperPavers = first.polygons.filter((polygon) => bodyColors.has(polygon.color));
@@ -228,8 +228,8 @@ describe('SurfaceBorderRenderer', () => {
 
     const side = new FakeGraphics();
     const bottom = new FakeGraphics();
-    drawBoxBorders(side, 0, 0, 42, 120, { top: 'none', right: 'asphalt', bottom: 'none', left: 'none' });
-    drawBoxBorders(bottom, 0, 0, 120, 42, { top: 'none', right: 'none', bottom: 'asphalt', left: 'none' });
+    drawBoxBorders(side, 0, 0, 42, 120, { top: 'none', right: 'pavers', bottom: 'none', left: 'none' });
+    drawBoxBorders(bottom, 0, 0, 120, 42, { top: 'none', right: 'none', bottom: 'pavers', left: 'none' });
     const sidePavers = side.polygons.filter((polygon) => bodyColors.has(polygon.color));
     const bottomPavers = bottom.polygons.filter((polygon) => bodyColors.has(polygon.color));
     expect(sidePavers.length).toBeGreaterThan(3);

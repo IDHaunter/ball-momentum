@@ -110,7 +110,7 @@ export function drawSurfaceBorder(
       }
       break;
     }
-    case 'asphalt': {
+    case 'pavers': {
       // Concrete pavers use the same quiet mixed greys as their face texture.
       // The top course is deliberately a little more expressive; side and
       // bottom courses remain neat, small, staggered paving blocks.

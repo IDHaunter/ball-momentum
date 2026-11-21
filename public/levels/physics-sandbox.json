@@ -231,7 +231,7 @@
       "material": "normal",
       "texture": "concrete-grain",
       "borders": {
-        "top": "asphalt",
+        "top": "pavers",
         "right": "stone",
         "bottom": "none",
         "left": "none"
@@ -449,7 +449,7 @@
       }
     },
     {
-      "id": "gallery-stone-masonry",
+      "id": "gallery-pavers",
       "type": "box",
       "x": 4840,
       "y": 760,
@@ -457,16 +457,16 @@
       "height": 120,
       "material": "normal",
       "texture": {
-        "pattern": "asphalt-pavers",
+        "pattern": "pavers",
         "density": 1.05,
         "opacity": 0.92,
         "seed": 52
       },
       "borders": {
-        "top": "asphalt",
-        "right": "asphalt",
-        "bottom": "asphalt",
-        "left": "asphalt"
+        "top": "pavers",
+        "right": "pavers",
+        "bottom": "pavers",
+        "left": "pavers"
       }
     },
     {
@@ -526,10 +526,10 @@
         "seed": 80
       },
       "borders": {
-        "top": "asphalt",
-        "right": "asphalt",
+        "top": "pavers",
+        "right": "pavers",
         "bottom": "none",
-        "left": "asphalt"
+        "left": "pavers"
       }
     },
     {
@@ -568,7 +568,7 @@
         "seed": 94
       },
       "borders": {
-        "top": "asphalt",
+        "top": "pavers",
         "right": "metal",
         "bottom": "none",
         "left": "metal"

@@ -31,7 +31,7 @@ export const SURFACE_TEXTURE_CATALOG: Record<SurfaceTexturePattern, SurfaceTextu
     defaultDensity: 1.15,
     defaultOpacity: 0.88,
   },
-  'asphalt-pavers': {
+  'pavers': {
     label: 'Concrete paving blocks',
     description: 'Neat staggered concrete pavers with gentle warm, cool and mineral-grey colour variation between slabs.',
     suggestedMaterials: ['normal', 'stone'],
@@ -79,55 +79,6 @@ export const SURFACE_TEXTURE_CATALOG: Record<SurfaceTexturePattern, SurfaceTextu
     suggestedMaterials: ['sand', 'normal'],
     defaultDensity: 1.2,
     defaultOpacity: 0.3,
-  },
-  'stone-masonry': {
-    label: 'Stone fragments (legacy alias)',
-    description: 'Legacy key retained for old levels; rendered as stone-fragments.',
-    suggestedMaterials: ['stone', 'normal'],
-    defaultDensity: 0.9,
-    defaultOpacity: 0.42,
-  },
-  'ice-crystals': {
-    label: 'Snow drifts & ice chips (legacy alias)',
-    description: 'Legacy key retained for old levels; rendered as ice-strata.',
-    suggestedMaterials: ['ice'],
-    defaultDensity: 1.15,
-    defaultOpacity: 0.88,
-  },
-  'ice-facets': {
-    label: 'Stone fragments (legacy alias)',
-    description: 'Legacy key retained for old levels; rendered as stone-fragments.',
-    suggestedMaterials: ['stone', 'normal'],
-    defaultDensity: 0.9,
-    defaultOpacity: 0.42,
-  },
-  'asphalt-masonry': {
-    label: 'Concrete paving blocks (legacy alias)',
-    description: 'Legacy key retained for old levels; rendered as asphalt-pavers.',
-    suggestedMaterials: ['normal', 'stone'],
-    defaultDensity: 1.05,
-    defaultOpacity: 0.92,
-  },
-  'metal-polish': {
-    label: 'Smooth polished metal (legacy alias)',
-    description: 'Legacy key retained for old levels; rendered as metal-sheen.',
-    suggestedMaterials: ['metal', 'normal'],
-    defaultDensity: 0.9,
-    defaultOpacity: 0.76,
-  },
-  'rubber-dots': {
-    label: 'Brick masonry (legacy alias)',
-    description: 'Legacy key retained for old levels; rendered as brick-masonry.',
-    suggestedMaterials: ['brick', 'stone'],
-    defaultDensity: 0.92,
-    defaultOpacity: 0.9,
-  },
-  'rubber-chevrons': {
-    label: 'Brick masonry (legacy alias)',
-    description: 'Legacy key retained for old levels; rendered as brick-masonry.',
-    suggestedMaterials: ['brick', 'stone'],
-    defaultDensity: 0.92,
-    defaultOpacity: 0.9,
   },
 };
 

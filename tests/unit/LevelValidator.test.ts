@@ -248,9 +248,17 @@ describe('surface textures', () => {
     expect(validated.solids[1].texture).toMatchObject({ pattern: 'ice-strata', density: 1.4, opacity: 0.62, seed: 17 });
   });
 
-  it('continues accepting the legacy ice-crystals pattern ID', () => {
-    const legacy = { ...validLevel, solids: [{ ...validLevel.solids[0], texture: 'ice-crystals' }] };
-    expect(validator.validate(legacy).solids[0].texture).toBe('ice-crystals');
+  it('rejects retired texture IDs instead of silently aliasing them', () => {
+    const retiredPatterns = [
+      'ice-crystals', 'stone-masonry', 'ice-facets', 'asphalt-masonry',
+      'asphalt-pavers', 'metal-polish', 'rubber-dots', 'rubber-chevrons',
+    ];
+    for (const pattern of retiredPatterns) {
+      const invalid = { ...validLevel, solids: [{ ...validLevel.solids[0], texture: pattern }] };
+      expect(() => validator.validate(invalid)).toThrow(/texture/);
+    }
+    const invalidBorder = { ...validLevel, solids: [{ ...validLevel.solids[0], borders: { top: 'asphalt' } }] };
+    expect(() => validator.validate(invalidBorder)).toThrow(/borders/);
   });
 
   it('rejects unknown patterns and invalid texture tuning values', () => {
@@ -265,7 +273,7 @@ describe('surface textures', () => {
     const custom = {
       ...validLevel,
       solids: [
-        { id: 'box', type: 'box', x: 0, y: 200, width: 300, height: 100, borders: { top: 'grass', right: 'metal', bottom: 'none', left: 'brick' } },
+        { id: 'box', type: 'box', x: 0, y: 200, width: 300, height: 100, borders: { top: 'pavers', right: 'metal', bottom: 'none', left: 'brick' } },
         { id: 'triangle', type: 'polygon', vertices: [[400, 300], [450, 200], [500, 300]], borders: [{ edge: 0, style: 'grass' }, { edge: 1, style: 'brick' }] },
       ],
     };
@@ -274,6 +282,7 @@ describe('surface textures', () => {
     const box = validated.solids[0];
     const polygon = validated.solids[1];
     if (box.type !== 'box' || polygon.type !== 'polygon') throw new Error('Expected a box and polygon');
+    expect(box.borders?.top).toBe('pavers');
     expect(box.borders?.left).toBe('brick');
     expect(polygon.borders?.[1].style).toBe('brick');
   });

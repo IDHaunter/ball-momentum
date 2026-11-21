@@ -212,7 +212,7 @@
       "material": "normal",
       "texture": "concrete-grain",
       "borders": {
-        "top": "asphalt",
+        "top": "pavers",
         "right": "stone",
         "bottom": "none",
         "left": "stone"
