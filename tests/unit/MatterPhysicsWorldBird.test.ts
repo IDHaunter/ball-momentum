@@ -4,6 +4,7 @@ import { PhysicsAdapter } from '../../src/physics/PhysicsAdapter';
 import type { MatterBodyLike, MatterGameObjectLike } from '../../src/physics/MatterPhysicsBody';
 import type { CollisionEventLike } from '../../src/physics/MatterCollisionMapper';
 import type { Vector2 } from '../../src/physics/PhysicsTypes';
+import type { BirdGraphicsLike } from '../../src/rendering/BirdRenderer';
 
 type TestBody = MatterBodyLike & { isStatic?: boolean; destroyed?: boolean; options?: Record<string, unknown> };
 
@@ -11,6 +12,22 @@ function createHarness() {
   const handlers = new Map<string, (event: CollisionEventLike) => void>();
   const bodies: TestBody[] = [];
   const visuals: Array<{ text: string; destroyed: boolean; scaleX: number; scaleY: number; rotation: number; flipX: boolean }> = [];
+  const containers: Array<{ destroyed: boolean; x: number; y: number; scaleX: number; scaleY: number; rotation: number; width: number; height: number; children: object[] }> = [];
+  const graphicsInstances: Array<{ commands: string[]; destroyed: boolean }> = [];
+  const makeGraphics = (): BirdGraphicsLike => {
+    const state = { commands: [] as string[], destroyed: false };
+    graphicsInstances.push(state);
+    const record = (name: string) => { state.commands.push(name); return api; };
+    const api: BirdGraphicsLike = {
+      clear() { return record('clear'); }, setDepth() { return api; }, fillStyle() { return record('fillStyle'); },
+      lineStyle() { return record('lineStyle'); }, fillEllipse() { return record('fillEllipse'); },
+      strokeEllipse() { return record('strokeEllipse'); }, beginPath() { return record('beginPath'); },
+      moveTo() { return record('moveTo'); }, lineTo() { return record('lineTo'); }, closePath() { return record('closePath'); },
+      fillPath() { return record('fillPath'); }, strokePath() { return record('strokePath'); },
+      destroy() { state.destroyed = true; },
+    };
+    return api;
+  };
   const makeBody = (x: number, y: number, label: string, options: Record<string, unknown> = {}): TestBody => {
     const body: TestBody = {
       position: { x, y }, velocity: { x: 0, y: 0 }, angle: 0, angularVelocity: 0,
@@ -23,6 +40,19 @@ function createHarness() {
   const scene = {
     add: {
       zone: () => ({}),
+      graphics: () => makeGraphics(),
+      container: (x: number, y: number) => {
+        const state = { destroyed: false, x, y, scaleX: 1, scaleY: 1, rotation: 0, width: 0, height: 0, children: [] as object[] };
+        containers.push(state);
+        return {
+          add(child: object) { state.children.push(child); return this; },
+          setDepth() { return this; },
+          setSize(width: number, height: number) { state.width = width; state.height = height; return this; },
+          setScale(x: number, y = x) { state.scaleX = x; state.scaleY = y; return this; },
+          setRotation(value: number) { state.rotation = value; return this; },
+          destroy() { state.destroyed = true; for (const child of state.children) (child as { destroy?: () => void }).destroy?.(); },
+        };
+      },
       circle: () => ({ setStrokeStyle() { return this; }, setDepth() { return this; } }),
       rectangle: () => ({ setStrokeStyle() { return this; }, setDepth() { return this; } }),
       text: (_x: number, _y: number, text = '') => {
@@ -59,7 +89,7 @@ function createHarness() {
         fromVertices(x: number, y: number, _vertices: Vector2[][], options: Record<string, unknown>) {
           return makeBody(x, y, String(options.label ?? ''), options);
         },
-        gameObject(_visual: object, body: MatterBodyLike): MatterGameObjectLike {
+        gameObject(visual: object, body: MatterBodyLike): MatterGameObjectLike {
           const testBody = body as TestBody;
           return {
             body,
@@ -68,14 +98,14 @@ function createHarness() {
             setAngularVelocity(value: number) { body.angularVelocity = value; return this; },
             setAwake() { return this; },
             setStatic(value: boolean) { testBody.isStatic = value; return this; },
-            destroy() { testBody.destroyed = true; return this; },
+            destroy() { testBody.destroyed = true; (visual as { destroy?: () => void }).destroy?.(); return this; },
           };
         },
       },
     },
   };
   const world = new MatterPhysicsWorld(scene as never);
-  return { world, handlers, bodies, visuals };
+  return { world, handlers, bodies, visuals, containers, graphicsInstances };
 }
 
 const birdDefinition = {
@@ -112,15 +142,20 @@ describe('MatterPhysicsWorld flying birds', () => {
     harness.world.dispose();
   });
 
-  it('faces the direction of patrol without scaling the physical body', () => {
+  it('attaches a centered procedural visual without changing the circular physics body', () => {
     const harness = createHarness();
     harness.world.createBird({ ...birdDefinition, direction: -1 });
     harness.world.step(1000 / 60);
     const bird = harness.bodies.find((body) => body.label === 'BIRD:nest-guardian')!;
-    const visual = harness.visuals.find((item) => item.text === '🐦')!;
-    expect(visual.flipX).toBe(true);
+    const visual = harness.containers[0]!;
+    expect(visual.x).toBe(birdDefinition.x);
+    expect(visual.y).toBe(birdDefinition.y);
     expect(visual.scaleX).toBe(1);
     expect(visual.scaleY).toBe(1);
+    expect(visual.width).toBeCloseTo(17 * 3.5);
+    expect(visual.height).toBeCloseTo(17 * 3.2);
+    expect(visual.children).toHaveLength(1);
+    expect(harness.graphicsInstances[0]?.commands).toContain('fillEllipse');
     expect(bird.circleRadius).toBe(17);
     harness.world.dispose();
   });
@@ -166,6 +201,25 @@ describe('MatterPhysicsWorld flying birds', () => {
     expect(PhysicsAdapter.fromMatterVelocity(distantBird.velocity).x).toBeCloseTo(95, 6);
     expect(PhysicsAdapter.fromMatterVelocity(distantBird.velocity).y).toBeCloseTo(0, 6);
     distant.world.dispose();
+  });
+
+  it('releases a visible burst of falling feathers when it collides with the ball', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 200, y: 205 }, ballOptions);
+    harness.world.createBird(birdDefinition);
+    const ball = harness.bodies.find((body) => body.label === 'BALL')!;
+    const bird = harness.bodies.find((body) => body.label === 'BIRD:nest-guardian')!;
+
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: bird, bodyB: ball, collision: { normal: { x: 0, y: 1 } } }],
+    });
+    harness.world.step(1000 / 60);
+
+    const featherLayer = harness.graphicsInstances[1]!;
+    expect(featherLayer.commands.filter((command) => command === 'fillPath').length).toBeGreaterThanOrEqual(10);
+    expect(featherLayer.commands.filter((command) => command === 'strokePath').length).toBeGreaterThanOrEqual(10);
+    harness.world.dispose();
+    expect(featherLayer.destroyed).toBe(true);
   });
 
   it('adds a configurable egress impulse to the ball and an equal opposite impulse to the bird', () => {

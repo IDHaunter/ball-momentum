@@ -13,6 +13,7 @@ import type Phaser from 'phaser';
 import { createSurfaceTextureCanvas, createSurfaceTextureKey } from '../rendering/SurfaceTextureGenerator';
 import { hashSurfaceTextureSeed } from '../rendering/SurfaceTextureCatalog';
 import { drawBoxBorders } from '../rendering/SurfaceBorderRenderer';
+import { BirdRenderer, type BirdRendererSceneLike } from '../rendering/BirdRenderer';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -87,7 +88,7 @@ interface BotRecord {
 
 interface BirdRecord {
   object: MatterGameObjectLike;
-  visual: MatterTextLike;
+  renderer: BirdRenderer;
   id: string;
   radius: number;
   mass: number;
@@ -107,7 +108,6 @@ interface BirdRecord {
   pendingAttackImpulse: { ballBody: MatterBodyLike; direction: Vector2 } | null;
   pendingDirectionUpdate: boolean;
   turnCooldownSteps: number;
-  visualElapsedMs: number;
 }
 
 interface BombEyeVisual {
@@ -417,20 +417,13 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       },
     });
     rawBody.label = `BIRD:${definition.id}`;
-    const scene = this.scene as unknown as MatterSceneLike;
-    const visual = scene.add.text(definition.x, definition.y, '🐦', {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: `${Math.max(28, definition.radius * 2.25)}px`,
-      color: '#ffffff',
-      stroke: '#263e50',
-      strokeThickness: 1.5,
-    }).setOrigin(0.5).setDepth(8);
-    const object = this.factory.gameObject(visual, rawBody, true);
+    const renderer = new BirdRenderer(this.scene as unknown as BirdRendererSceneLike, definition.radius, definition.id, definition.x, definition.y);
+    const object = this.factory.gameObject(renderer.container, rawBody, true);
     object.body.label = `BIRD:${definition.id}`;
     this.registerLevelObject(object, { kind: 'bird', id: definition.id, mass: definition.mass });
     this.birds.set(definition.id, {
       object,
-      visual,
+      renderer,
       id: definition.id,
       radius: definition.radius,
       mass: definition.mass,
@@ -450,7 +443,6 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       pendingAttackImpulse: null,
       pendingDirectionUpdate: false,
       turnCooldownSteps: 0,
-      visualElapsedMs: 0,
     });
   }
 
@@ -628,6 +620,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.movableBlocks.clear();
     for (const bot of this.bots.values()) { bot.eyes.destroy(); bot.mouth.destroy(); }
     this.bots.clear();
+    for (const bird of this.birds.values()) bird.renderer.dispose();
     this.birds.clear();
     for (const bomb of this.bombs.values()) this.destroyBombVisuals(bomb);
     this.bombs.clear();
@@ -699,6 +692,15 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     if (!bird) return;
 
     if (otherMeta.kind === 'ball') {
+      const ballVelocityForVisual = this.preStepVelocities.get(otherBody)
+        ?? PhysicsAdapter.fromMatterVelocity(otherBody.velocity);
+      const birdVelocityForVisual = this.preStepVelocities.get(birdBody)
+        ?? PhysicsAdapter.fromMatterVelocity(birdBody.velocity);
+      const visualImpactSpeed = Math.hypot(
+        ballVelocityForVisual.x - birdVelocityForVisual.x,
+        ballVelocityForVisual.y - birdVelocityForVisual.y,
+      );
+      bird.renderer.onImpact(birdBody.position, visualImpactSpeed);
       if (bird.attacking && bird.attackImpulse > 0) {
         const delta = {
           x: otherBody.position.x - birdBody.position.x,
@@ -1258,9 +1260,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         this.removeBird(id);
         continue;
       }
-      bird.visualElapsedMs += stepMs;
-      bird.visual.setFlipX(bird.direction === -1);
-      bird.visual.setRotation(bird.attacking ? Math.sin(bird.visualElapsedMs * 0.03) * 0.08 : Math.sin(bird.visualElapsedMs * 0.009) * 0.025);
+      bird.renderer.update(stepMs, bird.direction, bird.attacking, bird.object.body.angle);
     }
   }
 
@@ -1268,6 +1268,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const bird = this.birds.get(id);
     if (!bird) return;
     this.birds.delete(id);
+    bird.renderer.dispose();
     const entry = this.levelObjects.findIndex((object) => object.body === bird.object.body);
     if (entry >= 0) this.levelObjects.splice(entry, 1);
     this.metadata.delete(bird.object.body);

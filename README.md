@@ -248,3 +248,10 @@ Levels may define flying birds in the optional `birds` array. Each bird patrols 
 `patrolRange` and the bird's `y` coordinate define a horizontal patrol line. `detectionRadius` expands that line into a protected rectangle (the patrol interval extended by the radius at each end and vertically by the same radius) and is also the bird's local detection distance. Set `aggressive: true` to enable guarding; passive birds simply patrol and still behave as physical bodies. An aggressive bird attacks only while the ball is both inside this rectangle and within `detectionRadius` of the bird. It flies to an intercept point on the inner side of the ball so an impact sends the ball toward the nearer horizontal end of the patrol lane (rather than into the nest platform).
 
 The Matter body uses the configured `mass`; ordinary patrol collisions transfer momentum through the physics solver. On an attack hit, `attackImpulse` adds a configurable equal-and-opposite impulse to the ball and bird. The bird is briefly allowed to recoil, then resumes its patrol and returns toward its original flight line. `attackImpulse` is expressed as mass × px/s and may be zero to disable the extra attack impulse while retaining the physical collision.
+
+
+## Bird guardians
+
+Bird guardians use a procedural cartoon renderer rather than a platform-dependent emoji. Their rounded teal-and-gold bodies, oversized googly eyes, beak, crest, feet and two independently flapping feathered wings are redrawn on each fixed physics step. Wing cadence increases during an attack, while the bird leans forward and opens its beak.
+
+A bird/ball collision emits a deterministic, short-lived burst of colored feathers. Each feather has its own velocity, gravity, rotation and fade-out, and the particle layer is disposed with the bird. The circular Matter body, patrol behavior, attack detection and configured impulse are unchanged by this visual upgrade.
