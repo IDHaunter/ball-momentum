@@ -115,6 +115,23 @@ export class LevelValidator {
       }
     }
 
+    for (const bird of level.birds ?? []) {
+      addId(bird.id, `birds.${bird.id}`);
+      if (bird.x - bird.radius < 0 || bird.x + bird.radius > level.world.width
+        || bird.y - bird.radius < 0 || bird.y + bird.radius > level.world.height) {
+        errors.push(`birds.${bird.id}: bird circle must be inside world bounds`);
+      }
+      if (bird.patrolRange.maxX - bird.patrolRange.minX < bird.radius * 2) {
+        errors.push(`birds.${bird.id}.patrolRange: range must be at least the bird diameter`);
+      }
+      if (bird.patrolRange.minX < bird.radius || bird.patrolRange.maxX > level.world.width - bird.radius) {
+        errors.push(`birds.${bird.id}.patrolRange: patrol bounds must leave room for the bird radius inside world bounds`);
+      }
+      if (bird.x < bird.patrolRange.minX || bird.x > bird.patrolRange.maxX) {
+        errors.push(`birds.${bird.id}.x: starting position must be inside patrolRange`);
+      }
+    }
+
     let goals = 0;
     for (const trigger of level.triggers) {
       addId(trigger.id, `triggers.${trigger.id}`);

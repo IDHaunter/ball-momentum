@@ -5,7 +5,7 @@ import type { PlayerAction } from '../../src/input/PlayerAction';
 import { BallController } from '../../src/player/BallController';
 import type { IPhysicsBody } from '../../src/physics/IPhysicsBody';
 import type { IPhysicsWorld } from '../../src/physics/IPhysicsWorld';
-import type { BallPhysicsOptions, BombPhysicsOptions, MovableBoxOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from '../../src/physics/PhysicsTypes';
+import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, MovableBoxOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from '../../src/physics/PhysicsTypes';
 import { polygonEdgeOutwardNormal } from '../../src/utils/GeometryUtils';
 
 class FakeBody implements IPhysicsBody {
@@ -33,6 +33,7 @@ class FakeWorld implements IPhysicsWorld {
   createStaticPolygon(_definition: StaticPolygonOptions): void {}
   createMovableBox(_definition: MovableBoxOptions): void {}
   createBot(): void {}
+  createBird(_definition: BirdPhysicsOptions): void {}
   createBomb(_definition: BombPhysicsOptions): void {}
   removeTerrainBody(_id: string): void {}
   createSensor(_definition: SensorOptions): void {}

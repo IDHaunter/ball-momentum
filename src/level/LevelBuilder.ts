@@ -55,6 +55,26 @@ export class LevelBuilder {
         patrolMaxX: bot.patrolRange?.maxX,
       });
     }
+    for (const bird of level.birds ?? []) {
+      this.world.createBird({
+        id: bird.id,
+        x: bird.x,
+        y: bird.y,
+        radius: bird.radius,
+        mass: bird.mass,
+        patrolSpeed: bird.patrolSpeed,
+        attackSpeed: bird.attackSpeed,
+        aggressive: bird.aggressive ?? false,
+        detectionRadius: bird.detectionRadius,
+        attackImpulse: bird.attackImpulse,
+        direction: bird.direction ?? 1,
+        restitution: bird.restitution ?? 0.48,
+        friction: bird.friction ?? 0.02,
+        killPlaneY: level.world.killPlaneY,
+        patrolMinX: bird.patrolRange.minX,
+        patrolMaxX: bird.patrolRange.maxX,
+      });
+    }
     for (const bomb of level.bombs ?? []) {
       this.world.createBomb({
         id: bomb.id,

@@ -48,6 +48,8 @@ export interface BombDefinition {
 
 export interface BotPatrolRangeDefinition { minX: number; maxX: number; }
 
+export interface BirdPatrolRangeDefinition { minX: number; maxX: number; }
+
 /** Autonomous rolling character. Speed is expressed in pixels per second. */
 export interface BotDefinition {
   id: string;
@@ -60,6 +62,25 @@ export interface BotDefinition {
   restitution?: number;
   friction?: number;
   patrolRange?: BotPatrolRangeDefinition;
+}
+
+/** Flying guardian that patrols a horizontal segment and defends its rectangular territory. */
+export interface BirdDefinition {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  patrolSpeed: number;
+  attackSpeed: number;
+  aggressive?: boolean;
+  detectionRadius: number;
+  /** Additional momentum impulse (mass * px/s) applied on a successful attack hit. */
+  attackImpulse: number;
+  direction?: -1 | 1;
+  restitution?: number;
+  friction?: number;
+  patrolRange: BirdPatrolRangeDefinition;
 }
 
 /** One-shot pickup that multiplies the ball's current linear and angular velocity. */
@@ -106,6 +127,7 @@ export interface LevelDefinition {
   solids: SolidDefinition[];
   triggers: TriggerDefinition[];
   bots?: BotDefinition[];
+  birds?: BirdDefinition[];
   bombs?: BombDefinition[];
   poopPickups?: PoopPickupDefinition[];
   materials?: Record<string, TerrainMaterialDefinition>;

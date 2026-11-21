@@ -2,11 +2,12 @@ import { COLLISION_CATEGORIES } from './CollisionCategories';
 import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
-import type { BallPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from './PhysicsTypes';
+import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
 import { directionFromVelocity, hasPatrolEdgeAhead, hasPatrolObstacleAhead } from './BotPatrol';
+import { getBirdAttackInterceptPoint, getBirdChaseVelocity, getBirdGuardZone, getBirdTerritoryEgressDirection, isPointInsideBirdGuardZone } from './BirdPatrol';
 import { calculateBlastEnergy, calculateBlastVelocityDelta, distanceToPatrolGeometry } from './BombExplosion';
 import type Phaser from 'phaser';
 import { createSurfaceTextureCanvas, createSurfaceTextureKey } from '../rendering/SurfaceTextureGenerator';
@@ -53,6 +54,7 @@ interface MatterTextLike {
   setPosition(x: number, y: number): MatterTextLike;
   setRotation(value: number): MatterTextLike;
   setScale(x: number, y?: number): MatterTextLike;
+  setFlipX(value: boolean): MatterTextLike;
   setAlpha(value: number): MatterTextLike;
   setText(value: string): MatterTextLike;
   setColor(value: string): MatterTextLike;
@@ -81,6 +83,31 @@ interface BotRecord {
   patrolMaxX?: number;
   recoverySteps: number;
   turnCooldownSteps: number;
+}
+
+interface BirdRecord {
+  object: MatterGameObjectLike;
+  visual: MatterTextLike;
+  id: string;
+  radius: number;
+  mass: number;
+  patrolSpeed: number;
+  attackSpeed: number;
+  aggressive: boolean;
+  detectionRadius: number;
+  attackImpulse: number;
+  direction: -1 | 1;
+  patrolMinX: number;
+  patrolMaxX: number;
+  patrolY: number;
+  killPlaneY: number;
+  recoveryMs: number;
+  attackCooldownMs: number;
+  attacking: boolean;
+  pendingAttackImpulse: { ballBody: MatterBodyLike; direction: Vector2 } | null;
+  pendingDirectionUpdate: boolean;
+  turnCooldownSteps: number;
+  visualElapsedMs: number;
 }
 
 interface BombEyeVisual {
@@ -140,6 +167,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private readonly activeTriggers = new Set<string>();
   private readonly movableBlocks = new Map<string, MovableBlockRecord>();
   private readonly bots = new Map<string, BotRecord>();
+  private readonly birds = new Map<string, BirdRecord>();
   private readonly bombs = new Map<string, BombRecord>();
   private readonly collisionStart = (event: CollisionEventLike) => this.handleCollision(event, 'start');
   private readonly collisionActive = (event: CollisionEventLike) => this.handleCollision(event, 'active');
@@ -160,10 +188,11 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   }
 
   step(fixedStepMs: number): void {
+    this.updateBirdsBeforeStep(fixedStepMs);
     this.updateBotsBeforeStep();
     this.preStepVelocities.clear();
     for (const [body, meta] of this.metadata.entries()) {
-      if (meta.kind === 'ball' || meta.kind === 'bot' || meta.kind === 'movable' || meta.kind === 'bomb') {
+      if (meta.kind === 'ball' || meta.kind === 'bot' || meta.kind === 'bird' || meta.kind === 'movable' || meta.kind === 'bomb') {
         this.preStepVelocities.set(body, PhysicsAdapter.fromMatterVelocity(body.velocity));
       }
     }
@@ -175,8 +204,10 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       this.preStepBallVelocity = null;
       this.preStepVelocities.clear();
     }
+    this.applyPendingBirdImpulses();
     this.updateMovableBlocks();
     this.updateBotsAfterStep();
+    this.updateBirdsAfterStep(fixedStepMs);
     this.updateBombs(fixedStepMs);
   }
   setGravity(x: number, y: number, scale: number): void { this.world.setGravity(x, y, scale); }
@@ -191,7 +222,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       label: 'BALL', isStatic: false, restitution: options.restitution,
       friction: options.friction, frictionStatic: options.frictionStatic, frictionAir: options.frictionAir,
       mass: options.mass, inertia: options.fixedRotation ? Infinity : undefined,
-      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB },
+      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD },
     });
     rawBody.label = 'BALL';
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(position.x, position.y, 1, 1), rawBody, true);
@@ -213,7 +244,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       {
         label: definition.id, isStatic: true,
         friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB },
+        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD },
       },
     );
     rawBody.label = definition.id;
@@ -234,7 +265,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const rawBody = this.factory.fromVertices(center.x, center.y, [local], {
       label: definition.id, isStatic: true,
       friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB },
+      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD },
     }, true);
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(center.x, center.y, 1, 1), rawBody, true);
@@ -337,7 +368,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BOT,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD,
       },
     });
     rawBody.label = `BOT:${definition.id}`;
@@ -368,6 +399,58 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       patrolMaxX: definition.patrolMaxX,
       recoverySteps: 0,
       turnCooldownSteps: 0,
+    });
+  }
+
+  createBird(definition: BirdPhysicsOptions): void {
+    const rawBody = this.factory.circle(definition.x, definition.y, definition.radius, {
+      label: `BIRD:${definition.id}`,
+      isStatic: false,
+      mass: definition.mass,
+      friction: definition.friction,
+      frictionStatic: definition.friction,
+      frictionAir: 0.006,
+      restitution: definition.restitution,
+      collisionFilter: {
+        category: COLLISION_CATEGORIES.BIRD,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE,
+      },
+    });
+    rawBody.label = `BIRD:${definition.id}`;
+    const scene = this.scene as unknown as MatterSceneLike;
+    const visual = scene.add.text(definition.x, definition.y, '🐦', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: `${Math.max(28, definition.radius * 2.25)}px`,
+      color: '#ffffff',
+      stroke: '#263e50',
+      strokeThickness: 1.5,
+    }).setOrigin(0.5).setDepth(8);
+    const object = this.factory.gameObject(visual, rawBody, true);
+    object.body.label = `BIRD:${definition.id}`;
+    this.registerLevelObject(object, { kind: 'bird', id: definition.id, mass: definition.mass });
+    this.birds.set(definition.id, {
+      object,
+      visual,
+      id: definition.id,
+      radius: definition.radius,
+      mass: definition.mass,
+      patrolSpeed: definition.patrolSpeed,
+      attackSpeed: definition.attackSpeed,
+      aggressive: definition.aggressive,
+      detectionRadius: definition.detectionRadius,
+      attackImpulse: definition.attackImpulse,
+      direction: definition.direction,
+      patrolMinX: definition.patrolMinX,
+      patrolMaxX: definition.patrolMaxX,
+      patrolY: definition.y,
+      killPlaneY: definition.killPlaneY,
+      recoveryMs: 0,
+      attackCooldownMs: 0,
+      attacking: false,
+      pendingAttackImpulse: null,
+      pendingDirectionUpdate: false,
+      turnCooldownSteps: 0,
+      visualElapsedMs: 0,
     });
   }
 
@@ -545,6 +628,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.movableBlocks.clear();
     for (const bot of this.bots.values()) { bot.eyes.destroy(); bot.mouth.destroy(); }
     this.bots.clear();
+    this.birds.clear();
     for (const bomb of this.bombs.values()) this.destroyBombVisuals(bomb);
     this.bombs.clear();
     this.preStepVelocities.clear();
@@ -577,6 +661,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
 
   private handleCollision(event: CollisionEventLike, phase: 'start' | 'active' | 'end'): void {
     for (const pair of event.pairs ?? []) {
+      this.handleBirdCollision(pair, phase);
       this.handleBombCollision(pair, phase);
       this.handleBotCollision(pair, phase);
       const mapped = this.mapper.mapPair(pair, phase, this.preStepBallVelocity);
@@ -593,6 +678,74 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         }
         for (const listener of this.listeners) listener(item);
       }
+    }
+  }
+
+  private handleBirdCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {
+    if (phase !== 'start') return;
+    const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
+    const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
+    const metaA = this.metadata.get(bodyA);
+    const metaB = this.metadata.get(bodyB);
+    if (!metaA || !metaB) return;
+
+    const birdIsA = metaA.kind === 'bird';
+    const birdMeta = birdIsA ? metaA : metaB.kind === 'bird' ? metaB : null;
+    if (!birdMeta) return;
+    const birdBody = birdIsA ? bodyA : bodyB;
+    const otherBody = birdIsA ? bodyB : bodyA;
+    const otherMeta = birdIsA ? metaB : metaA;
+    const bird = this.birds.get(birdMeta.id);
+    if (!bird) return;
+
+    if (otherMeta.kind === 'ball') {
+      if (bird.attacking && bird.attackImpulse > 0) {
+        const delta = {
+          x: otherBody.position.x - birdBody.position.x,
+          y: otherBody.position.y - birdBody.position.y,
+        };
+        const length = Math.hypot(delta.x, delta.y) || 1;
+        const towardBall = { x: delta.x / length, y: delta.y / length };
+        const ballVelocity = this.preStepVelocities.get(otherBody)
+          ?? PhysicsAdapter.fromMatterVelocity(otherBody.velocity);
+        const birdVelocity = this.preStepVelocities.get(birdBody)
+          ?? PhysicsAdapter.fromMatterVelocity(birdBody.velocity);
+        const relativeVelocity = {
+          x: ballVelocity.x - birdVelocity.x,
+          y: ballVelocity.y - birdVelocity.y,
+        };
+        const closingSpeed = -(relativeVelocity.x * towardBall.x + relativeVelocity.y * towardBall.y);
+        if (closingSpeed > 0.1) {
+          const zone = getBirdGuardZone(bird.patrolMinX, bird.patrolMaxX, bird.patrolY, bird.detectionRadius);
+          bird.pendingAttackImpulse = {
+            ballBody: otherBody,
+            direction: getBirdTerritoryEgressDirection(otherBody.position, zone),
+          };
+        }
+      }
+      bird.attacking = false;
+      bird.recoveryMs = 520;
+      bird.attackCooldownMs = 780;
+      bird.pendingDirectionUpdate = true;
+      return;
+    }
+
+    if (otherMeta.kind !== 'terrain' && otherMeta.kind !== 'movable') return;
+    if (bird.turnCooldownSteps > 0) return;
+    const sign = birdIsA ? 1 : -1;
+    const length = Math.hypot(pair.collision.normal.x, pair.collision.normal.y) || 1;
+    let normalX = sign * pair.collision.normal.x / length;
+    let normalY = sign * pair.collision.normal.y / length;
+    const dx = birdBody.position.x - otherBody.position.x;
+    const dy = birdBody.position.y - otherBody.position.y;
+    if (normalX * dx + normalY * dy < 0) normalX *= -1, normalY *= -1;
+    const velocity = PhysicsAdapter.fromMatterVelocity(birdBody.velocity);
+    const closingSpeed = velocity.x * normalX + velocity.y * normalY;
+    if (Math.abs(normalX) >= 0.55 && closingSpeed < -1) {
+      bird.direction = normalX > 0 ? 1 : -1;
+      bird.turnCooldownSteps = 10;
+      bird.recoveryMs = 160;
+      bird.attacking = false;
     }
   }
 
@@ -998,6 +1151,127 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       bot.recoverySteps = 5;
       bot.turnCooldownSteps = 8;
     }
+  }
+
+  private applyPendingBirdImpulses(): void {
+    for (const bird of this.birds.values()) {
+      const pending = bird.pendingAttackImpulse;
+      if (!pending) {
+        if (bird.pendingDirectionUpdate) {
+          bird.direction = directionFromVelocity(bird.object.body.velocity.x, bird.direction);
+          bird.pendingDirectionUpdate = false;
+        }
+        continue;
+      }
+
+      const ballMass = this.metadata.get(pending.ballBody)?.mass ?? 1;
+      const birdVelocity = PhysicsAdapter.fromMatterVelocity(bird.object.body.velocity);
+      const ballVelocity = PhysicsAdapter.fromMatterVelocity(pending.ballBody.velocity);
+      const impulse = bird.attackImpulse;
+      const nextBallMatter = PhysicsAdapter.toMatterVelocity({
+        x: ballVelocity.x + (pending.direction.x * impulse) / ballMass,
+        y: ballVelocity.y + (pending.direction.y * impulse) / ballMass,
+      });
+      const nextBirdVelocity = {
+        x: birdVelocity.x - (pending.direction.x * impulse) / bird.mass,
+        y: birdVelocity.y - (pending.direction.y * impulse) / bird.mass,
+      };
+      const nextBirdMatter = PhysicsAdapter.toMatterVelocity(nextBirdVelocity);
+      pending.ballBody.velocity.x = nextBallMatter.x;
+      pending.ballBody.velocity.y = nextBallMatter.y;
+      bird.object.body.velocity.x = nextBirdMatter.x;
+      bird.object.body.velocity.y = nextBirdMatter.y;
+      bird.direction = directionFromVelocity(nextBirdVelocity.x, bird.direction);
+      bird.pendingAttackImpulse = null;
+      bird.pendingDirectionUpdate = false;
+    }
+  }
+
+  private updateBirdsBeforeStep(stepMs: number): void {
+    const ballBody = this.ballObject?.body;
+    const ballMeta = ballBody ? this.metadata.get(ballBody) : undefined;
+    const geometries = [...this.metadata.entries()]
+      .filter(([, meta]) => (meta.kind === 'terrain' || meta.kind === 'movable') && !meta.dynamic && meta.patrolGeometry)
+      .map(([, meta]) => meta.patrolGeometry as PatrolGeometry);
+
+    for (const bird of this.birds.values()) {
+      const body = bird.object.body;
+      if (body.position.y > bird.killPlaneY) continue;
+      bird.attackCooldownMs = Math.max(0, bird.attackCooldownMs - stepMs);
+      if (bird.turnCooldownSteps > 0) bird.turnCooldownSteps -= 1;
+
+      if (bird.recoveryMs > 0) {
+        bird.recoveryMs = Math.max(0, bird.recoveryMs - stepMs);
+        const current = PhysicsAdapter.fromMatterVelocity(body.velocity);
+        const verticalCorrection = Math.max(-110, Math.min(110, (bird.patrolY - body.position.y) * 1.25));
+        const recovered = PhysicsAdapter.toMatterVelocity({
+          x: current.x * 0.985,
+          y: current.y * 0.92 + verticalCorrection * 0.08,
+        });
+        bird.object.setVelocity(recovered.x, recovered.y);
+        bird.object.setAwake();
+        bird.attacking = false;
+        continue;
+      }
+
+      const ballPosition = ballBody?.position;
+      const zone = getBirdGuardZone(bird.patrolMinX, bird.patrolMaxX, bird.patrolY, bird.detectionRadius);
+      const withinTerritory = Boolean(ballPosition && isPointInsideBirdGuardZone(ballPosition, zone));
+      const distanceToBall = ballPosition
+        ? Math.hypot(ballPosition.x - body.position.x, ballPosition.y - body.position.y)
+        : Number.POSITIVE_INFINITY;
+      const canDetectBall = bird.aggressive && withinTerritory && distanceToBall <= bird.detectionRadius;
+
+      if (ballBody && ballMeta?.kind === 'ball' && canDetectBall && bird.attackCooldownMs <= 0) {
+        bird.attacking = true;
+        const ballRadius = ballBody.circleRadius ?? 18;
+        const egress = getBirdTerritoryEgressDirection(ballPosition!, zone);
+        const intercept = getBirdAttackInterceptPoint(ballPosition!, ballRadius, bird.radius, egress);
+        const velocity = getBirdChaseVelocity(body.position, intercept, bird.attackSpeed);
+        const matterVelocity = PhysicsAdapter.toMatterVelocity(velocity);
+        bird.object.setVelocity(matterVelocity.x, matterVelocity.y);
+        bird.object.setAwake();
+        continue;
+      }
+
+      bird.attacking = false;
+      const currentX = body.position.x;
+      if (currentX >= bird.patrolMaxX) bird.direction = -1;
+      else if (currentX <= bird.patrolMinX) bird.direction = 1;
+      const obstacleAhead = hasPatrolObstacleAhead(currentX, body.position.y, bird.direction, bird.radius, geometries);
+      if (obstacleAhead && bird.turnCooldownSteps <= 0) {
+        bird.direction = bird.direction === 1 ? -1 : 1;
+        bird.turnCooldownSteps = 10;
+      }
+
+      const verticalVelocity = Math.max(-90, Math.min(90, (bird.patrolY - body.position.y) * 1.8));
+      const patrolVelocity = PhysicsAdapter.toMatterVelocity({ x: bird.direction * bird.patrolSpeed, y: verticalVelocity });
+      bird.object.setVelocity(patrolVelocity.x, patrolVelocity.y);
+      bird.object.setAwake();
+    }
+  }
+
+  private updateBirdsAfterStep(stepMs: number): void {
+    for (const [id, bird] of [...this.birds.entries()]) {
+      const position = bird.object.body.position;
+      if (position.y > bird.killPlaneY) {
+        this.removeBird(id);
+        continue;
+      }
+      bird.visualElapsedMs += stepMs;
+      bird.visual.setFlipX(bird.direction === -1);
+      bird.visual.setRotation(bird.attacking ? Math.sin(bird.visualElapsedMs * 0.03) * 0.08 : Math.sin(bird.visualElapsedMs * 0.009) * 0.025);
+    }
+  }
+
+  private removeBird(id: string): void {
+    const bird = this.birds.get(id);
+    if (!bird) return;
+    this.birds.delete(id);
+    const entry = this.levelObjects.findIndex((object) => object.body === bird.object.body);
+    if (entry >= 0) this.levelObjects.splice(entry, 1);
+    this.metadata.delete(bird.object.body);
+    bird.object.destroy();
   }
 
   private updateBotsBeforeStep(): void {

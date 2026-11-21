@@ -232,6 +232,34 @@ describe('LevelValidator', () => {
     expect(validated.bots?.[0]).toMatchObject({ id: 'patrol-bot', mass: 1.2, speed: 140, direction: -1 });
   });
 
+  it('accepts flying birds with a patrol interval, guard radius, mass, and attack impulse', () => {
+    const level = {
+      ...validLevel,
+      birds: [{
+        id: 'nest-guardian', x: 500, y: 180, radius: 18, mass: 1.35,
+        patrolSpeed: 95, attackSpeed: 260, aggressive: true, detectionRadius: 135, attackImpulse: 150,
+        direction: -1 as const, patrolRange: { minX: 350, maxX: 650 },
+      }],
+    };
+    expect(validator.validate(level).birds?.[0]).toMatchObject({
+      id: 'nest-guardian', mass: 1.35, patrolSpeed: 95, attackSpeed: 260,
+      aggressive: true, detectionRadius: 135, attackImpulse: 150, direction: -1,
+      patrolRange: { minX: 350, maxX: 650 },
+    });
+  });
+
+  it('rejects birds outside world bounds, outside their patrol interval, or with invalid detection settings', () => {
+    const bird = {
+      id: 'nest-guardian', x: 500, y: 180, radius: 18, mass: 1.35,
+      patrolSpeed: 95, attackSpeed: 260, aggressive: true, detectionRadius: 135, attackImpulse: 150,
+      patrolRange: { minX: 350, maxX: 650 },
+    };
+    expect(() => validator.validate({ ...validLevel, birds: [{ ...bird, x: 900 }] })).toThrow(/starting position must be inside patrolRange/);
+    expect(() => validator.validate({ ...validLevel, birds: [{ ...bird, detectionRadius: 0 }] })).toThrow(/detectionRadius/);
+    expect(() => validator.validate({ ...validLevel, birds: [{ ...bird, patrolRange: { minX: 495, maxX: 505 } }] })).toThrow(/range must be at least the bird diameter/);
+    expect(() => validator.validate({ ...validLevel, birds: [{ ...bird, id: 'floor' }] })).toThrow(/duplicate ID/);
+  });
+
   it('rejects bots outside world bounds and invalid patrol ranges', () => {
     const outside = { ...validLevel, bots: [{ id: 'outside', x: 990, y: 184, radius: 16, mass: 1, speed: 100 }] };
     const invalidRange = {

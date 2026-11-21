@@ -89,6 +89,24 @@ const botSchema = z.object({
 });
 
 
+const birdSchema = z.object({
+  id: z.string().min(1),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  radius: z.number().finite().min(8).max(60),
+  mass: z.number().finite().positive().max(1000),
+  patrolSpeed: z.number().finite().positive().max(2000),
+  attackSpeed: z.number().finite().positive().max(3000),
+  aggressive: z.boolean().optional(),
+  detectionRadius: z.number().finite().min(20).max(1200),
+  attackImpulse: z.number().finite().min(0).max(5000),
+  direction: z.union([z.literal(-1), z.literal(1)]).optional(),
+  restitution: z.number().min(0).max(1).optional(),
+  friction: z.number().min(0).max(1).optional(),
+  patrolRange: z.object({ minX: z.number().finite(), maxX: z.number().finite() }),
+});
+
+
 const poopPickupSchema = z.object({
   id: z.string().min(1),
   x: z.number().finite(),
@@ -139,6 +157,7 @@ export const LevelSchema = z.object({
   solids: z.array(z.discriminatedUnion('type', [boxSchema, polygonSchema])),
   triggers: z.array(triggerSchema),
   bots: z.array(botSchema).max(24).optional(),
+  birds: z.array(birdSchema).max(24).optional(),
   bombs: z.array(bombSchema).max(24).optional(),
   poopPickups: z.array(poopPickupSchema).max(48).optional(),
   materials: z.record(z.string(), materialSchema).optional(),

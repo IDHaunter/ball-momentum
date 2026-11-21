@@ -66,6 +66,26 @@ export type PatrolGeometry =
   | { type: 'box'; x: number; y: number; width: number; height: number }
   | { type: 'polygon'; vertices: Vector2[] };
 
+
+export interface BirdPhysicsOptions {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  patrolSpeed: number;
+  attackSpeed: number;
+  aggressive: boolean;
+  detectionRadius: number;
+  attackImpulse: number;
+  direction: -1 | 1;
+  restitution: number;
+  friction: number;
+  killPlaneY: number;
+  patrolMinX: number;
+  patrolMaxX: number;
+}
+
 export interface MovableBoxOptions {
   id: string; x: number; y: number; width: number; height: number;
   mass: number; minimumImpactEnergy: number;

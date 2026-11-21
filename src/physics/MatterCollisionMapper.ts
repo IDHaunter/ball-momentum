@@ -10,7 +10,7 @@ export interface CollisionPairLike {
 export interface CollisionEventLike { pairs: CollisionPairLike[]; }
 
 export interface PhysicsBodyMetadata {
-  kind: 'ball' | 'terrain' | 'trigger' | 'movable' | 'bot' | 'bomb';
+  kind: 'ball' | 'terrain' | 'trigger' | 'movable' | 'bot' | 'bomb' | 'bird';
   id: string;
   mass?: number;
   minimumImpactEnergy?: number;

@@ -222,3 +222,29 @@ Levels can define optional one-shot cartoon poop collectibles in the top-level `
 ```
 
 `x` and `y` are the center coordinates of the pickup sensor. Its lower edge (`y + radius`) is treated as the surface contact line, and the visual character is bottom-aligned to that line. To place a pickup on a horizontal surface at `surfaceY`, set `y` to `surfaceY - radius`. `radius` controls the square sensor bounds and scales the character proportionally. `speedBoostPercent` accepts 0–200 and `spinBoostPercent` accepts 0–300. Pickups are collected once and reset when the level is restarted. The Physics Sandbox includes one example placed on its long concrete platform.
+
+
+## Flying nest guardians
+
+Levels may define flying birds in the optional `birds` array. Each bird patrols a horizontal segment at its initial `y` coordinate, turns around at the configured ends or when terrain blocks its forward corridor, and keeps its patrol altitude while flying.
+
+```json
+{
+  "id": "nest-guardian",
+  "x": 1910,
+  "y": 478,
+  "radius": 18,
+  "mass": 1.35,
+  "patrolSpeed": 95,
+  "attackSpeed": 260,
+  "aggressive": true,
+  "detectionRadius": 135,
+  "attackImpulse": 150,
+  "direction": 1,
+  "patrolRange": { "minX": 1760, "maxX": 2060 }
+}
+```
+
+`patrolRange` and the bird's `y` coordinate define a horizontal patrol line. `detectionRadius` expands that line into a protected rectangle (the patrol interval extended by the radius at each end and vertically by the same radius) and is also the bird's local detection distance. Set `aggressive: true` to enable guarding; passive birds simply patrol and still behave as physical bodies. An aggressive bird attacks only while the ball is both inside this rectangle and within `detectionRadius` of the bird. It flies to an intercept point on the inner side of the ball so an impact sends the ball toward the nearer horizontal end of the patrol lane (rather than into the nest platform).
+
+The Matter body uses the configured `mass`; ordinary patrol collisions transfer momentum through the physics solver. On an attack hit, `attackImpulse` adds a configurable equal-and-opposite impulse to the ball and bird. The bird is briefly allowed to recoil, then resumes its patrol and returns toward its original flight line. `attackImpulse` is expressed as mass × px/s and may be zero to disable the extra attack impulse while retaining the physical collision.
