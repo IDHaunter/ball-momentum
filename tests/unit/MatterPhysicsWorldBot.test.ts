@@ -169,12 +169,14 @@ describe('MatterPhysicsWorld autonomous bots', () => {
     expect(harness.gradientStops).toContain('#f58ba8');
     expect(harness.gradientStops).toContain('#9b315b');
 
-    // Each bot now has two layered eyes: white sclera, inward-facing dark
-    // pupils and tiny highlights. A single mouth remains below the eyes.
-    expect(harness.circles).toHaveLength(7);
+    // Each bot contributes one outlined body plus two layered eyes (sclera,
+    // pupil and highlight per eye). Two created bots therefore add 14 circles.
+    expect(harness.circles).toHaveLength(14);
     expect(harness.circles[1]).toMatchObject({ radius: botDefinition.radius * 0.215, color: 0xfffbf7, depth: 7 });
     expect(harness.circles[2]).toMatchObject({ radius: botDefinition.radius * 0.112, color: 0x21131d, depth: 8 });
     expect(harness.circles[3]).toMatchObject({ radius: botDefinition.radius * 0.038, color: 0xffffff, depth: 9 });
+    expect(harness.circles[7]).toMatchObject({ x: 210, y: botDefinition.y, radius: botDefinition.radius, color: 0xd65d86 });
+    expect(harness.circles[8]).toMatchObject({ radius: botDefinition.radius * 0.215, color: 0xfffbf7, depth: 7 });
     const [mouth] = harness.labels;
     expect(Number.parseFloat(String(mouth.style.fontSize))).toBeCloseTo(botDefinition.radius * 0.93, 6);
     expect(mouth.style.stroke).toBe('#6d2543');

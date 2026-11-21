@@ -16,6 +16,10 @@ function createHarness() {
   const bodies: TestBody[] = [];
   const labels: Array<{ text: string; destroyed: boolean; x: number; y: number; color: string }> = [];
   const visuals: TestVisual[] = [];
+  const images: Array<{ x: number; y: number; texture: string; width?: number; height?: number; depth?: number; rotation?: number; destroyed: boolean }> = [];
+  const gradientStops: string[] = [];
+  const canvasTextureKeys: string[] = [];
+  const textureKeySet = new Set<string>();
   const makeVisual = (kind: TestVisual['kind'], x: number, y: number, fillColor: number, alpha = 1) => {
     const state: TestVisual = { kind, x, y, fillColor, alpha, scaleX: 1, scaleY: 1, rotation: 0, visible: true, destroyed: false };
     visuals.push(state);
@@ -63,21 +67,25 @@ function createHarness() {
           destroy() { state.destroyed = true; },
         };
       },
-      image: (x: number, y: number) => {
+      image: (x: number, y: number, texture: string) => {
         const visual = makeVisual('circle', x, y, 0);
+        const state = { x, y, texture, width: 0, height: 0, depth: 0, rotation: 0, destroyed: false };
+        images.push(state);
         return {
-          setDisplaySize() { return this; },
-          setDepth() { return this; },
-          setPosition(px: number, py: number) { visual.setPosition(px, py); return this; },
-          setRotation(value: number) { visual.setRotation(value); return this; },
-          destroy() { visual.destroy(); },
+          setDisplaySize(width: number, height: number) { state.width = width; state.height = height; return this; },
+          setDepth(depth: number) { state.depth = depth; return this; },
+          setPosition(px: number, py: number) { state.x = px; state.y = py; visual.setPosition(px, py); return this; },
+          setRotation(value: number) { state.rotation = value; visual.setRotation(value); return this; },
+          destroy() { state.destroyed = true; visual.destroy(); },
         };
       },
     },
     textures: {
-      exists: () => false,
-      createCanvas: () => {
-        const gradient = { addColorStop() {} };
+      exists: (key: string) => textureKeySet.has(key),
+      createCanvas: (key: string) => {
+        canvasTextureKeys.push(key);
+        textureKeySet.add(key);
+        const gradient = { addColorStop(_offset: number, color: string) { gradientStops.push(color); } };
         const context = {
           clearRect() {}, save() {}, beginPath() {}, arc() {}, closePath() {}, clip() {}, fillRect() {}, fill() {}, restore() {}, ellipse() {},
           createLinearGradient: () => gradient,
@@ -128,7 +136,7 @@ function createHarness() {
   const world = new MatterPhysicsWorld(scene as never);
   const events: PhysicsEvent[] = [];
   world.onPhysicsEvent((event) => events.push(event));
-  return { world, handlers, bodies, labels, visuals, events };
+  return { world, handlers, bodies, labels, visuals, images, gradientStops, canvasTextureKeys, events };
 }
 
 const ballOptions = {
@@ -152,6 +160,36 @@ describe('MatterPhysicsWorld bombs', () => {
     expect(filter.mask & 0x0001).toBeTruthy();
     expect(filter.mask & 0x0010).toBeTruthy();
     harness.world.dispose();
+  });
+
+  it('uses a shared glossy graphite gradient shell that follows the bomb body', () => {
+    const harness = createHarness();
+    harness.world.createBomb(bombOptions);
+    harness.world.createBomb({ ...bombOptions, id: 'second-bomb', x: 260 });
+
+    expect(harness.canvasTextureKeys).toEqual(['ball-momentum-bomb-shell-gradient-v1']);
+    expect(harness.images).toHaveLength(2);
+    expect(harness.images[0]).toMatchObject({
+      x: bombOptions.x,
+      y: bombOptions.y,
+      texture: 'ball-momentum-bomb-shell-gradient-v1',
+      width: bombOptions.radius * 1.84,
+      height: bombOptions.radius * 1.84,
+      depth: 7.5,
+    });
+    expect(harness.gradientStops).toContain('#87939f');
+    expect(harness.gradientStops).toContain('#171d25');
+
+    const bombBody = harness.bodies.find((body) => body.label === 'BOMB:timer-bomb')!;
+    bombBody.position.x = 185;
+    bombBody.position.y = 125;
+    bombBody.angle = 0.4;
+    harness.world.step(16);
+    expect(harness.images[0]).toMatchObject({ x: 185, y: 125, rotation: 0.4 });
+    expect(harness.images[1]).toMatchObject({ x: 260, y: 100, rotation: 0 });
+
+    harness.world.dispose();
+    expect(harness.images.every((image) => image.destroyed)).toBe(true);
   });
 
   it('starts the fuse when hit by the player and pushes nearby movable and glass objects on detonation', () => {

@@ -17,6 +17,7 @@ import { BirdRenderer, type BirdRendererSceneLike } from '../rendering/BirdRende
 import { VomitEnemyRenderer, type VomitRendererSceneLike } from '../rendering/VomitEnemyRenderer';
 import { FIXED_STEP_SECONDS } from '../utils/TimeUtils';
 import { BOT_GRADIENT_TEXTURE_KEY, BOT_GRADIENT_TEXTURE_SIZE, drawBotGradient } from '../rendering/BotGradient';
+import { BOMB_GRADIENT_TEXTURE_KEY, BOMB_GRADIENT_TEXTURE_SIZE, drawBombGradient } from '../rendering/BombGradient';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -165,6 +166,7 @@ interface BombEyeVisual {
 
 interface BombRecord {
   object: MatterGameObjectLike;
+  shell: MatterImageVisualLike;
   countdown: MatterTextLike;
   shellHighlight: MatterCircleVisualLike;
   shellGlint: MatterCircleVisualLike;
@@ -660,10 +662,23 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     object.body.label = `BOMB:${definition.id}`;
     object.setStatic(true);
 
+    // Reuse one glossy graphite CanvasTexture across all bombs. The inset shell
+    // leaves the dark metallic outline visible, matching the bot shell treatment
+    // while keeping the bomb's existing face, fuse and flame layers untouched.
+    if (!scene.textures.exists(BOMB_GRADIENT_TEXTURE_KEY)) {
+      const texture = scene.textures.createCanvas(BOMB_GRADIENT_TEXTURE_KEY, BOMB_GRADIENT_TEXTURE_SIZE, BOMB_GRADIENT_TEXTURE_SIZE);
+      if (!texture) throw new Error(`Unable to create bomb gradient texture: ${BOMB_GRADIENT_TEXTURE_KEY}`);
+      drawBombGradient(texture.getContext(), BOMB_GRADIENT_TEXTURE_SIZE);
+      texture.refresh();
+    }
+    const shell = scene.add.image(definition.x, definition.y, BOMB_GRADIENT_TEXTURE_KEY)
+      .setDisplaySize(radius * 1.84, radius * 1.84)
+      .setDepth(7.5);
+
     // Separate world-space details follow the body's transform. This keeps the
-    // physical circle untouched while giving the bomb a readable metal shell,
-    // animated face, and a layered flame that is lit only after activation.
-    const shellHighlight = scene.add.circle(definition.x, definition.y, radius * 0.34, 0xb8c4d2, 0.16)
+    // physical circle untouched while giving the bomb an animated face and a
+    // layered flame that is lit only after activation.
+    const shellHighlight = scene.add.circle(definition.x, definition.y, radius * 0.34, 0xb8c4d2, 0.12)
       .setScale(1.3, 0.52).setDepth(8);
     const shellGlint = scene.add.circle(definition.x, definition.y, radius * 0.075, 0xf3f7fb, 0.78)
       .setDepth(9);
@@ -716,6 +731,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.registerLevelObject(object, { kind: 'bomb', id: definition.id, mass: definition.mass });
     const bomb: BombRecord = {
       object,
+      shell,
       countdown,
       shellHighlight,
       shellGlint,
@@ -1209,6 +1225,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       x: x + localX * Math.cos(angle) - localY * Math.sin(angle),
       y: y + localX * Math.sin(angle) + localY * Math.cos(angle),
     });
+    bomb.shell.setPosition(x, y).setRotation(angle);
+
     const placeCircle = (visual: MatterCircleVisualLike, localX: number, localY: number): void => {
       const point = rotateLocal(localX, localY);
       visual.setPosition(point.x, point.y).setRotation(angle);
@@ -1269,6 +1287,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   }
 
   private destroyBombVisuals(bomb: BombRecord): void {
+    bomb.shell.destroy();
     bomb.countdown.destroy();
     bomb.shellHighlight.destroy();
     bomb.shellGlint.destroy();
