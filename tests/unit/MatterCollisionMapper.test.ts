@@ -333,3 +333,34 @@ describe('MatterCollisionMapper movable blocks', () => {
     ]));
   });
 });
+
+
+describe('MatterCollisionMapper enemy poop pickups', () => {
+  it('reports a one-time bot trigger entry for poop sensors in either body order', () => {
+    const bot = body(120, 100);
+    const poop = body(120, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [bot, { kind: 'bot', id: 'enemy-runner' }],
+      [poop, { kind: 'trigger', id: 'poop-boost', triggerType: 'poop' }],
+    ]));
+
+    const expected = [{
+      type: 'BOT_ENTERED_TRIGGER', botId: 'enemy-runner', triggerId: 'poop-boost', triggerType: 'poop',
+    }];
+    expect(mapper.mapPair({ bodyA: bot, bodyB: poop, collision: { normal: { x: 1, y: 0 } } }, 'start')).toEqual(expected);
+    expect(mapper.mapPair({ bodyA: poop, bodyB: bot, collision: { normal: { x: -1, y: 0 } } }, 'start')).toEqual(expected);
+    expect(mapper.mapPair({ bodyA: bot, bodyB: poop, collision: { normal: { x: 1, y: 0 } } }, 'active')).toEqual([]);
+    expect(mapper.mapPair({ bodyA: bot, bodyB: poop, collision: { normal: { x: 1, y: 0 } } }, 'end')).toEqual([]);
+  });
+
+  it('does not treat ordinary triggers as enemy speed pickups', () => {
+    const bot = body(120, 100);
+    const checkpoint = body(120, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [bot, { kind: 'bot', id: 'enemy-runner' }],
+      [checkpoint, { kind: 'trigger', id: 'checkpoint-a', triggerType: 'checkpoint' }],
+    ]));
+
+    expect(mapper.mapPair({ bodyA: bot, bodyB: checkpoint, collision: { normal: { x: 1, y: 0 } } }, 'start')).toEqual([]);
+  });
+});

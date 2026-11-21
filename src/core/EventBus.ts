@@ -18,6 +18,8 @@ export interface GameEventMap {
     speedAfter: number;
     spinBefore: number;
     spinAfter: number;
+    targetKind?: 'player' | 'bot';
+    targetId?: string;
   };
 }
 

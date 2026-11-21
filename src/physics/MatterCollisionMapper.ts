@@ -32,6 +32,15 @@ export class MatterCollisionMapper {
     const metaB = this.metadata.get(bodyB);
     if (!metaA || !metaB) return [];
 
+    // Enemy rolling characters can collect poop boosts too. Keep this event
+    // separate from player trigger events so the scene can boost the bot body.
+    const botIsA = metaA.kind === 'bot';
+    const botMeta = botIsA ? metaA : metaB.kind === 'bot' ? metaB : null;
+    const botTriggerMeta = botIsA ? metaB : metaA;
+    if (phase === 'start' && botMeta && botTriggerMeta.kind === 'trigger' && botTriggerMeta.triggerType === 'poop') {
+      return [{ type: 'BOT_ENTERED_TRIGGER', botId: botMeta.id, triggerId: botTriggerMeta.id, triggerType: 'poop' }];
+    }
+
     const ballIsA = metaA.kind === 'ball';
     const ballMeta = ballIsA ? metaA : metaB;
     const otherMeta = ballIsA ? metaB : metaA;

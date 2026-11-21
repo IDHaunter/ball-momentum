@@ -71,7 +71,9 @@ function createHarness() {
     },
   };
   const world = new MatterPhysicsWorld(scene as never);
-  return { world, handlers, bodies, labels };
+  const events: import('../../src/physics/PhysicsTypes').PhysicsEvent[] = [];
+  world.onPhysicsEvent((event) => events.push(event));
+  return { world, handlers, bodies, labels, events };
 }
 
 const botDefinition = {
@@ -211,6 +213,71 @@ describe('MatterPhysicsWorld autonomous bots', () => {
     harness.world.step(1000 / 60);
     expect(bot.destroyed).toBe(true);
     expect(harness.labels.filter((label) => label.text === '••' || label.text === '⌣').every((label) => label.destroyed)).toBe(true);
+    harness.world.dispose();
+  });
+});
+
+
+describe('MatterPhysicsWorld bot poop boosts', () => {
+  it('allows bots to overlap poop sensors and emits a bot trigger event only on entry', () => {
+    const harness = createHarness();
+    harness.world.createBot(botDefinition);
+    harness.world.createSensor({ id: 'poop-boost', type: 'poop', x: 120, y: 160, width: 38, height: 38 });
+    const bot = harness.bodies.find((body) => body.label === 'BOT:patrol-bot')!;
+    const sensor = harness.bodies.find((body) => body.label === 'poop-boost')!;
+    const botMask = (bot.options?.collisionFilter as { mask: number }).mask;
+    const sensorMask = (sensor.options?.collisionFilter as { mask: number }).mask;
+
+    expect(botMask & 0x0004).toBeTruthy();
+    expect(sensorMask & 0x0010).toBeTruthy();
+
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: bot, bodyB: sensor, collision: { normal: { x: 1, y: 0 } } }],
+    });
+    harness.handlers.get('collisionactive')?.({
+      pairs: [{ bodyA: bot, bodyB: sensor, collision: { normal: { x: 1, y: 0 } } }],
+    });
+    // A second entry callback for the same one-shot sensor cannot grant a duplicate boost.
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: bot, bodyB: sensor, collision: { normal: { x: 1, y: 0 } } }],
+    });
+
+    expect(harness.events).toEqual([{
+      type: 'BOT_ENTERED_TRIGGER', botId: 'patrol-bot', triggerId: 'poop-boost', triggerType: 'poop',
+    }]);
+    harness.world.dispose();
+  });
+
+  it('permanently increases bot patrol speed and angular velocity by configured percentages', () => {
+    const harness = createHarness();
+    harness.world.createBot(botDefinition);
+    const bot = harness.bodies.find((body) => body.label === 'BOT:patrol-bot')!;
+    bot.velocity.x = PhysicsAdapter.toMatterVelocity({ x: 120, y: 0 }).x;
+    bot.angularVelocity = 0.5;
+
+    const result = harness.world.applyBotSpeedSpinBoost('patrol-bot', 25, 45);
+    expect(result).not.toBeNull();
+    expect(result?.speedBefore).toBeCloseTo(120, 6);
+    expect(result?.speedAfter).toBeCloseTo(150, 6);
+    expect(result?.spinBefore).toBeCloseTo(0.5, 6);
+    expect(result?.spinAfter).toBeCloseTo(0.725, 6);
+    expect(bot.angularVelocity).toBeCloseTo(0.725, 6);
+
+    // The boosted patrol speed must persist when the bot AI writes its velocity.
+    harness.world.step(1000 / 60);
+    expect(PhysicsAdapter.fromMatterVelocity(bot.velocity).x).toBeCloseTo(150, 6);
+    harness.world.dispose();
+  });
+
+  it('seeds a rolling spin when the enemy was not rotating before collection', () => {
+    const harness = createHarness();
+    harness.world.createBot(botDefinition);
+    const bot = harness.bodies.find((body) => body.label === 'BOT:patrol-bot')!;
+    bot.velocity.x = PhysicsAdapter.toMatterVelocity({ x: 120, y: 0 }).x;
+
+    const result = harness.world.applyBotSpeedSpinBoost('patrol-bot', 20, 50);
+    expect(result?.spinAfter).toBeGreaterThan(0);
+    expect(bot.angularVelocity).toBeCloseTo(result!.spinAfter, 8);
     harness.world.dispose();
   });
 });

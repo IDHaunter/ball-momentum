@@ -47,6 +47,13 @@ export interface BombPhysicsOptions {
   killPlaneY: number;
 }
 
+export interface SpeedSpinBoostResult {
+  speedBefore: number;
+  speedAfter: number;
+  spinBefore: number;
+  spinAfter: number;
+}
+
 export interface BotPhysicsOptions {
   id: string;
   x: number;
@@ -106,4 +113,5 @@ export type PhysicsEvent =
   | { type: 'BALL_TERRAIN_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; penetrationDepth: number }
   | { type: 'BOMB_EXPLODED'; bombId: string; position: Vector2; radius: number; explosionEnergy: number; breakableIds: string[] }
   | { type: 'BALL_ENTERED_TRIGGER'; triggerId: string; triggerType: 'hazard' | 'checkpoint' | 'goal' | 'poop' }
+  | { type: 'BOT_ENTERED_TRIGGER'; botId: string; triggerId: string; triggerType: 'poop' }
   | { type: 'BALL_EXITED_TRIGGER'; triggerId: string };

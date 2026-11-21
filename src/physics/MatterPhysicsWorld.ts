@@ -2,7 +2,7 @@ import { COLLISION_CATEGORIES } from './CollisionCategories';
 import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
-import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2 } from './PhysicsTypes';
+import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
@@ -14,6 +14,7 @@ import { createSurfaceTextureCanvas, createSurfaceTextureKey } from '../renderin
 import { hashSurfaceTextureSeed } from '../rendering/SurfaceTextureCatalog';
 import { drawBoxBorders } from '../rendering/SurfaceBorderRenderer';
 import { BirdRenderer, type BirdRendererSceneLike } from '../rendering/BirdRenderer';
+import { FIXED_STEP_SECONDS } from '../utils/TimeUtils';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -368,7 +369,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BOT,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD,
       },
     });
     rawBody.label = `BOT:${definition.id}`;
@@ -400,6 +401,47 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       recoverySteps: 0,
       turnCooldownSteps: 0,
     });
+  }
+
+  applyBotSpeedSpinBoost(id: string, speedBoostPercent: number, spinBoostPercent: number): SpeedSpinBoostResult | null {
+    const bot = this.bots.get(id);
+    if (!bot) return null;
+
+    const body = bot.object.body;
+    const currentVelocity = PhysicsAdapter.fromMatterVelocity(body.velocity);
+    const speedBefore = Math.hypot(currentVelocity.x, currentVelocity.y);
+    const speedFactor = 1 + Math.max(0, Math.min(200, speedBoostPercent)) / 100;
+    const spinFactor = 1 + Math.max(0, Math.min(300, spinBoostPercent)) / 100;
+
+    // Bot patrol logic reapplies its configured horizontal speed every step,
+    // so update the persistent patrol speed as well as the instantaneous body.
+    bot.speed = Math.min(2000, bot.speed * speedFactor);
+    const boostedVelocity = {
+      x: bot.direction * bot.speed,
+      y: Math.max(-2000, Math.min(2000, currentVelocity.y * speedFactor)),
+    };
+    const matterVelocity = PhysicsAdapter.toMatterVelocity(boostedVelocity);
+    bot.object.setVelocity(matterVelocity.x, matterVelocity.y);
+
+    const spinBefore = body.angularVelocity;
+    const spinSeedSpeed = Math.max(speedBefore, bot.speed);
+    const rollingSpin = spinBoostPercent > 0 && spinSeedSpeed > 1
+      ? Math.sign(currentVelocity.x || currentVelocity.y || bot.direction)
+        * (spinSeedSpeed / Math.max(1, bot.radius)) * FIXED_STEP_SECONDS
+      : 0;
+    const spinBase = Math.abs(spinBefore) > 0.0001 ? spinBefore : rollingSpin;
+    const spinAfter = spinBase * spinFactor;
+    bot.object.setAngularVelocity(spinAfter);
+    bot.object.setAwake();
+    bot.recoverySteps = 0;
+    bot.turnCooldownSteps = 0;
+
+    return {
+      speedBefore,
+      speedAfter: Math.hypot(boostedVelocity.x, boostedVelocity.y),
+      spinBefore,
+      spinAfter,
+    };
   }
 
   createBird(definition: BirdPhysicsOptions): void {
@@ -562,7 +604,10 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       definition.height,
       {
         label: definition.id, isStatic: true, isSensor: true,
-        collisionFilter: { category: COLLISION_CATEGORIES.TRIGGER, mask: COLLISION_CATEGORIES.BALL },
+        collisionFilter: {
+          category: COLLISION_CATEGORIES.TRIGGER,
+          mask: COLLISION_CATEGORIES.BALL | (definition.type === 'poop' ? COLLISION_CATEGORIES.BOT : 0),
+        },
       },
     );
     rawBody.label = definition.id;
@@ -663,7 +708,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
           this.activateMovableBlock(item);
           continue;
         }
-        if (item.type === 'BALL_ENTERED_TRIGGER') {
+        if (item.type === 'BALL_ENTERED_TRIGGER' || item.type === 'BOT_ENTERED_TRIGGER') {
           if (this.activeTriggers.has(item.triggerId)) continue;
           this.activeTriggers.add(item.triggerId);
         } else if (item.type === 'BALL_EXITED_TRIGGER') {

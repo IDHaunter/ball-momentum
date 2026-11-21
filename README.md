@@ -170,7 +170,7 @@ Open **Settings** from the main menu to choose a ball appearance. The built-in s
 
 ## Autonomous patrol bots
 
-Levels can define up to 24 autonomous rolling bots in the optional top-level `bots` array. Each bot is a dynamic circular Matter body with its own mass, radius, horizontal patrol speed, initial direction, restitution, and friction. Bots collide physically with the player ball, terrain, movable blocks, and other bots. They do not consume player input or activate level triggers.
+Levels can define up to 24 autonomous rolling bots in the optional top-level `bots` array. Each bot is a dynamic circular Matter body with its own mass, radius, horizontal patrol speed, initial direction, restitution, and friction. Bots collide physically with the player ball, terrain, movable blocks, and other bots. They do not consume player input or ordinary level triggers; poop speed-and-spin pickups are a special collectible that can boost either the player or a bot.
 
 ```json
 {
@@ -204,7 +204,7 @@ Level solids can optionally define a procedural `texture` independently of their
 
 ## Poop speed-and-spin pickups
 
-Levels can define optional one-shot cartoon poop collectibles in the top-level `poopPickups` array. The character body stays still while its oversized pupils glance around independently; the old floating motion and decorative yellow sparkle are intentionally absent. When the player ball touches one, the pickup disappears in a sticky splat: small brown droplets flick outward, stretch into drips, run down briefly, and fade. The ball's current linear velocity and axial spin are multiplied by the configured percentages. Linear velocity keeps its incoming direction and remains within the normal movement speed limits. If the ball is moving but has almost no spin at collection time, the pickup seeds a gentle rolling spin before applying the spin multiplier.
+Levels can define optional one-shot cartoon poop collectibles in the top-level `poopPickups` array. The character body stays still while its oversized pupils glance around independently; the old floating motion and decorative yellow sparkle are intentionally absent. When the player ball or an autonomous rolling bot touches one, the pickup disappears in a sticky splat: small brown droplets flick outward, stretch into drips, run down briefly, and fade. The touching character's linear speed and axial spin are multiplied by the configured percentages. For bots, the boosted patrol speed is retained by their patrol controller, so it is not overwritten on the next physics step. If a character is moving but has almost no spin at collection time, the pickup seeds a gentle rolling spin before applying the spin multiplier. Each pickup is one-shot and can be collected by only one character; whichever arrives first consumes it.
 
 ```json
 {

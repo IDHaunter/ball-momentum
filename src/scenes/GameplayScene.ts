@@ -345,6 +345,25 @@ export class GameplayScene extends Phaser.Scene {
         }
         continue;
       }
+      if (event.type === 'BOT_ENTERED_TRIGGER') {
+        if (this.gameRegistry.flow.state !== 'PLAYING' || !this.levelBuilder) continue;
+        const pickup = this.levelBuilder.collectPoopPickup(event.triggerId);
+        if (!pickup) continue;
+        const boost = this.physicsWorld.applyBotSpeedSpinBoost(
+          event.botId, pickup.speedBoostPercent, pickup.spinBoostPercent,
+        );
+        if (!boost) continue;
+        this.effects.poopBoost(
+          pickup.x, pickup.y, pickup.radius, pickup.speedBoostPercent, pickup.spinBoostPercent,
+        );
+        this.gameRegistry.events.emit('pickupCollected', {
+          id: pickup.id, type: 'poop', targetKind: 'bot', targetId: event.botId,
+          speedBoostPercent: pickup.speedBoostPercent, spinBoostPercent: pickup.spinBoostPercent,
+          speedBefore: boost.speedBefore, speedAfter: boost.speedAfter,
+          spinBefore: boost.spinBefore, spinAfter: boost.spinAfter,
+        });
+        continue;
+      }
       if (event.type !== 'BALL_ENTERED_TRIGGER' || this.gameRegistry.flow.state !== 'PLAYING') continue;
       if (event.triggerType === 'poop') {
         if (!this.ball || !this.levelBuilder) continue;
@@ -355,7 +374,7 @@ export class GameplayScene extends Phaser.Scene {
           pickup.x, pickup.y, pickup.radius, pickup.speedBoostPercent, pickup.spinBoostPercent,
         );
         this.gameRegistry.events.emit('pickupCollected', {
-          id: pickup.id, type: 'poop',
+          id: pickup.id, type: 'poop', targetKind: 'player', targetId: 'player',
           speedBoostPercent: pickup.speedBoostPercent, spinBoostPercent: pickup.spinBoostPercent,
           speedBefore: boost.speedBefore, speedAfter: boost.speedAfter,
           spinBefore: boost.spinBefore, spinAfter: boost.spinAfter,
