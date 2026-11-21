@@ -8,6 +8,7 @@ export interface BorderGraphicsLike {
   fillStyle(color: number, alpha?: number): unknown;
   fillEllipse(x: number, y: number, width: number, height: number): unknown;
   strokeEllipse(x: number, y: number, width: number, height: number): unknown;
+  fillPoints(points: BorderPoint[], closeShape?: boolean, closePath?: boolean, endIndex?: number): unknown;
 }
 
 export interface BorderPoint { x: number; y: number; }
@@ -157,6 +158,12 @@ export function drawSurfaceBorder(
       }
       break;
     }
+    case 'brick': {
+      // A dark warm mortar bed ties the border to the terracotta face texture.
+      stroke(11, 0x453931, 1);
+      drawBrickMasonryBorder(graphics, edge, length, tangent, normal);
+      break;
+    }
     case 'glass': {
       // Keep the border inside the muted graphite / blue-grey palette of the
       // glass facets. Low alpha lets the face texture visually continue into
@@ -278,6 +285,126 @@ function drawStonePebbleCoating(
         glintX + xAxis.x * width * 0.17,
         glintY + xAxis.y * width * 0.17,
       );
+    }
+  }
+}
+
+interface BrickEdgeTone { body: number; shade: number; highlight: number; }
+
+// These warm fired-clay colours are sampled from the brick-masonry face palette.
+const BRICK_EDGE_TONES: readonly BrickEdgeTone[] = [
+  { body: 0xb15b39, shade: 0x693725, highlight: 0xe0a07b },
+  { body: 0xc0663f, shade: 0x77402b, highlight: 0xe5aa81 },
+  { body: 0x9e4d33, shade: 0x5f3025, highlight: 0xd88a67 },
+  { body: 0xcc774b, shade: 0x80432e, highlight: 0xf0b18a },
+  { body: 0xa95235, shade: 0x673425, highlight: 0xd9926d },
+];
+
+/**
+ * Draws a miniature terracotta brick course along the exposed edge. The top
+ * gets one larger, hand-laid row with individually skewed bricks and a few
+ * raised corners; side and bottom edges keep their original compact course.
+ * All shapes are decorative Graphics only, and the original Matter boundary
+ * remains unchanged.
+ */
+function drawBrickMasonryBorder(
+  graphics: BorderGraphicsLike,
+  edge: BorderEdgeSegment,
+  length: number,
+  tangent: BorderPoint,
+  normal: BorderPoint,
+): void {
+  const random = createEdgeRandom(edge);
+  const isUpperEdge = normal.y < -0.35;
+  // Preserve the established side/bottom layout exactly; only the top course
+  // changes to fewer, longer blocks with a more irregular hand-laid silhouette.
+  const courses = 1;
+  const brickPitch = isUpperEdge ? 26.2 : 19.2;
+
+  for (let course = 0; course < courses; course += 1) {
+    const stagger = 0;
+    const centerOffset = isUpperEdge ? -2.7 : 0;
+    const brickCount = Math.ceil((length + stagger) / brickPitch) + 1;
+
+    for (let index = 0; index < brickCount; index += 1) {
+      const tone = BRICK_EDGE_TONES[Math.floor(random() * BRICK_EDGE_TONES.length)];
+      const rawStart = index * brickPitch - stagger + 0.6 + (random() - 0.5) * (isUpperEdge ? 1.25 : 0.8);
+      const start = Math.max(0.35, rawStart);
+      const availableLength = Math.min(isUpperEdge ? 25.0 : 18.0, length - start - 0.65);
+      if (availableLength < (isUpperEdge ? 12.0 : 7.5)) continue;
+
+      const nominalLength = isUpperEdge ? 20.6 + random() * 3.5 : 13.8 + random() * 3.4;
+      const brickLength = Math.min(availableLength, nominalLength);
+      const depth = (isUpperEdge ? 8.2 : 7.0) + random() * (isUpperEdge ? 1.8 : 1.1);
+      const offset = centerOffset + (random() - 0.5) * (isUpperEdge ? 1.8 : 0.65);
+      const angle = (random() - 0.5) * (isUpperEdge ? 0.19 : 0.045);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const brickTangent = {
+        x: tangent.x * cos - normal.x * sin,
+        y: tangent.y * cos - normal.y * sin,
+      };
+      const brickNormal = {
+        x: tangent.x * sin + normal.x * cos,
+        y: tangent.y * sin + normal.y * cos,
+      };
+      const alongCenter = start + brickLength * 0.5;
+      const center = {
+        x: edge.a.x + tangent.x * alongCenter + normal.x * offset,
+        y: edge.a.y + tangent.y * alongCenter + normal.y * offset,
+      };
+      const halfLength = brickLength * 0.5;
+      const halfDepth = depth * 0.5;
+      const bevel = Math.min(isUpperEdge ? 1.9 : 1.45, halfDepth * 0.48, halfLength * 0.18);
+      const point = (along: number, outward: number): BorderPoint => ({
+        x: center.x + brickTangent.x * along + brickNormal.x * outward,
+        y: center.y + brickTangent.y * along + brickNormal.y * outward,
+      });
+      // A few top corners sit slightly proud of the mortar line, as if the
+      // larger bricks were placed by hand rather than cut to a perfect edge.
+      const raisedLeftCorner = isUpperEdge && random() > 0.58 ? 1.0 + random() * 1.8 : 0;
+      const raisedRightCorner = isUpperEdge && random() > 0.72 ? 0.8 + random() * 1.4 : 0;
+      const points = [
+        point(-halfLength + bevel, halfDepth + raisedLeftCorner),
+        point(halfLength - bevel, halfDepth + raisedRightCorner),
+        point(halfLength, halfDepth - bevel + raisedRightCorner * 0.35),
+        point(halfLength, -halfDepth + bevel),
+        point(halfLength - bevel, -halfDepth),
+        point(-halfLength + bevel, -halfDepth),
+        point(-halfLength, -halfDepth + bevel),
+        point(-halfLength, halfDepth - bevel + raisedLeftCorner * 0.35),
+      ];
+
+      // A small offset shadow separates the brick from its mortar bed.
+      graphics.fillStyle(0x382b26, 0.25);
+      graphics.fillPoints(points.map((p) => ({ x: p.x + normal.x * 0.7, y: p.y + normal.y * 0.7 })), true, true);
+      graphics.fillStyle(tone.body, 0.98);
+      graphics.fillPoints(points, true, true);
+
+      // Thin bevel outline, bright upper arris and a darker lower face mimic fired clay.
+      graphics.lineStyle(0.9, tone.shade, 0.92);
+      for (let pointIndex = 0; pointIndex < points.length; pointIndex += 1) {
+        const current = points[pointIndex];
+        const next = points[(pointIndex + 1) % points.length];
+        graphics.lineBetween(current.x, current.y, next.x, next.y);
+      }
+      graphics.lineStyle(1.0, tone.highlight, 0.56);
+      graphics.lineBetween(points[0].x, points[0].y, points[1].x, points[1].y);
+      graphics.lineStyle(0.85, tone.shade, 0.76);
+      graphics.lineBetween(points[4].x, points[4].y, points[5].x, points[5].y);
+
+      // A few very small clay pores keep the little blocks from looking too synthetic.
+      if (random() > 0.72) {
+        const poreAlong = (random() - 0.5) * brickLength * 0.45;
+        const poreOffset = (random() - 0.5) * depth * 0.28;
+        graphics.fillStyle(tone.shade, 0.24);
+        graphics.fillEllipse(
+          center.x + brickTangent.x * poreAlong + brickNormal.x * poreOffset,
+          center.y + brickTangent.y * poreAlong + brickNormal.y * poreOffset,
+          1.2 + random() * 0.8,
+          0.75 + random() * 0.45,
+        );
+      }
     }
   }
 }

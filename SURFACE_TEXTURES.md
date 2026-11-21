@@ -71,3 +71,8 @@ The end of `physics-sandbox` contains a labelled ten-sample display row covering
 ## Glass border finish
 
 Glass solids can use `borders: { top: "glass", right: "glass", ... }` (or polygon edge assignments with `style: "glass"`). This is a separate, visual-only border style: it uses a subdued graphite blue-grey palette and low opacity so the edge blends into the darker translucent glass facets. Sparse soft oval reflections add a restrained glass sheen; there are no bright cyan bands, diagonal ice-like strokes, snow or crystal shapes. It does not alter the glass material's friction, restitution, breakability, collision shape or impact behavior. Existing JSON using `ice` remains valid and keeps its original ice appearance.
+
+
+## Terracotta brick border
+
+Brick-style edges (`borders: { top: "brick", right: "brick", bottom: "brick", left: "brick" }` or polygon edge assignments with `style: "brick"`) use miniature chamfered terracotta blocks with warm dark mortar joints. Upward-facing edges use one course of larger, individually skewed hand-laid bricks, with occasional raised corners and subtle height variation; vertical and bottom edges retain their compact, neat single course. The palette matches the fired-clay tones used by `brick-masonry`. This is a decorative overlay only and does not affect the solid geometry, Matter body, friction, restitution, spring behavior or movement.

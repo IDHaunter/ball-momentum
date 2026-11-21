@@ -209,11 +209,11 @@
       "borders": [
         {
           "edge": 0,
-          "style": "grass"
+          "style": "brick"
         },
         {
           "edge": 1,
-          "style": "none"
+          "style": "brick"
         },
         {
           "edge": 2,
@@ -484,10 +484,10 @@
         "seed": 59
       },
       "borders": {
-        "top": "stone",
-        "right": "stone",
-        "bottom": "none",
-        "left": "stone"
+        "top": "brick",
+        "right": "brick",
+        "bottom": "brick",
+        "left": "brick"
       }
     },
     {
@@ -772,7 +772,7 @@
       "type": "text",
       "x": 5025,
       "y": 730,
-      "text": "BRICK MASONRY",
+      "text": "TERRACOTTA BRICK EDGE",
       "color": "#dcecf6",
       "depth": 4
     },

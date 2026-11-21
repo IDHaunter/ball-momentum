@@ -265,11 +265,17 @@ describe('surface textures', () => {
     const custom = {
       ...validLevel,
       solids: [
-        { id: 'box', type: 'box', x: 0, y: 200, width: 300, height: 100, borders: { top: 'grass', right: 'metal', bottom: 'none' } },
-        { id: 'triangle', type: 'polygon', vertices: [[400, 300], [450, 200], [500, 300]], borders: [{ edge: 0, style: 'grass' }, { edge: 1, style: 'asphalt' }] },
+        { id: 'box', type: 'box', x: 0, y: 200, width: 300, height: 100, borders: { top: 'grass', right: 'metal', bottom: 'none', left: 'brick' } },
+        { id: 'triangle', type: 'polygon', vertices: [[400, 300], [450, 200], [500, 300]], borders: [{ edge: 0, style: 'grass' }, { edge: 1, style: 'brick' }] },
       ],
     };
-    expect(validator.validate(custom).solids).toHaveLength(2);
+    const validated = validator.validate(custom);
+    expect(validated.solids).toHaveLength(2);
+    const box = validated.solids[0];
+    const polygon = validated.solids[1];
+    if (box.type !== 'box' || polygon.type !== 'polygon') throw new Error('Expected a box and polygon');
+    expect(box.borders?.left).toBe('brick');
+    expect(polygon.borders?.[1].style).toBe('brick');
   });
 
   it('rejects duplicate polygon border assignments', () => {

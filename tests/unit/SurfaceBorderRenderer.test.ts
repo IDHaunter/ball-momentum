@@ -13,6 +13,7 @@ class FakeGraphics implements BorderGraphicsLike {
   currentFill = { color: 0, alpha: 1 };
   lines: Array<{ x1: number; y1: number; x2: number; y2: number; width: number; color: number; alpha: number }> = [];
   ellipses: Array<{ x: number; y: number; width: number; height: number; fill: boolean; color: number; alpha: number }> = [];
+  polygons: Array<{ points: Array<{ x: number; y: number }>; color: number; alpha: number }> = [];
   lineStyle(width: number, color: number, alpha = 1): unknown {
     this.current = { width, color, alpha };
     return this;
@@ -31,6 +32,10 @@ class FakeGraphics implements BorderGraphicsLike {
   }
   strokeEllipse(x: number, y: number, width: number, height: number): unknown {
     this.ellipses.push({ ...this.current, x, y, width, height, fill: false });
+    return this;
+  }
+  fillPoints(points: Array<{ x: number; y: number }>, _closeShape = false, _closePath = false): unknown {
+    this.polygons.push({ points: points.map((point) => ({ ...point })), ...this.currentFill });
     return this;
   }
 }
@@ -77,6 +82,56 @@ describe('SurfaceBorderRenderer', () => {
     drawBoxBorders(side, 0, 0, 160, 40, { top: 'none', right: 'stone', bottom: 'none', left: 'none' });
     expect(side.ellipses).toHaveLength(0);
     expect(side.lines.some((line) => line.color === 0x4a5864)).toBe(true);
+  });
+
+
+  it('draws one larger, irregular terracotta brick row along the upper edge', () => {
+    const top = new FakeGraphics();
+    const secondTop = new FakeGraphics();
+    drawBoxBorders(top, 0, 0, 180, 50, { top: 'brick', right: 'none', bottom: 'none', left: 'none' });
+    drawBoxBorders(secondTop, 0, 0, 180, 50, { top: 'brick', right: 'none', bottom: 'none', left: 'none' });
+
+    const bodyColors = new Set([0xb15b39, 0xc0663f, 0x9e4d33, 0xcc774b, 0xa95235]);
+    const upperBricks = top.polygons.filter((polygon) => bodyColors.has(polygon.color));
+    expect(upperBricks.length).toBeGreaterThan(4);
+    expect(upperBricks.length).toBeLessThan(10); // One course, not the previous two.
+    expect(top.polygons).toEqual(secondTop.polygons);
+    expect(new Set(top.polygons.map((polygon) => polygon.color)).size).toBeGreaterThan(2);
+    expect(top.polygons.every((polygon) => polygon.points.length === 8)).toBe(true);
+    expect(top.lines.some((line) => line.color === 0x453931 && line.width === 11)).toBe(true);
+
+    const upperWidths = upperBricks.map((polygon) => {
+      const xs = polygon.points.map((point) => point.x);
+      return Math.max(...xs) - Math.min(...xs);
+    });
+    expect(Math.min(...upperWidths)).toBeGreaterThan(18.5);
+    expect(Math.max(...upperWidths) - Math.min(...upperWidths)).toBeGreaterThan(0.35);
+
+    const verticalSide = new FakeGraphics();
+    drawBoxBorders(verticalSide, 0, 0, 120, 50, { top: 'none', right: 'brick', bottom: 'none', left: 'none' });
+    const sideBricks = verticalSide.polygons.filter((polygon) => bodyColors.has(polygon.color));
+    const sideLengths = sideBricks.map((polygon) => {
+      const ys = polygon.points.map((point) => point.y);
+      return Math.max(...ys) - Math.min(...ys);
+    });
+    expect(sideLengths.length).toBeGreaterThan(1);
+    expect(Math.max(...sideLengths)).toBeLessThan(19); // Existing smaller side bricks are retained.
+
+    const sideAndBottom = new FakeGraphics();
+    drawBoxBorders(sideAndBottom, 0, 0, 120, 50, { top: 'none', right: 'brick', bottom: 'brick', left: 'brick' });
+    expect(sideAndBottom.polygons.length).toBeGreaterThan(12);
+    expect(sideAndBottom.lines.some((line) => line.color === 0x79d5ed || line.color === 0xf4ffff)).toBe(false);
+  });
+
+  it('follows sloped polygon edges with deterministic brick courses', () => {
+    const first = new FakeGraphics();
+    const second = new FakeGraphics();
+    const vertices: Array<[number, number]> = [[0, 55], [75, 0], [150, 55], [150, 110], [0, 110]];
+    const borders = [{ edge: 0, style: 'brick' as const }, { edge: 1, style: 'brick' as const }];
+    drawPolygonBorders(first, vertices, borders);
+    drawPolygonBorders(second, vertices, borders);
+    expect(first.polygons).toEqual(second.polygons);
+    expect(first.polygons.length).toBeGreaterThan(10);
   });
 
   it('draws a subdued graphite glass rim with soft reflections and no ice-like strokes', () => {
