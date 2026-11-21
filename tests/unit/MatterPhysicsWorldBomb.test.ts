@@ -9,6 +9,7 @@ type TestBody = MatterBodyLike & { isStatic?: boolean; destroyed?: boolean; opti
 type TestVisual = {
   kind: 'circle' | 'rectangle'; x: number; y: number; fillColor: number; alpha: number;
   scaleX: number; scaleY: number; rotation: number; visible: boolean; destroyed: boolean;
+  strokeWidth?: number; strokeColor?: number; strokeAlpha?: number;
 };
 
 function createHarness() {
@@ -24,7 +25,12 @@ function createHarness() {
     const state: TestVisual = { kind, x, y, fillColor, alpha, scaleX: 1, scaleY: 1, rotation: 0, visible: true, destroyed: false };
     visuals.push(state);
     return {
-      setStrokeStyle() { return this; },
+      setStrokeStyle(width: number, color: number, strokeAlpha = 1) {
+        state.strokeWidth = width;
+        state.strokeColor = color;
+        state.strokeAlpha = strokeAlpha;
+        return this;
+      },
       setDepth() { return this; },
       setPosition(px: number, py: number) { state.x = px; state.y = py; return this; },
       setRotation(value: number) { state.rotation = value; return this; },
@@ -168,6 +174,15 @@ describe('MatterPhysicsWorld bombs', () => {
     harness.world.createBomb({ ...bombOptions, id: 'second-bomb', x: 260 });
 
     expect(harness.canvasTextureKeys).toEqual(['ball-momentum-bomb-shell-gradient-v1']);
+    expect(harness.visuals[0]).toMatchObject({
+      fillColor: 0x15171d,
+      strokeWidth: Math.max(1.1, bombOptions.radius * 0.06),
+      strokeColor: 0x2e3238,
+      strokeAlpha: 0.9,
+    });
+    // The outline is deliberately low-contrast: only slightly lighter than
+    // the graphite fill, rather than a prominent separate rim.
+    expect(harness.visuals[0].strokeColor).toBeGreaterThan(harness.visuals[0].fillColor);
     expect(harness.images).toHaveLength(2);
     expect(harness.images[0]).toMatchObject({
       x: bombOptions.x,

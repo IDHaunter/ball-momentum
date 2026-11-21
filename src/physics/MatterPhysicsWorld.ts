@@ -656,7 +656,9 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const scene = this.scene as unknown as MatterSceneLike;
     const radius = definition.radius;
     const visual = scene.add.circle(definition.x, definition.y, radius, 0x15171d, 1)
-      .setStrokeStyle(Math.max(1.6, radius * 0.105), 0x707984, 1)
+      // Keep the bomb outline as subtle as the player/bot outlines: a thin,
+      // low-contrast graphite edge that barely separates the shell from the scene.
+      .setStrokeStyle(Math.max(1.1, radius * 0.06), 0x2e3238, 0.9)
       .setDepth(7);
     const object = this.factory.gameObject(visual, rawBody, true);
     object.body.label = `BOMB:${definition.id}`;
