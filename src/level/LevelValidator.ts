@@ -96,6 +96,14 @@ export class LevelValidator {
       }
     }
 
+    for (const enemy of level.vomitEnemies ?? []) {
+      addId(enemy.id, `vomitEnemies.${enemy.id}`);
+      if (enemy.x - enemy.radius < 0 || enemy.x + enemy.radius > level.world.width
+        || enemy.y - enemy.radius < 0 || enemy.y + enemy.radius > level.world.height) {
+        errors.push(`vomitEnemies.${enemy.id}: enemy circle must be inside world bounds`);
+      }
+    }
+
     for (const bot of level.bots ?? []) {
       addId(bot.id, `bots.${bot.id}`);
       if (bot.x - bot.radius < 0 || bot.x + bot.radius > level.world.width

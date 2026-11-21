@@ -255,3 +255,26 @@ The Matter body uses the configured `mass`; ordinary patrol collisions transfer 
 Bird guardians use a procedural cartoon renderer rather than a platform-dependent emoji. Their rounded teal-and-gold bodies, oversized googly eyes, beak, crest, feet and two independently flapping feathered wings are redrawn on each fixed physics step. Wing cadence increases during an attack, while the bird leans forward and opens its beak.
 
 A bird/ball collision emits a deterministic, short-lived burst of colored feathers. Each feather has its own velocity, gravity, rotation and fade-out, and the particle layer is disposed with the bird. The circular Matter body, patrol behavior, attack detection and configured impulse are unchanged by this visual upgrade.
+
+## Green vomit enemies
+
+Levels may define optional `vomitEnemies` entries. A green enemy is a dynamic, pushable circular body. When the main ball enters its detection radius, it emits an immediate outward pulse, then repeats at `pulseIntervalSeconds` while the ball remains in range. The pulse adds `pulseImpulse / ballMass` to the ball's velocity in the direction from the green enemy toward the ball. The velocity change is applied through the Phaser Matter GameObject setter so Matter synchronizes its previous-position state and preserves the impulse during integration. The gagging animation emits a deterministic cone of individual slime droplets; no continuous beam is drawn. The enemy can be knocked from its ledge and is removed after falling below the level kill plane. Its Sandbox radius matches the player smiley radius (18 px).
+
+Example:
+
+```json
+{
+  "id": "green-gremlin",
+  "x": 6282,
+  "y": 862,
+  "radius": 18,
+  "mass": 1.15,
+  "detectionRadius": 245,
+  "pulseImpulse": 170,
+  "pulseIntervalSeconds": 0.88,
+  "restitution": 0.16,
+  "friction": 0.58
+}
+```
+
+The Physics Sandbox includes a slime-guarded ledge beside a pit after the texture gallery. Try jumping past its repeated pulses, then push the gremlin into the gap.

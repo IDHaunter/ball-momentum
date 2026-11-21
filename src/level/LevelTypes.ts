@@ -93,6 +93,20 @@ export interface PoopPickupDefinition {
   spinBoostPercent: number;
 }
 
+/** Pushable green character that repeatedly vomits impulses at the player inside its detection radius. */
+export interface VomitEnemyDefinition {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  detectionRadius: number;
+  pulseImpulse: number;
+  pulseIntervalSeconds: number;
+  restitution?: number;
+  friction?: number;
+}
+
 export interface BoxSolidDefinition {
   id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string;
   breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition; texture?: SurfaceTextureAssignment; borders?: BoxBorderStyles;
@@ -130,6 +144,7 @@ export interface LevelDefinition {
   birds?: BirdDefinition[];
   bombs?: BombDefinition[];
   poopPickups?: PoopPickupDefinition[];
+  vomitEnemies?: VomitEnemyDefinition[];
   materials?: Record<string, TerrainMaterialDefinition>;
   decorations?: DecorationDefinition[];
   camera?: { followOffsetX?: number; smoothing?: number; minX?: number; maxX?: number };

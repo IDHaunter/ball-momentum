@@ -2,7 +2,7 @@ import { COLLISION_CATEGORIES } from './CollisionCategories';
 import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
-import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult } from './PhysicsTypes';
+import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
@@ -14,6 +14,7 @@ import { createSurfaceTextureCanvas, createSurfaceTextureKey } from '../renderin
 import { hashSurfaceTextureSeed } from '../rendering/SurfaceTextureCatalog';
 import { drawBoxBorders } from '../rendering/SurfaceBorderRenderer';
 import { BirdRenderer, type BirdRendererSceneLike } from '../rendering/BirdRenderer';
+import { VomitEnemyRenderer, type VomitRendererSceneLike } from '../rendering/VomitEnemyRenderer';
 import { FIXED_STEP_SECONDS } from '../utils/TimeUtils';
 
 interface MatterWorldLike {
@@ -111,6 +112,20 @@ interface BirdRecord {
   turnCooldownSteps: number;
 }
 
+interface VomitEnemyRecord {
+  object: MatterGameObjectLike;
+  renderer: VomitEnemyRenderer;
+  id: string;
+  radius: number;
+  mass: number;
+  detectionRadius: number;
+  pulseImpulse: number;
+  pulseIntervalMs: number;
+  pulseRemainingMs: number;
+  playerInRange: boolean;
+  killPlaneY: number;
+}
+
 interface BombEyeVisual {
   sclera: MatterCircleVisualLike;
   pupil: MatterCircleVisualLike;
@@ -170,6 +185,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private readonly bots = new Map<string, BotRecord>();
   private readonly birds = new Map<string, BirdRecord>();
   private readonly bombs = new Map<string, BombRecord>();
+  private readonly vomitEnemies = new Map<string, VomitEnemyRecord>();
   private readonly collisionStart = (event: CollisionEventLike) => this.handleCollision(event, 'start');
   private readonly collisionActive = (event: CollisionEventLike) => this.handleCollision(event, 'active');
   private readonly collisionEnd = (event: CollisionEventLike) => this.handleCollision(event, 'end');
@@ -190,10 +206,11 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
 
   step(fixedStepMs: number): void {
     this.updateBirdsBeforeStep(fixedStepMs);
+    this.updateVomitEnemiesBeforeStep(fixedStepMs);
     this.updateBotsBeforeStep();
     this.preStepVelocities.clear();
     for (const [body, meta] of this.metadata.entries()) {
-      if (meta.kind === 'ball' || meta.kind === 'bot' || meta.kind === 'bird' || meta.kind === 'movable' || meta.kind === 'bomb') {
+      if (meta.kind === 'ball' || meta.kind === 'bot' || meta.kind === 'bird' || meta.kind === 'movable' || meta.kind === 'bomb' || meta.kind === 'vomitEnemy') {
         this.preStepVelocities.set(body, PhysicsAdapter.fromMatterVelocity(body.velocity));
       }
     }
@@ -209,6 +226,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.updateMovableBlocks();
     this.updateBotsAfterStep();
     this.updateBirdsAfterStep(fixedStepMs);
+    this.updateVomitEnemiesAfterStep(fixedStepMs);
     this.updateBombs(fixedStepMs);
   }
   setGravity(x: number, y: number, scale: number): void { this.world.setGravity(x, y, scale); }
@@ -223,7 +241,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       label: 'BALL', isStatic: false, restitution: options.restitution,
       friction: options.friction, frictionStatic: options.frictionStatic, frictionAir: options.frictionAir,
       mass: options.mass, inertia: options.fixedRotation ? Infinity : undefined,
-      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD },
+      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY },
     });
     rawBody.label = 'BALL';
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(position.x, position.y, 1, 1), rawBody, true);
@@ -245,7 +263,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       {
         label: definition.id, isStatic: true,
         friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD },
+        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY },
       },
     );
     rawBody.label = definition.id;
@@ -266,7 +284,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const rawBody = this.factory.fromVertices(center.x, center.y, [local], {
       label: definition.id, isStatic: true,
       friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD },
+      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY },
     }, true);
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(center.x, center.y, 1, 1), rawBody, true);
@@ -287,7 +305,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.MOVABLE,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.VOMIT_ENEMY,
       },
     });
     rawBody.label = `MOVABLE:${definition.id}`;
@@ -369,7 +387,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BOT,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY,
       },
     });
     rawBody.label = `BOT:${definition.id}`;
@@ -455,7 +473,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BIRD,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY,
       },
     });
     rawBody.label = `BIRD:${definition.id}`;
@@ -488,6 +506,47 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     });
   }
 
+  createVomitEnemy(definition: VomitEnemyPhysicsOptions): void {
+    const rawBody = this.factory.circle(definition.x, definition.y, definition.radius, {
+      label: `VOMIT_ENEMY:${definition.id}`,
+      isStatic: false,
+      mass: definition.mass,
+      friction: definition.friction,
+      frictionStatic: Math.min(1, definition.friction * 1.15),
+      frictionAir: 0.018,
+      restitution: definition.restitution,
+      collisionFilter: {
+        category: COLLISION_CATEGORIES.VOMIT_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE
+          | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY,
+      },
+    });
+    rawBody.label = `VOMIT_ENEMY:${definition.id}`;
+    const renderer = new VomitEnemyRenderer(
+      this.scene as unknown as VomitRendererSceneLike,
+      definition.radius,
+      definition.id,
+      definition.x,
+      definition.y,
+    );
+    const object = this.factory.gameObject(renderer.container, rawBody, true);
+    object.body.label = `VOMIT_ENEMY:${definition.id}`;
+    this.registerLevelObject(object, { kind: 'vomitEnemy', id: definition.id, mass: definition.mass });
+    this.vomitEnemies.set(definition.id, {
+      object,
+      renderer,
+      id: definition.id,
+      radius: definition.radius,
+      mass: definition.mass,
+      detectionRadius: definition.detectionRadius,
+      pulseImpulse: definition.pulseImpulse,
+      pulseIntervalMs: definition.pulseIntervalSeconds * 1000,
+      pulseRemainingMs: 0,
+      playerInRange: false,
+      killPlaneY: definition.killPlaneY,
+    });
+  }
+
   createBomb(definition: BombPhysicsOptions): void {
     const rawBody = this.factory.circle(definition.x, definition.y, definition.radius, {
       label: `BOMB:${definition.id}`,
@@ -499,7 +558,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BOMB,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY,
       },
     });
     rawBody.label = `BOMB:${definition.id}`;
@@ -667,6 +726,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.bots.clear();
     for (const bird of this.birds.values()) bird.renderer.dispose();
     this.birds.clear();
+    for (const enemy of this.vomitEnemies.values()) enemy.renderer.dispose();
+    this.vomitEnemies.clear();
     for (const bomb of this.bombs.values()) this.destroyBombVisuals(bomb);
     this.bombs.clear();
     this.preStepVelocities.clear();
@@ -919,7 +980,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         continue;
       }
 
-      if (meta.kind !== 'ball' && meta.kind !== 'bot' && meta.kind !== 'movable') continue;
+      if (meta.kind !== 'ball' && meta.kind !== 'bot' && meta.kind !== 'movable' && meta.kind !== 'vomitEnemy') continue;
       const target = { ...body.position };
       const distance = Math.hypot(target.x - origin.x, target.y - origin.y);
       if (distance >= bomb.explosionRadius) continue;
@@ -1318,6 +1379,79 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     if (entry >= 0) this.levelObjects.splice(entry, 1);
     this.metadata.delete(bird.object.body);
     bird.object.destroy();
+  }
+
+  private updateVomitEnemiesBeforeStep(stepMs: number): void {
+    const ballBody = this.ballObject?.body;
+    if (!ballBody) {
+      for (const enemy of this.vomitEnemies.values()) {
+        enemy.playerInRange = false;
+        enemy.pulseRemainingMs = 0;
+      }
+      return;
+    }
+
+    const ballMass = this.metadata.get(ballBody)?.mass ?? 1;
+    for (const enemy of this.vomitEnemies.values()) {
+      const body = enemy.object.body;
+      if (body.position.y > enemy.killPlaneY) continue;
+      const dx = ballBody.position.x - body.position.x;
+      const dy = ballBody.position.y - body.position.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > enemy.detectionRadius) {
+        enemy.playerInRange = false;
+        enemy.pulseRemainingMs = 0;
+        continue;
+      }
+
+      const enteredRange = !enemy.playerInRange;
+      enemy.playerInRange = true;
+      if (enteredRange) enemy.pulseRemainingMs = 0;
+      else enemy.pulseRemainingMs = Math.max(0, enemy.pulseRemainingMs - stepMs);
+
+      if (enemy.pulseRemainingMs > 0 || enemy.pulseImpulse <= 0) continue;
+      const length = distance || 1;
+      const direction = { x: dx / length, y: dy / length };
+      const ballVelocity = PhysicsAdapter.fromMatterVelocity(ballBody.velocity);
+      const nextVelocity = {
+        x: ballVelocity.x + direction.x * enemy.pulseImpulse / ballMass,
+        y: ballVelocity.y + direction.y * enemy.pulseImpulse / ballMass,
+      };
+      const matterVelocity = PhysicsAdapter.toMatterVelocity(nextVelocity);
+      // Use the Matter GameObject setter rather than mutating body.velocity.
+      // Matter derives velocity from position/positionPrev during Body.update;
+      // direct writes can be discarded on the next integration step.
+      this.ballObject?.setVelocity(matterVelocity.x, matterVelocity.y);
+      this.ballObject?.setAwake();
+      enemy.renderer.onVomitPulse(body.position, ballBody.position, body.angle, enemy.pulseImpulse);
+      enemy.pulseRemainingMs = enemy.pulseIntervalMs;
+    }
+  }
+
+  private updateVomitEnemiesAfterStep(stepMs: number): void {
+    const ballPosition = this.ballObject?.body.position;
+    for (const [id, enemy] of [...this.vomitEnemies.entries()]) {
+      const body = enemy.object.body;
+      if (body.position.y > enemy.killPlaneY) {
+        this.removeVomitEnemy(id);
+        continue;
+      }
+      const dx = ballPosition ? ballPosition.x - body.position.x : 0;
+      const dy = ballPosition ? ballPosition.y - body.position.y : 0;
+      const target = ballPosition && Math.hypot(dx, dy) <= enemy.detectionRadius ? ballPosition : null;
+      enemy.renderer.update(stepMs, body.position, body.angle, target);
+    }
+  }
+
+  private removeVomitEnemy(id: string): void {
+    const enemy = this.vomitEnemies.get(id);
+    if (!enemy) return;
+    this.vomitEnemies.delete(id);
+    enemy.renderer.dispose();
+    const entry = this.levelObjects.findIndex((object) => object.body === enemy.object.body);
+    if (entry >= 0) this.levelObjects.splice(entry, 1);
+    this.metadata.delete(enemy.object.body);
+    enemy.object.destroy();
   }
 
   private updateBotsBeforeStep(): void {

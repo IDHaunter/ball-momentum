@@ -4,7 +4,7 @@
   "title": "Physics Sandbox",
   "description": "A safe course for testing momentum, slopes, and repeated jumps.",
   "world": {
-    "width": 6600,
+    "width": 7300,
     "height": 1500,
     "killPlaneY": 1420,
     "backgroundColor": "#18212f"
@@ -226,7 +226,7 @@
       "type": "box",
       "x": 2600,
       "y": 880,
-      "width": 4000,
+      "width": 3700,
       "height": 520,
       "material": "normal",
       "texture": "concrete-grain",
@@ -594,13 +594,29 @@
         "bottom": "none",
         "left": "metal"
       }
+    },
+    {
+      "id": "sandbox-vomit-landing",
+      "type": "box",
+      "x": 6600,
+      "y": 880,
+      "width": 700,
+      "height": 520,
+      "material": "normal",
+      "texture": "concrete-grain",
+      "borders": {
+        "top": "pavers",
+        "right": "stone",
+        "bottom": "none",
+        "left": "stone"
+      }
     }
   ],
   "triggers": [
     {
       "id": "sandbox-goal",
       "type": "goal",
-      "x": 6420,
+      "x": 7160,
       "y": 650,
       "width": 100,
       "height": 230
@@ -647,7 +663,7 @@
     "followOffsetX": 0.38,
     "smoothing": 0.1,
     "minX": 0,
-    "maxX": 6600
+    "maxX": 7300
   },
   "decorations": [
     {
@@ -838,6 +854,52 @@
       "text": "AGGRESSIVE BIRD",
       "color": "#b5dcff",
       "depth": 4
+    },
+    {
+      "id": "sandbox-vomit-pit-backdrop",
+      "type": "rectangle",
+      "x": 6450,
+      "y": 1135,
+      "width": 300,
+      "height": 510,
+      "color": "#0b121b",
+      "depth": 1
+    },
+    {
+      "id": "sandbox-vomit-pit-glow-left",
+      "type": "circle",
+      "x": 6380,
+      "y": 1365,
+      "radius": 18,
+      "color": "#3a922d",
+      "depth": 2
+    },
+    {
+      "id": "sandbox-vomit-pit-glow-right",
+      "type": "circle",
+      "x": 6565,
+      "y": 1380,
+      "radius": 13,
+      "color": "#6acb3e",
+      "depth": 2
+    },
+    {
+      "id": "sandbox-vomit-enemy-hint",
+      "type": "text",
+      "x": 6075,
+      "y": 790,
+      "text": "GREEN GREMLIN · DODGE THE GOO!",
+      "color": "#b8f27b",
+      "depth": 4
+    },
+    {
+      "id": "sandbox-vomit-pit-hint",
+      "type": "text",
+      "x": 6380,
+      "y": 820,
+      "text": "SLIME PIT",
+      "color": "#8dd65d",
+      "depth": 4
     }
   ],
   "bots": [
@@ -907,7 +969,7 @@
   "birds": [
     {
       "id": "sandbox-nest-guardian",
-      "x":2100,
+      "x": 2100,
       "y": 478,
       "radius": 36,
       "mass": 1.35,
@@ -923,6 +985,20 @@
         "maxX": 2260
       },
       "aggressive": true
+    }
+  ],
+  "vomitEnemies": [
+    {
+      "id": "sandbox-green-gremlin",
+      "x": 6282,
+      "y": 862,
+      "radius": 18,
+      "mass": 1.15,
+      "detectionRadius": 245,
+      "pulseImpulse": 170,
+      "pulseIntervalSeconds": 0.88,
+      "restitution": 0.16,
+      "friction": 0.58
     }
   ]
 }

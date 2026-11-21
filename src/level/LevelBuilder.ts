@@ -75,6 +75,21 @@ export class LevelBuilder {
         patrolMaxX: bird.patrolRange.maxX,
       });
     }
+    for (const enemy of level.vomitEnemies ?? []) {
+      this.world.createVomitEnemy({
+        id: enemy.id,
+        x: enemy.x,
+        y: enemy.y,
+        radius: enemy.radius,
+        mass: enemy.mass,
+        detectionRadius: enemy.detectionRadius,
+        pulseImpulse: enemy.pulseImpulse,
+        pulseIntervalSeconds: enemy.pulseIntervalSeconds,
+        restitution: enemy.restitution ?? 0.18,
+        friction: enemy.friction ?? 0.62,
+        killPlaneY: level.world.killPlaneY,
+      });
+    }
     for (const bomb of level.bombs ?? []) {
       this.world.createBomb({
         id: bomb.id,

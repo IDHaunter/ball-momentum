@@ -116,6 +116,19 @@ const poopPickupSchema = z.object({
   spinBoostPercent: z.number().finite().min(0).max(300),
 });
 
+const vomitEnemySchema = z.object({
+  id: z.string().min(1),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  radius: z.number().finite().min(12).max(80),
+  mass: z.number().finite().positive().max(1000),
+  detectionRadius: z.number().finite().min(20).max(1000),
+  pulseImpulse: z.number().finite().min(0).max(3000),
+  pulseIntervalSeconds: z.number().finite().min(0.25).max(5),
+  restitution: z.number().min(0).max(1).optional(),
+  friction: z.number().min(0).max(1).optional(),
+});
+
 const bombSchema = z.object({
   id: z.string().min(1),
   x: z.number().finite(),
@@ -160,6 +173,7 @@ export const LevelSchema = z.object({
   birds: z.array(birdSchema).max(24).optional(),
   bombs: z.array(bombSchema).max(24).optional(),
   poopPickups: z.array(poopPickupSchema).max(48).optional(),
+  vomitEnemies: z.array(vomitEnemySchema).max(24).optional(),
   materials: z.record(z.string(), materialSchema).optional(),
   decorations: z.array(decorationSchema).optional(),
   camera: z.object({

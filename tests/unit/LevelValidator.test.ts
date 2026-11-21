@@ -77,6 +77,31 @@ describe('LevelValidator', () => {
     expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, id: 'floor' }] })).toThrow(/duplicate ID/);
   });
 
+  it('accepts a pushable vomit enemy with configurable detection and pulse timing', () => {
+    const level = {
+      ...validLevel,
+      vomitEnemies: [{
+        id: 'green-gremlin', x: 620, y: 170, radius: 24, mass: 1.2,
+        detectionRadius: 220, pulseImpulse: 190, pulseIntervalSeconds: 0.9,
+        restitution: 0.18, friction: 0.62,
+      }],
+    };
+    expect(validator.validate(level).vomitEnemies?.[0]).toMatchObject({
+      id: 'green-gremlin', radius: 24, detectionRadius: 220, pulseImpulse: 190, pulseIntervalSeconds: 0.9,
+    });
+  });
+
+  it('rejects vomit enemies with invalid radius, impulse interval, bounds or duplicate identifiers', () => {
+    const baseEnemy = {
+      id: 'green-gremlin', x: 620, y: 170, radius: 24, mass: 1.2,
+      detectionRadius: 220, pulseImpulse: 190, pulseIntervalSeconds: 0.9,
+    };
+    expect(() => validator.validate({ ...validLevel, vomitEnemies: [{ ...baseEnemy, pulseIntervalSeconds: 0.1 }] })).toThrow(/pulseIntervalSeconds/);
+    expect(() => validator.validate({ ...validLevel, vomitEnemies: [{ ...baseEnemy, pulseImpulse: 4000 }] })).toThrow(/pulseImpulse/);
+    expect(() => validator.validate({ ...validLevel, vomitEnemies: [{ ...baseEnemy, x: 990 }] })).toThrow(/enemy circle must be inside world bounds/);
+    expect(() => validator.validate({ ...validLevel, vomitEnemies: [{ ...baseEnemy, id: 'floor' }] })).toThrow(/duplicate ID/);
+  });
+
   it('accepts a valid timed bomb with an energy-based blast configuration', () => {
     const level = {
       ...validLevel,

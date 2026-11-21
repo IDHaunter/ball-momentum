@@ -47,6 +47,20 @@ export interface BombPhysicsOptions {
   killPlaneY: number;
 }
 
+export interface VomitEnemyPhysicsOptions {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  detectionRadius: number;
+  pulseImpulse: number;
+  pulseIntervalSeconds: number;
+  restitution: number;
+  friction: number;
+  killPlaneY: number;
+}
+
 export interface SpeedSpinBoostResult {
   speedBefore: number;
   speedAfter: number;
