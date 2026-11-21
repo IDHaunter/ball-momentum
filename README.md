@@ -204,7 +204,7 @@ Level solids can optionally define a procedural `texture` independently of their
 
 ## Poop speed-and-spin pickups
 
-Levels can define optional one-shot cartoon poop collectibles in the top-level `poopPickups` array. The character body stays still while its oversized pupils glance around independently; the old floating motion and decorative yellow sparkle are intentionally absent. When the player ball touches one, the pickup disappears, a comic burst animation plays, and the ball's current linear velocity and axial spin are multiplied by the configured percentages. Linear velocity keeps its incoming direction and remains within the normal movement speed limits. If the ball is moving but has almost no spin at collection time, the pickup seeds a gentle rolling spin before applying the spin multiplier.
+Levels can define optional one-shot cartoon poop collectibles in the top-level `poopPickups` array. The character body stays still while its oversized pupils glance around independently; the old floating motion and decorative yellow sparkle are intentionally absent. When the player ball touches one, the pickup disappears in a sticky splat: small brown droplets flick outward, stretch into drips, run down briefly, and fade. The ball's current linear velocity and axial spin are multiplied by the configured percentages. Linear velocity keeps its incoming direction and remains within the normal movement speed limits. If the ball is moving but has almost no spin at collection time, the pickup seeds a gentle rolling spin before applying the spin multiplier.
 
 ```json
 {
@@ -221,4 +221,4 @@ Levels can define optional one-shot cartoon poop collectibles in the top-level `
 }
 ```
 
-`x` and `y` are the pickup center coordinates. `radius` controls its visible size and the square sensor bounds around the character. `speedBoostPercent` accepts 0–200 and `spinBoostPercent` accepts 0–300. Pickups are collected once and reset when the level is restarted. The Physics Sandbox includes one example placed on its long concrete platform.
+`x` and `y` are the center coordinates of the pickup sensor. Its lower edge (`y + radius`) is treated as the surface contact line, and the visual character is bottom-aligned to that line. To place a pickup on a horizontal surface at `surfaceY`, set `y` to `surfaceY - radius`. `radius` controls the square sensor bounds and scales the character proportionally. `speedBoostPercent` accepts 0–200 and `spinBoostPercent` accepts 0–300. Pickups are collected once and reset when the level is restarted. The Physics Sandbox includes one example placed on its long concrete platform.

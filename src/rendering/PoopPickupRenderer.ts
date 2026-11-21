@@ -1,6 +1,31 @@
 import type Phaser from 'phaser';
 import type { PoopPickupDefinition } from '../level/LevelTypes';
 
+const POOP_PICKUP_BASE_RADIUS = 19;
+const POOP_PICKUP_VISUAL_SCALE = 0.36;
+const POOP_PICKUP_LOCAL_BOTTOM = 19.5;
+
+export interface PoopPickupCharacterLayout {
+  x: number;
+  y: number;
+  scale: number;
+  groundY: number;
+}
+
+/** Aligns the scaled character's visual bottom with the pickup's surface contact line. */
+export function getPoopPickupCharacterLayout(
+  definition: Pick<PoopPickupDefinition, 'x' | 'y' | 'radius'>,
+): PoopPickupCharacterLayout {
+  const scale = (definition.radius / POOP_PICKUP_BASE_RADIUS) * POOP_PICKUP_VISUAL_SCALE;
+  const groundY = definition.y + definition.radius;
+  return {
+    x: definition.x,
+    y: groundY - POOP_PICKUP_LOCAL_BOTTOM * scale,
+    scale,
+    groundY,
+  };
+}
+
 interface RenderedPickup {
   definition: PoopPickupDefinition;
   container: Phaser.GameObjects.Container;
@@ -45,7 +70,7 @@ export class PoopPickupRenderer {
     this.scene.tweens.add({
       targets: pickup.container,
       y: pickup.container.y - 13,
-      scale: 0.12,
+      scale: pickup.container.scaleX * 0.12,
       angle: 28,
       alpha: 0,
       duration: 190,
@@ -62,9 +87,10 @@ export class PoopPickupRenderer {
     this.reducedMotion = enabled;
     for (const pickup of this.pickups.values()) {
       this.stopEyeAnimation(pickup);
-      pickup.container.setPosition(pickup.definition.x, pickup.definition.y);
+      const layout = getPoopPickupCharacterLayout(pickup.definition);
+      pickup.container.setPosition(layout.x, layout.y);
       pickup.container.setAngle(0);
-      pickup.container.setScale(pickup.definition.radius / 19);
+      pickup.container.setScale(layout.scale);
       pickup.container.setAlpha(1);
       pickup.pupils[0].setPosition(-7.1, -5.8);
       pickup.pupils[1].setPosition(6.7, -6.1);
@@ -142,11 +168,13 @@ export class PoopPickupRenderer {
     mouth.strokePath();
     children.push(mouth);
 
-    const container = this.scene.add.container(definition.x, definition.y, children)
-      .setScale(definition.radius / 19)
+    const layout = getPoopPickupCharacterLayout(definition);
+    const container = this.scene.add.container(layout.x, layout.y, children)
+      .setScale(layout.scale)
       .setDepth(8);
     return { container, pupils };
   }
+
 
   private startEyeAnimation(pickup: RenderedPickup): void {
     if (this.reducedMotion) return;

@@ -197,40 +197,95 @@ export class EffectsRenderer {
   poopBoost(x: number, y: number, radius: number, speedBoostPercent: number, spinBoostPercent: number): void {
     if (this.reducedMotion) return;
 
-    const ring = this.trackEffect(this.scene.add.circle(x, y, radius * 0.65, 0xffffff, 0)
-      .setStrokeStyle(3, 0xd69a55, 0.95)
-      .setDepth(14));
+    const groundY = y + radius;
+    const sourceY = groundY - radius * 0.62;
+    const colors = [0x754027, 0x8b4d2c, 0xa76338, 0xb87943, 0xc58a59];
+
+    // A small sticky puddle spreads along the surface instead of a bright explosion.
+    const puddle = this.trackEffect(this.scene.add.ellipse(
+      x, groundY - 1, radius * 1.18, Math.max(4, radius * 0.28), 0x754027, 0.9,
+    ).setStrokeStyle(1.2, 0x4a2618, 0.65).setDepth(14).setScale(0.22, 0.55));
     this.scene.tweens.add({
-      targets: ring, scale: 2.8, alpha: 0, duration: 330, ease: 'Back.easeOut',
-      onComplete: () => this.finishEffect(ring),
+      targets: puddle,
+      scaleX: 1.08,
+      scaleY: 0.9,
+      alpha: 0.82,
+      duration: 170,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: puddle,
+          scaleX: 1.28,
+          scaleY: 0.65,
+          alpha: 0,
+          duration: 560,
+          delay: 90,
+          ease: 'Quad.easeIn',
+          onComplete: () => this.finishEffect(puddle),
+        });
+      },
     });
 
-    const flash = this.trackEffect(this.scene.add.circle(x, y, radius * 0.8, 0xffdc83, 0.72).setDepth(13));
-    flash.setScale(0.35);
-    this.scene.tweens.add({
-      targets: flash, scale: 2.1, alpha: 0, duration: 210, ease: 'Quad.easeOut',
-      onComplete: () => this.finishEffect(flash),
-    });
-
-    const colors = [0x8b4d2c, 0xb87943, 0xe6b56d, 0xffe8ad, 0x9b6037];
-    const count = 15;
+    // Sticky blobs first flick outward, then stretch and run down like little drips.
+    const count = 9;
     for (let index = 0; index < count; index += 1) {
-      const angle = (Math.PI * 2 * index) / count + (Math.random() - 0.5) * 0.35;
-      const distance = radius * (1.2 + Math.random() * 1.65);
-      const particle = this.trackEffect(this.scene.add.circle(
-        x + Math.cos(angle) * 4,
-        y + Math.sin(angle) * 4,
-        1.8 + Math.random() * 2.8,
-        colors[index % colors.length],
-        0.96,
-      ).setDepth(15));
+      const side = index % 2 === 0 ? -1 : 1;
+      const startX = x + (Math.random() - 0.5) * radius * 0.28;
+      const startY = sourceY + (Math.random() - 0.5) * radius * 0.34;
+      const spread = radius * (0.85 + Math.random() * 1.05);
+      const lift = radius * (0.32 + Math.random() * 0.68);
+      const width = 3.2 + Math.random() * 4.8;
+      const height = 5.5 + Math.random() * 6.5;
+      const drip = this.trackEffect(this.scene.add.ellipse(
+        startX, startY, width, height, colors[index % colors.length], 0.96,
+      ).setStrokeStyle(0.7, 0x4a2618, 0.55).setDepth(15));
+      drip.setScale(0.55, 0.7);
+
       this.scene.tweens.add({
-        targets: particle,
-        x: x + Math.cos(angle) * distance,
-        y: y + Math.sin(angle) * distance - 8,
-        alpha: 0, scale: 0.2, rotation: (Math.random() - 0.5) * 4,
-        duration: 300 + Math.random() * 190, ease: 'Quad.easeOut',
-        onComplete: () => this.finishEffect(particle),
+        targets: drip,
+        x: startX + side * spread,
+        y: startY - lift,
+        scaleX: 1.05,
+        scaleY: 1.12,
+        rotation: side * (0.18 + Math.random() * 0.48),
+        duration: 170 + Math.random() * 100,
+        ease: 'Quad.easeOut',
+        onComplete: () => {
+          if (!drip.active) return;
+          this.scene.tweens.add({
+            targets: drip,
+            x: drip.x + side * (4 + Math.random() * 9),
+            y: groundY + 15 + Math.random() * 28,
+            scaleX: 0.72,
+            scaleY: 1.9 + Math.random() * 0.8,
+            rotation: side * (0.35 + Math.random() * 0.6),
+            alpha: 0,
+            duration: 470 + Math.random() * 240,
+            ease: 'Quad.easeIn',
+            onComplete: () => this.finishEffect(drip),
+          });
+        },
+      });
+    }
+
+    // A few thin trails stretch down from the splash before fading away.
+    for (let index = 0; index < 4; index += 1) {
+      const side = index < 2 ? -1 : 1;
+      const offset = side * (radius * (0.34 + (index % 2) * 0.48));
+      const trail = this.trackEffect(this.scene.add.ellipse(
+        x + offset, groundY - 5, 3 + Math.random() * 2, 7 + Math.random() * 4,
+        colors[(index + 1) % colors.length], 0.9,
+      ).setDepth(14).setScale(0.7, 0.2));
+      this.scene.tweens.add({
+        targets: trail,
+        y: groundY + 17 + Math.random() * 18,
+        scaleX: 0.85,
+        scaleY: 1.75,
+        alpha: 0,
+        duration: 520 + Math.random() * 190,
+        delay: 80 + index * 35,
+        ease: 'Quad.easeIn',
+        onComplete: () => this.finishEffect(trail),
       });
     }
 
