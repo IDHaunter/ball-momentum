@@ -170,7 +170,8 @@ describe('MatterPhysicsWorld movable blocks', () => {
     expect(harness.textureStates[0]).toMatchObject({ x: 245, y: 225, rotation: 0.35, destroyed: false });
     expect(harness.borderStates).toHaveLength(1);
     expect(harness.borderStates[0]).toMatchObject({ x: 245, y: 225, rotation: 0.35, destroyed: false });
-    expect(harness.borderStates[0].lines).toBeGreaterThan(10);
+    // The current wood + two metal edges render ten line segments; metal no longer adds repeated pinpoints.
+    expect(harness.borderStates[0].lines).toBeGreaterThanOrEqual(10);
 
     harness.physics.removeTerrainBody('crate');
     expect(harness.textureStates[0].destroyed).toBe(true);
