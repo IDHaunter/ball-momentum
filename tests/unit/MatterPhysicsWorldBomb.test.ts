@@ -63,6 +63,29 @@ function createHarness() {
           destroy() { state.destroyed = true; },
         };
       },
+      image: (x: number, y: number) => {
+        const visual = makeVisual('circle', x, y, 0);
+        return {
+          setDisplaySize() { return this; },
+          setDepth() { return this; },
+          setPosition(px: number, py: number) { visual.setPosition(px, py); return this; },
+          setRotation(value: number) { visual.setRotation(value); return this; },
+          destroy() { visual.destroy(); },
+        };
+      },
+    },
+    textures: {
+      exists: () => false,
+      createCanvas: () => {
+        const gradient = { addColorStop() {} };
+        const context = {
+          clearRect() {}, save() {}, beginPath() {}, arc() {}, closePath() {}, clip() {}, fillRect() {}, fill() {}, restore() {}, ellipse() {},
+          createLinearGradient: () => gradient,
+          createRadialGradient: () => gradient,
+          set fillStyle(_value: unknown) {},
+        };
+        return { getContext: () => context as unknown as CanvasRenderingContext2D, refresh() {} };
+      },
     },
     matter: {
       world: {

@@ -1,9 +1,17 @@
 import type Phaser from 'phaser';
 import type { BallSkin } from '../player/BallSkin';
 import { DEFAULT_BALL_SKIN } from '../player/BallSkin';
-import { getSmileyAnimationFrame, type SmileyEyeAnimation } from './SmileyAnimation';
+import { getSmileyAnimationFrame, getSmileyImpactExpression, shouldTriggerSmileySurprise, type SmileyEyeAnimation } from './SmileyAnimation';
 import { drawSmileyGradient, SMILEY_GRADIENT_TEXTURE_KEY, SMILEY_GRADIENT_TEXTURE_SIZE } from './SmileyGradient';
-import { drawSmileyMouth, SMILEY_MOUTH_TEXTURE_HEIGHT, SMILEY_MOUTH_TEXTURE_KEY, SMILEY_MOUTH_TEXTURE_WIDTH } from './SmileyMouth';
+import {
+  drawSmileyMouth,
+  drawSmileySurpriseMouth,
+  SMILEY_MOUTH_TEXTURE_HEIGHT,
+  SMILEY_MOUTH_TEXTURE_KEY,
+  SMILEY_MOUTH_TEXTURE_WIDTH,
+  SMILEY_SURPRISE_MOUTH_TEXTURE_KEY,
+  SMILEY_SURPRISE_MOUTH_TEXTURE_SIZE,
+} from './SmileyMouth';
 
 type LocalPoint = { x: number; y: number };
 
@@ -20,6 +28,7 @@ interface SmileyRig {
   leftEye: SmileyEyeRig;
   rightEye: SmileyEyeRig;
   mouth: Phaser.GameObjects.Image;
+  surpriseMouth: Phaser.GameObjects.Image;
 }
 
 export class BallRenderer {
@@ -30,7 +39,7 @@ export class BallRenderer {
   private skinBuilt = false;
   private smileyRig: SmileyRig | null = null;
   private smileyElapsedSeconds = 0;
-  private smileyImpact = 0;
+  private smileySurprise = 0;
   private smileyMouthScaleX = 1;
   private smileyMouthScaleY = 1;
 
@@ -47,7 +56,7 @@ export class BallRenderer {
     this.skin = skin;
     this.smileyRig = null;
     this.smileyElapsedSeconds = 0;
-    this.smileyImpact = 0;
+    this.smileySurprise = 0;
     this.smileyMouthScaleX = 1;
     this.smileyMouthScaleY = 1;
     if (this.skinBuilt) this.container.removeAll(true);
@@ -70,16 +79,16 @@ export class BallRenderer {
     this.container.setScale(scaleX, scaleY);
     if (this.skin === 'smiley' && this.smileyRig && dtSeconds > 0) {
       this.smileyElapsedSeconds += Math.min(dtSeconds, 0.1);
-      this.smileyImpact = Math.max(0, this.smileyImpact - Math.min(dtSeconds, 0.1) * 5.5);
+      this.smileySurprise = Math.max(0, this.smileySurprise - Math.min(dtSeconds, 0.1) / 0.62);
       this.animateSmiley(speedPxPerSecond, Math.min(dtSeconds, 0.1));
     }
   }
 
-  /** Briefly widens the Smiley mouth after an impact without switching its shape. */
-  reactToImpact(impactSpeed: number): void {
-    if (this.skin !== 'smiley' || !Number.isFinite(impactSpeed)) return;
-    const strength = Math.max(0.35, Math.min(1, Math.max(0, impactSpeed) / 520));
-    this.smileyImpact = Math.max(this.smileyImpact, strength);
+  /** Shows a short surprised face only after a meaningful normal impact. */
+  reactToImpact(impactSpeed: number): boolean {
+    if (this.skin !== 'smiley' || !shouldTriggerSmileySurprise(impactSpeed)) return false;
+    this.smileySurprise = 1;
+    return true;
   }
 
   setVisible(value: boolean): void { this.container.setVisible(value); }
@@ -114,10 +123,11 @@ export class BallRenderer {
     const leftEye = this.createSmileyEye(-r * 0.29, -r * 0.16);
     const rightEye = this.createSmileyEye(r * 0.29, -r * 0.16);
     const mouth = this.createSmileyMouth();
-    const rig: SmileyRig = { leftEye, rightEye, mouth };
+    const surpriseMouth = this.createSmileySurpriseMouth();
+    const rig: SmileyRig = { leftEye, rightEye, mouth, surpriseMouth };
     this.smileyRig = rig;
 
-    return [gradient, outline, softHighlight, leftEye.container, rightEye.container, mouth];
+    return [gradient, outline, softHighlight, leftEye.container, rightEye.container, mouth, surpriseMouth];
   }
 
   private createSmileyGradient(): Phaser.GameObjects.Image {
@@ -172,12 +182,38 @@ export class BallRenderer {
       .setDisplaySize(this.radius * 0.84, this.radius * 0.36);
   }
 
+  private createSmileySurpriseMouth(): Phaser.GameObjects.Image {
+    const textureManager = this.scene.textures;
+    if (!textureManager.exists(SMILEY_SURPRISE_MOUTH_TEXTURE_KEY)) {
+      const texture = textureManager.createCanvas(
+        SMILEY_SURPRISE_MOUTH_TEXTURE_KEY,
+        SMILEY_SURPRISE_MOUTH_TEXTURE_SIZE,
+        SMILEY_SURPRISE_MOUTH_TEXTURE_SIZE,
+      );
+      if (!texture) {
+        throw new Error(`Unable to create Smiley surprise mouth texture: ${SMILEY_SURPRISE_MOUTH_TEXTURE_KEY}`);
+      }
+      drawSmileySurpriseMouth(texture.getContext(), SMILEY_SURPRISE_MOUTH_TEXTURE_SIZE);
+      texture.refresh();
+    }
+
+    return this.scene.add.image(0, this.radius * 0.48, SMILEY_SURPRISE_MOUTH_TEXTURE_KEY)
+      .setDisplaySize(this.radius * 0.43, this.radius * 0.58)
+      .setAlpha(0);
+  }
+
   private animateSmiley(speedPxPerSecond: number, dtSeconds: number): void {
     const rig = this.smileyRig;
     if (!rig) return;
-    const frame = getSmileyAnimationFrame(this.smileyElapsedSeconds, speedPxPerSecond, this.smileyImpact);
-    this.applyEyeAnimation(rig.leftEye, frame.leftEye);
-    this.applyEyeAnimation(rig.rightEye, frame.rightEye);
+    const frame = getSmileyAnimationFrame(this.smileyElapsedSeconds, speedPxPerSecond);
+    const impactExpression = getSmileyImpactExpression(this.smileySurprise);
+    this.applyEyeAnimation(rig.leftEye, frame.leftEye, impactExpression.eyeScale);
+    this.applyEyeAnimation(rig.rightEye, frame.rightEye, impactExpression.eyeScale);
+
+    // The mouth sprites are mutually exclusive: hide the smile for the entire
+    // impact state, then restore it only after the surprised O is fully gone.
+    rig.mouth.setAlpha(impactExpression.smileAlpha);
+    rig.surpriseMouth.setAlpha(impactExpression.surpriseMouthAlpha);
 
     // Smooth the tiny expression changes; never clear or re-tessellate the smile per frame.
     const blend = 1 - Math.exp(-dtSeconds * 5.5);
@@ -189,12 +225,12 @@ export class BallRenderer {
     );
   }
 
-  private applyEyeAnimation(eye: SmileyEyeRig, animation: SmileyEyeAnimation): void {
+  private applyEyeAnimation(eye: SmileyEyeRig, animation: SmileyEyeAnimation, surpriseScale = 1): void {
     eye.container.setPosition(
       eye.baseX + animation.eyeOffsetX * this.radius,
       eye.baseY + animation.eyeOffsetY * this.radius,
     );
-    eye.container.setScale(1, animation.verticalScale);
+    eye.container.setScale(surpriseScale, animation.verticalScale * surpriseScale);
     eye.pupil.setPosition(
       eye.basePupilX + animation.pupilOffsetX * this.radius,
       eye.basePupilY + animation.pupilOffsetY * this.radius,

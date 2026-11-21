@@ -16,6 +16,7 @@ import { drawBoxBorders, getBoxBorderSegments, getSpikeTriangles } from '../rend
 import { BirdRenderer, type BirdRendererSceneLike } from '../rendering/BirdRenderer';
 import { VomitEnemyRenderer, type VomitRendererSceneLike } from '../rendering/VomitEnemyRenderer';
 import { FIXED_STEP_SECONDS } from '../utils/TimeUtils';
+import { BOT_GRADIENT_TEXTURE_KEY, BOT_GRADIENT_TEXTURE_SIZE, drawBotGradient } from '../rendering/BotGradient';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -51,6 +52,21 @@ interface MatterCircleVisualLike {
   setVisible(value: boolean): MatterCircleVisualLike;
   destroy(): void;
 }
+interface MatterImageVisualLike {
+  setDisplaySize(width: number, height: number): MatterImageVisualLike;
+  setDepth(depth: number): MatterImageVisualLike;
+  setPosition(x: number, y: number): MatterImageVisualLike;
+  setRotation(value: number): MatterImageVisualLike;
+  destroy(): void;
+}
+interface MatterCanvasTextureLike {
+  getContext(): CanvasRenderingContext2D;
+  refresh(): void;
+}
+interface MatterTextureManagerLike {
+  exists(key: string): boolean;
+  createCanvas(key: string, width: number, height: number): MatterCanvasTextureLike | null;
+}
 interface MatterTextLike {
   setOrigin(x: number, y?: number): MatterTextLike;
   setDepth(depth: number): MatterTextLike;
@@ -69,13 +85,26 @@ interface MatterSceneLike {
     circle(x: number, y: number, radius: number, fillColor: number, fillAlpha?: number): MatterCircleVisualLike;
     rectangle(x: number, y: number, width: number, height: number, fillColor: number, fillAlpha?: number): MatterRectangleVisualLike;
     text(x: number, y: number, text: string, style: Record<string, unknown>): MatterTextLike;
+    image(x: number, y: number, texture: string): MatterImageVisualLike;
   };
+  textures: MatterTextureManagerLike;
   matter: { world: MatterWorldLike; add: MatterFactoryLike };
+}
+
+interface BotEyeRecord {
+  sclera: MatterCircleVisualLike;
+  pupil: MatterCircleVisualLike;
+  highlight: MatterCircleVisualLike;
+  offsetX: number;
+  offsetY: number;
+  pupilOffsetX: number;
+  pupilOffsetY: number;
 }
 
 interface BotRecord {
   object: MatterGameObjectLike;
-  eyes: MatterTextLike;
+  shell: MatterImageVisualLike;
+  eyes: BotEyeRecord[];
   mouth: MatterTextLike;
   radius: number;
   mass: number;
@@ -175,6 +204,12 @@ interface MovableBlockRecord {
   restitution: number;
   killPlaneY: number;
   activated: boolean;
+}
+
+function rotateBotFaceOffset(x: number, y: number, offsetX: number, offsetY: number, angle: number): Vector2 {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return { x: x + offsetX * cos - offsetY * sin, y: y + offsetX * sin + offsetY * cos };
 }
 
 export class MatterPhysicsWorld implements IPhysicsWorld {
@@ -412,22 +447,57 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     rawBody.label = `BOT:${definition.id}`;
     const scene = this.scene as unknown as MatterSceneLike;
     const visual = scene.add.circle(definition.x, definition.y, definition.radius, 0xd65d86, 0.98)
-      .setStrokeStyle(3, 0xffc5d7, 1)
+      .setStrokeStyle(Math.max(1.1, definition.radius * 0.06), 0x5b2637, 0.94)
       .setDepth(6);
     const object = this.factory.gameObject(visual, rawBody, true);
     object.body.label = `BOT:${definition.id}`;
-    const eyes = scene.add.text(definition.x, definition.y - 2, '••', {
-      fontFamily: 'Arial, sans-serif', fontSize: `${Math.max(11, definition.radius * 0.72)}px`,
-      color: '#fff8fb', fontStyle: 'bold', stroke: '#6d2543', strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(7);
-    const mouth = scene.add.text(definition.x, definition.y + definition.radius * 0.32, '⌣', {
-      fontFamily: 'Arial, sans-serif', fontSize: `${Math.max(10, definition.radius * 0.62)}px`,
-      color: '#fff8fb', fontStyle: 'bold', stroke: '#6d2543', strokeThickness: 2,
+
+    // Share one radial CanvasTexture across bots; the slightly inset shell leaves
+    // the existing thin dark body outline visible as a clean outer rim.
+    if (!scene.textures.exists(BOT_GRADIENT_TEXTURE_KEY)) {
+      const texture = scene.textures.createCanvas(BOT_GRADIENT_TEXTURE_KEY, BOT_GRADIENT_TEXTURE_SIZE, BOT_GRADIENT_TEXTURE_SIZE);
+      if (!texture) throw new Error(`Unable to create bot gradient texture: ${BOT_GRADIENT_TEXTURE_KEY}`);
+      drawBotGradient(texture.getContext(), BOT_GRADIENT_TEXTURE_SIZE);
+      texture.refresh();
+    }
+    const shell = scene.add.image(definition.x, definition.y, BOT_GRADIENT_TEXTURE_KEY)
+      .setDisplaySize(definition.radius * 1.88, definition.radius * 1.88)
+      .setDepth(6.5);
+
+    // Oversized, slightly inward-looking pupils give the bots their manic,
+    // hypnotised expression while keeping the eyes readable at 36 px.
+    const eyeDefinitions = [
+      { offsetX: -definition.radius * 0.27, offsetY: -definition.radius * 0.25, pupilOffsetX: definition.radius * 0.065, pupilOffsetY: definition.radius * 0.025 },
+      { offsetX: definition.radius * 0.27, offsetY: -definition.radius * 0.25, pupilOffsetX: -definition.radius * 0.065, pupilOffsetY: definition.radius * 0.025 },
+    ];
+    const eyes: BotEyeRecord[] = eyeDefinitions.map((eye) => {
+      const sclera = scene.add.circle(
+        definition.x + eye.offsetX, definition.y + eye.offsetY,
+        definition.radius * 0.215, 0xfffbf7, 1,
+      ).setStrokeStyle(Math.max(0.55, definition.radius * 0.022), 0x6d2543, 0.72).setDepth(7);
+      const pupil = scene.add.circle(
+        definition.x + eye.offsetX + eye.pupilOffsetX,
+        definition.y + eye.offsetY + eye.pupilOffsetY,
+        definition.radius * 0.112, 0x21131d, 1,
+      ).setDepth(8);
+      const highlight = scene.add.circle(
+        definition.x + eye.offsetX + eye.pupilOffsetX - definition.radius * 0.035,
+        definition.y + eye.offsetY + eye.pupilOffsetY - definition.radius * 0.04,
+        definition.radius * 0.038, 0xffffff, 0.96,
+      ).setDepth(9);
+      return { sclera, pupil, highlight, ...eye };
+    });
+    // Keep the mouth on its own lower-face track instead of orbiting with the
+    // eyes as the body rolls. A modest inset keeps it clear of the outer rim.
+    const mouthOffsetY = definition.radius * 0.42;
+    const mouth = scene.add.text(definition.x, definition.y + mouthOffsetY, '⌣', {
+      fontFamily: 'Arial, sans-serif', fontSize: `${Math.max(15, definition.radius * 0.93)}px`,
+      color: '#fff8fb', fontStyle: 'bold', stroke: '#6d2543', strokeThickness: 2.3,
     }).setOrigin(0.5).setDepth(7);
 
     this.registerLevelObject(object, { kind: 'bot', id: definition.id, mass: definition.mass });
     this.bots.set(definition.id, {
-      object, eyes, mouth,
+      object, shell, eyes, mouth,
       radius: definition.radius,
       mass: definition.mass,
       speed: definition.speed,
@@ -788,7 +858,11 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       }
     }
     this.movableBlocks.clear();
-    for (const bot of this.bots.values()) { bot.eyes.destroy(); bot.mouth.destroy(); }
+    for (const bot of this.bots.values()) {
+      bot.shell.destroy();
+      for (const eye of bot.eyes) { eye.sclera.destroy(); eye.pupil.destroy(); eye.highlight.destroy(); }
+      bot.mouth.destroy();
+    }
     this.bots.clear();
     for (const bird of this.birds.values()) bird.renderer.dispose();
     this.birds.clear();
@@ -830,7 +904,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       this.handleBirdCollision(pair, phase);
       this.handleBombCollision(pair, phase);
       this.handleBotCollision(pair, phase);
-      const mapped = this.mapper.mapPair(pair, phase, this.preStepBallVelocity);
+      const mapped = this.mapper.mapPair(pair, phase, this.preStepBallVelocity, this.preStepVelocities);
       for (const item of mapped) {
         if (item.type === 'SPIKE_ENTITY_HIT') {
           const victimKey = `${item.entityKind}:${item.entityId}`;
@@ -1575,8 +1649,28 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         continue;
       }
       const angle = bot.object.body.angle;
-      bot.eyes.setPosition(position.x, position.y - bot.radius * 0.12).setRotation(angle);
-      bot.mouth.setPosition(position.x, position.y + bot.radius * 0.34).setRotation(angle);
+      bot.shell.setPosition(position.x, position.y).setRotation(angle);
+      for (const eye of bot.eyes) {
+        const sclera = rotateBotFaceOffset(position.x, position.y, eye.offsetX, eye.offsetY, angle);
+        const pupil = rotateBotFaceOffset(
+          position.x, position.y,
+          eye.offsetX + eye.pupilOffsetX,
+          eye.offsetY + eye.pupilOffsetY,
+          angle,
+        );
+        const highlight = rotateBotFaceOffset(
+          position.x, position.y,
+          eye.offsetX + eye.pupilOffsetX - bot.radius * 0.035,
+          eye.offsetY + eye.pupilOffsetY - bot.radius * 0.04,
+          angle,
+        );
+        eye.sclera.setPosition(sclera.x, sclera.y).setRotation(angle);
+        eye.pupil.setPosition(pupil.x, pupil.y).setRotation(angle);
+        eye.highlight.setPosition(highlight.x, highlight.y).setRotation(angle);
+      }
+      // The mouth deliberately follows a world-vertical offset independent
+      // of the rotating eyes, preserving the old loose, goofy expression.
+      bot.mouth.setPosition(position.x, position.y + bot.radius * 0.42).setRotation(angle);
     }
   }
 
@@ -1587,7 +1681,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const entry = this.levelObjects.findIndex((object) => object.body === bot.object.body);
     if (entry >= 0) this.levelObjects.splice(entry, 1);
     this.metadata.delete(bot.object.body);
-    bot.eyes.destroy();
+    bot.shell.destroy();
+    for (const eye of bot.eyes) { eye.sclera.destroy(); eye.pupil.destroy(); eye.highlight.destroy(); }
     bot.mouth.destroy();
     bot.object.destroy();
   }

@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   drawSmileyMouth,
+  drawSmileySurpriseMouth,
   SMILEY_MOUTH_TEXTURE_HEIGHT,
   SMILEY_MOUTH_TEXTURE_KEY,
   SMILEY_MOUTH_TEXTURE_WIDTH,
+  SMILEY_SURPRISE_MOUTH_TEXTURE_KEY,
+  SMILEY_SURPRISE_MOUTH_TEXTURE_SIZE,
 } from '../../src/rendering/SmileyMouth';
 
 describe('Smiley mouth texture', () => {
@@ -53,4 +56,20 @@ describe('Smiley mouth texture', () => {
       0, 0, SMILEY_MOUTH_TEXTURE_WIDTH, SMILEY_MOUTH_TEXTURE_HEIGHT,
     );
   });
+
+  it('draws a compact surprised O mouth with a tongue highlight', () => {
+    const context = {
+      clearRect: vi.fn(), save: vi.fn(), beginPath: vi.fn(), ellipse: vi.fn(),
+      fill: vi.fn(), restore: vi.fn(), fillStyle: '',
+    } as unknown as CanvasRenderingContext2D;
+
+    drawSmileySurpriseMouth(context);
+
+    expect(SMILEY_SURPRISE_MOUTH_TEXTURE_KEY).toBe('ball-momentum-smiley-surprise-mouth-v1');
+    expect(context.clearRect).toHaveBeenCalledWith(0, 0, SMILEY_SURPRISE_MOUTH_TEXTURE_SIZE, SMILEY_SURPRISE_MOUTH_TEXTURE_SIZE);
+    expect(context.ellipse).toHaveBeenCalledTimes(3);
+    expect(context.fill).toHaveBeenCalledTimes(3);
+    expect(context.restore).toHaveBeenCalledTimes(1);
+  });
+
 });

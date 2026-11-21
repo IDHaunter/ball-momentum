@@ -26,7 +26,12 @@ export interface PhysicsBodyMetadata {
 export class MatterCollisionMapper {
   constructor(private readonly metadata: Map<MatterBodyLike, PhysicsBodyMetadata>) {}
 
-  mapPair(pair: CollisionPairLike, phase: 'start' | 'active' | 'end', preStepBallVelocity?: Vector2 | null): PhysicsEvent[] {
+  mapPair(
+    pair: CollisionPairLike,
+    phase: 'start' | 'active' | 'end',
+    preStepBallVelocity?: Vector2 | null,
+    preStepVelocities?: ReadonlyMap<MatterBodyLike, Vector2>,
+  ): PhysicsEvent[] {
     const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
     const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
     const metaA = this.metadata.get(bodyA);
@@ -69,6 +74,44 @@ export class MatterCollisionMapper {
     const ballMeta = ballIsA ? metaA : metaB;
     const otherMeta = ballIsA ? metaB : metaA;
     if (ballMeta.kind !== 'ball') return [];
+
+    // A new contact with any rolling/flying enemy can trigger the player's
+    // surprised-face response. Use pre-solver velocities before resolution.
+    if (otherMeta.kind === 'bot' || otherMeta.kind === 'bird' || otherMeta.kind === 'vomitEnemy') {
+      if (phase !== 'start') return [];
+      const ballBody = ballIsA ? bodyA : bodyB;
+      const enemyBody = ballIsA ? bodyB : bodyA;
+      const deltaX = ballBody.position.x - enemyBody.position.x;
+      const deltaY = ballBody.position.y - enemyBody.position.y;
+      const distance = Math.hypot(deltaX, deltaY);
+      let normal = distance > 1e-6
+        ? { x: deltaX / distance, y: deltaY / distance }
+        : { x: (ballIsA ? -1 : 1) * pair.collision.normal.x, y: (ballIsA ? -1 : 1) * pair.collision.normal.y };
+      const normalLength = Math.hypot(normal.x, normal.y) || 1;
+      normal = { x: normal.x / normalLength, y: normal.y / normalLength };
+      const ballVelocity = preStepVelocities?.get(ballBody)
+        ?? preStepBallVelocity
+        ?? { x: ballBody.velocity.x * 60, y: ballBody.velocity.y * 60 };
+      const enemyVelocity = preStepVelocities?.get(enemyBody)
+        ?? { x: enemyBody.velocity.x * 60, y: enemyBody.velocity.y * 60 };
+      const relativeVelocity = { x: ballVelocity.x - enemyVelocity.x, y: ballVelocity.y - enemyVelocity.y };
+      const impactSpeed = Math.max(0, -(relativeVelocity.x * normal.x + relativeVelocity.y * normal.y));
+      const supports = pair.collision.supports ?? [];
+      const activeSupports = supports.slice(0, pair.collision.supportCount ?? supports.length);
+      const contactPoint = activeSupports.length > 0
+        ? activeSupports.reduce((sum, point) => ({
+          x: sum.x + point.x / activeSupports.length,
+          y: sum.y + point.y / activeSupports.length,
+        }), { x: 0, y: 0 })
+        : {
+          x: (ballBody.position.x + enemyBody.position.x) / 2,
+          y: (ballBody.position.y + enemyBody.position.y) / 2,
+        };
+      if (otherMeta.kind === 'bot') {
+        return [{ type: 'BALL_BOT_IMPACT', botId: otherMeta.id, normal, contactPoint, impactSpeed }];
+      }
+      return [{ type: 'BALL_ENEMY_IMPACT', enemyKind: otherMeta.kind, enemyId: otherMeta.id, normal, contactPoint, impactSpeed }];
+    }
 
     if (otherMeta.kind === 'terrain' || otherMeta.kind === 'movable') {
       if (phase === 'end') return [{ type: 'BALL_TERRAIN_CONTACT_ENDED', terrainId: otherMeta.id }];

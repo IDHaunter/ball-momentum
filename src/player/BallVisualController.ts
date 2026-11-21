@@ -20,17 +20,18 @@ export class BallVisualController {
     if (this.reducedMotion) return;
     this.squashX = 0.88; this.squashY = 1.18; this.recovery = 0.16;
   }
+  /** Landing impacts now use the facial surprise response, never body deformation. */
   land(impactSpeed: number): void {
-    if (this.reducedMotion) return;
-    this.renderer.reactToImpact(impactSpeed);
-    const intensity = Math.min(0.18, Math.max(0.04, impactSpeed / 5000));
-    this.squashX = 1 + intensity;
-    this.squashY = 1 - intensity;
-    this.recovery = 0.18;
+    this.impact(impactSpeed);
   }
 
   impact(impactSpeed: number): void {
     if (!this.reducedMotion) this.renderer.reactToImpact(impactSpeed);
+  }
+
+  /** Bot collisions use the same thresholded surprise response as terrain impacts. */
+  bump(impactSpeed: number): void {
+    this.impact(impactSpeed);
   }
 
   update(dtSeconds: number, x: number, y: number, angle: number, speedPxPerSecond = 0): void {

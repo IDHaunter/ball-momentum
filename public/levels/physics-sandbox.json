@@ -939,8 +939,8 @@
     {
       "id": "sandbox-patrol-bot-a",
       "x": 1400,
-      "y": 386,
-      "radius": 14,
+      "y": 382,
+      "radius": 18,
       "mass": 1.15,
       "speed": 125,
       "direction": 1,
@@ -950,8 +950,8 @@
     {
       "id": "sandbox-patrol-bot-b",
       "x": 1500,
-      "y": 386,
-      "radius": 14,
+      "y": 382,
+      "radius": 18,
       "mass": 1.45,
       "speed": 100,
       "direction": -1,

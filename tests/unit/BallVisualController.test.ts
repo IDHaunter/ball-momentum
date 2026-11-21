@@ -43,7 +43,7 @@ describe('BallVisualController facial animation timing', () => {
     const visual = new BallVisualController(renderer);
 
     visual.impact(480);
-    visual.land(620);
+    visual.bump(620);
 
     expect(impacts).toEqual([480, 620]);
   });
@@ -61,5 +61,60 @@ describe('BallVisualController facial animation timing', () => {
     visual.land(500);
 
     expect(impacts).toHaveLength(0);
+  });
+});
+
+
+describe('BallVisualController impact response', () => {
+  it('does not deform the body on a bot collision and forwards the impact for a face reaction', () => {
+    const updates: unknown[][] = [];
+    const impacts: number[] = [];
+    const renderer = {
+      update: (...args: unknown[]) => updates.push(args),
+      reactToImpact: (speed: number) => impacts.push(speed),
+    } as unknown as BallRenderer;
+    const visual = new BallVisualController(renderer);
+
+    visual.bump(420);
+    visual.update(1 / 60, 40, 50, 0, 220);
+
+    expect(impacts).toEqual([420]);
+    expect(updates[0][3]).toBe(1);
+    expect(updates[0][4]).toBe(1);
+  });
+
+  it('does not deform the body on terrain impacts', () => {
+    const updates: unknown[][] = [];
+    const impacts: number[] = [];
+    const renderer = {
+      update: (...args: unknown[]) => updates.push(args),
+      reactToImpact: (speed: number) => impacts.push(speed),
+    } as unknown as BallRenderer;
+    const visual = new BallVisualController(renderer);
+
+    visual.land(520);
+    visual.update(1 / 60, 40, 50, 0, 220);
+
+    expect(impacts).toEqual([520]);
+    expect(updates[0][3]).toBe(1);
+    expect(updates[0][4]).toBe(1);
+  });
+
+  it('does not trigger face reactions when reduced motion is enabled', () => {
+    const updates: unknown[][] = [];
+    const impacts: number[] = [];
+    const renderer = {
+      update: (...args: unknown[]) => updates.push(args),
+      reactToImpact: (speed: number) => impacts.push(speed),
+    } as unknown as BallRenderer;
+    const visual = new BallVisualController(renderer);
+    visual.setReducedMotion(true);
+    visual.bump(500);
+    visual.impact(500);
+    visual.update(1 / 60, 40, 50, 0, 220);
+
+    expect(impacts).toHaveLength(0);
+    expect(updates[0][3]).toBe(1);
+    expect(updates[0][4]).toBe(1);
   });
 });

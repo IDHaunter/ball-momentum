@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSmileyAnimationFrame } from '../../src/rendering/SmileyAnimation';
+import { getSmileyAnimationFrame, getSmileyImpactExpression, shouldTriggerSmileySurprise, SMILEY_SURPRISE_IMPACT_THRESHOLD } from '../../src/rendering/SmileyAnimation';
 
 describe('getSmileyAnimationFrame', () => {
   it('moves both pupils independently while keeping their gaze bounded', () => {
@@ -35,14 +35,13 @@ describe('getSmileyAnimationFrame', () => {
     expect(fast.mouthScaleY).toBeLessThanOrEqual(1.02);
   });
 
-  it('reacts to impact with a subtle smooth widening instead of switching mouth shapes', () => {
-    const normal = getSmileyAnimationFrame(0.7, 200, 0);
-    const impact = getSmileyAnimationFrame(0.7, 200, 0.85);
-
-    expect(impact.mouthScaleX).toBeGreaterThan(normal.mouthScaleX);
-    expect(impact.mouthScaleX - normal.mouthScaleX).toBeLessThanOrEqual(0.03);
-    expect(impact.mouthScaleY).toBe(normal.mouthScaleY);
-    expect(impact.leftEye.verticalScale).toBe(normal.leftEye.verticalScale);
+  it('triggers the surprised face only for substantial impacts', () => {
+    expect(SMILEY_SURPRISE_IMPACT_THRESHOLD).toBe(260);
+    expect(shouldTriggerSmileySurprise(259.9)).toBe(false);
+    expect(shouldTriggerSmileySurprise(260)).toBe(true);
+    expect(shouldTriggerSmileySurprise(520)).toBe(true);
+    expect(shouldTriggerSmileySurprise(Number.NaN)).toBe(false);
+    expect(shouldTriggerSmileySurprise(Number.POSITIVE_INFINITY)).toBe(false);
   });
 
   it('repeats its blink cycle deterministically', () => {
@@ -54,7 +53,7 @@ describe('getSmileyAnimationFrame', () => {
   });
 
   it('returns finite neutral values for invalid inputs', () => {
-    const frame = getSmileyAnimationFrame(Number.NaN, Number.NaN, Number.NaN);
+    const frame = getSmileyAnimationFrame(Number.NaN, Number.NaN);
     const values = [
       frame.leftEye.eyeOffsetX, frame.leftEye.eyeOffsetY,
       frame.leftEye.pupilOffsetX, frame.leftEye.pupilOffsetY,
@@ -62,5 +61,40 @@ describe('getSmileyAnimationFrame', () => {
       frame.mouthScaleX, frame.mouthScaleY,
     ];
     expect(values.every(Number.isFinite)).toBe(true);
+  });
+});
+
+
+describe('getSmileyImpactExpression', () => {
+  it('never cross-fades the normal smile with the surprised O mouth', () => {
+    for (let step = 0; step <= 100; step += 1) {
+      const remaining = step / 100;
+      const expression = getSmileyImpactExpression(remaining);
+      expect(expression.smileAlpha * expression.surpriseMouthAlpha).toBe(0);
+      expect(expression.smileAlpha + expression.surpriseMouthAlpha).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('hides the smile immediately, fades the O in and out, then restores the smile', () => {
+    const atImpact = getSmileyImpactExpression(1);
+    const entering = getSmileyImpactExpression(0.94);
+    const held = getSmileyImpactExpression(0.5);
+    const exiting = getSmileyImpactExpression(0.11);
+    const restored = getSmileyImpactExpression(0);
+
+    expect(atImpact.smileAlpha).toBe(0);
+    expect(atImpact.surpriseMouthAlpha).toBe(0);
+    expect(entering.smileAlpha).toBe(0);
+    expect(entering.surpriseMouthAlpha).toBeGreaterThan(0);
+    expect(held.surpriseMouthAlpha).toBe(1);
+    expect(exiting.smileAlpha).toBe(0);
+    expect(exiting.surpriseMouthAlpha).toBeGreaterThan(0);
+    expect(restored).toEqual({ smileAlpha: 1, surpriseMouthAlpha: 0, eyeScale: 1 });
+  });
+
+  it('returns safe expression values for invalid timer input', () => {
+    expect(getSmileyImpactExpression(Number.NaN)).toEqual({
+      smileAlpha: 1, surpriseMouthAlpha: 0, eyeScale: 1,
+    });
   });
 });

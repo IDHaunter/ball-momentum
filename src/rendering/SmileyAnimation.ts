@@ -7,6 +7,44 @@ export interface SmileyEyeAnimation {
   verticalScale: number;
 }
 
+export const SMILEY_SURPRISE_IMPACT_THRESHOLD = 260;
+
+export interface SmileyImpactExpression {
+  /** Alpha of the normal smile. It stays hidden for the complete surprise reaction. */
+  smileAlpha: number;
+  /** Alpha of the surprised O mouth, faded in and out without overlapping the smile. */
+  surpriseMouthAlpha: number;
+  /** Eye scale follows the visible strength of the surprised expression. */
+  eyeScale: number;
+}
+
+/**
+ * Returns mutually-exclusive mouth visibility for the remaining impact timer.
+ * The normal smile is hidden immediately and only returns after the O mouth
+ * has completely faded out, preventing the two mouth sprites from crossing.
+ */
+export function getSmileyImpactExpression(remainingFraction: number): SmileyImpactExpression {
+  const remaining = clamp(Number.isFinite(remainingFraction) ? remainingFraction : 0, 0, 1);
+  if (remaining <= 0) {
+    return { smileAlpha: 1, surpriseMouthAlpha: 0, eyeScale: 1 };
+  }
+
+  // Reserve a short entrance and exit fade for the O mouth. The smile remains
+  // fully hidden throughout both fades so there can never be two mouths at once.
+  const fadeIn = clamp((1 - remaining) / 0.12, 0, 1);
+  const fadeOut = clamp(remaining / 0.22, 0, 1);
+  const surpriseMouthAlpha = Math.min(fadeIn, fadeOut);
+  return {
+    smileAlpha: 0,
+    surpriseMouthAlpha,
+    eyeScale: 1 + surpriseMouthAlpha * 0.25,
+  };
+}
+
+export function shouldTriggerSmileySurprise(impactSpeed: number): boolean {
+  return Number.isFinite(impactSpeed) && impactSpeed >= SMILEY_SURPRISE_IMPACT_THRESHOLD;
+}
+
 export interface SmileyAnimationFrame {
   leftEye: SmileyEyeAnimation;
   rightEye: SmileyEyeAnimation;
@@ -50,22 +88,19 @@ function eyeAnimation(timeSeconds: number, phase: number): SmileyEyeAnimation {
   };
 }
 
-/** The smile stays a single stable curve; speed and impact only adjust its size subtly. */
+/** Idle facial motion. Impact expression is layered separately by BallRenderer. */
 export function getSmileyAnimationFrame(
   timeSeconds: number,
   speedPxPerSecond = 0,
-  impactAmount = 0,
 ): SmileyAnimationFrame {
   const safeTime = Number.isFinite(timeSeconds) ? Math.max(0, timeSeconds) : 0;
   const safeSpeed = Number.isFinite(speedPxPerSecond) ? Math.max(0, speedPxPerSecond) : 0;
   const speed = clamp(safeSpeed / 760, 0, 1);
-  const impact = Number.isFinite(impactAmount) ? clamp(impactAmount, 0, 1) : 0;
-
   return {
     leftEye: eyeAnimation(safeTime, 0),
     rightEye: eyeAnimation(safeTime, 0.42),
-    // A very small response is interpolated by BallRenderer, not redrawn as geometry.
-    mouthScaleX: 1 + speed * 0.045 + impact * 0.025,
+    // Speed only gives the normal smile a subtle, stable widening.
+    mouthScaleX: 1 + speed * 0.045,
     mouthScaleY: 1 + speed * 0.012,
   };
 }

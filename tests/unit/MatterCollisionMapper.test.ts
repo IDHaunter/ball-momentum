@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MatterCollisionMapper, type CollisionPairLike, type PhysicsBodyMetadata } from '../../src/physics/MatterCollisionMapper';
 import type { MatterBodyLike } from '../../src/physics/MatterPhysicsBody';
+import type { Vector2 } from '../../src/physics/PhysicsTypes';
 
 function body(x: number, y: number): MatterBodyLike {
   return { position: { x, y }, velocity: { x: 0, y: 0 }, angle: 0, angularVelocity: 0 };
@@ -409,3 +410,87 @@ describe('MatterCollisionMapper raised spikes', () => {
     expect(event).toEqual(expect.objectContaining({ type: 'SPIKE_ENTITY_HIT', entityKind: eventKind, entityId: id }));
   });
 });
+
+describe('MatterCollisionMapper player and patrol bot impacts', () => {
+  it('emits a single impact event with relative pre-step speed and contact point', () => {
+    const ball = body(100, 100);
+    const bot = body(130, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball', mass: 1 }],
+      [bot, { kind: 'bot', id: 'patrol-bot', mass: 1.2 }],
+    ]));
+    const preStepVelocities = new Map<MatterBodyLike, Vector2>([
+      [ball, { x: 240, y: 12 }],
+      [bot, { x: -20, y: 0 }],
+    ]);
+
+    const events = mapper.mapPair({
+      bodyA: bot,
+      bodyB: ball,
+      collision: {
+        normal: { x: 1, y: 0 },
+        supports: [{ x: 115, y: 96 }, { x: 115, y: 104 }],
+        supportCount: 2,
+      },
+    }, 'start', null, preStepVelocities);
+
+    expect(events).toEqual([{
+      type: 'BALL_BOT_IMPACT',
+      botId: 'patrol-bot',
+      normal: { x: -1, y: 0 },
+      contactPoint: { x: 115, y: 100 },
+      impactSpeed: 260,
+    }]);
+  });
+
+  it('does not repeat the visual impact event during a sustained contact', () => {
+    const ball = body(100, 100);
+    const bot = body(130, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball' }],
+      [bot, { kind: 'bot', id: 'patrol-bot' }],
+    ]));
+    const pair = { bodyA: ball, bodyB: bot, collision: { normal: { x: -1, y: 0 } } };
+
+    expect(mapper.mapPair(pair, 'start', { x: 240, y: 0 })[0]?.type).toBe('BALL_BOT_IMPACT');
+    expect(mapper.mapPair(pair, 'active', { x: 240, y: 0 })).toEqual([]);
+  });
+});
+
+describe('MatterCollisionMapper impacts from other enemy characters', () => {
+  it.each([
+    ['bird', 'nest-guardian'],
+    ['vomitEnemy', 'green-gremlin'],
+  ] as const)('emits a thresholdable player impact when colliding with %s', (kind: 'bird' | 'vomitEnemy', id: string) => {
+    const ball = body(100, 100);
+    const enemy = body(130, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball', mass: 1 }],
+      [enemy, { kind, id, mass: 1.2 }],
+    ]));
+
+    const events = mapper.mapPair({
+      bodyA: enemy,
+      bodyB: ball,
+      collision: { normal: { x: 1, y: 0 }, supports: [{ x: 115, y: 100 }], supportCount: 1 },
+    }, 'start', null, new Map<MatterBodyLike, Vector2>([
+      [ball, { x: 300, y: 0 }],
+      [enemy, { x: -30, y: 0 }],
+    ]));
+
+    expect(events).toEqual([{
+      type: 'BALL_ENEMY_IMPACT',
+      enemyKind: kind,
+      enemyId: id,
+      normal: { x: -1, y: 0 },
+      contactPoint: { x: 115, y: 100 },
+      impactSpeed: 330,
+    }]);
+    expect(mapper.mapPair({
+      bodyA: enemy,
+      bodyB: ball,
+      collision: { normal: { x: 1, y: 0 } },
+    }, 'active', { x: 300, y: 0 })).toEqual([]);
+  });
+});
+

@@ -267,7 +267,6 @@ export class GameplayScene extends Phaser.Scene {
     const contact = this.ball.stepAfterPhysics();
     this.emitBoostState();
     if (contact.landed) {
-      this.ballVisual?.land(Math.hypot(preVelocity.x, preVelocity.y));
       this.effects.landing(this.ball.snapshot.position.x, this.ball.snapshot.position.y + this.physicsConfig.ball.radiusPx, Math.hypot(preVelocity.x, preVelocity.y));
     }
     this.processPhysicsEvents();
@@ -330,6 +329,18 @@ export class GameplayScene extends Phaser.Scene {
       }
       if (event.type === 'BALL_MOVABLE_IMPACT') {
         if (this.gameRegistry.flow.state === 'PLAYING') this.ballVisual?.impact(event.normalImpactSpeed);
+        continue;
+      }
+      if (event.type === 'BALL_BOT_IMPACT') {
+        if (this.gameRegistry.flow.state === 'PLAYING' && event.impactSpeed > 1) {
+          this.ballVisual?.bump(event.impactSpeed);
+        }
+        continue;
+      }
+      if (event.type === 'BALL_ENEMY_IMPACT') {
+        if (this.gameRegistry.flow.state === 'PLAYING' && event.impactSpeed > 1) {
+          this.ballVisual?.bump(event.impactSpeed);
+        }
         continue;
       }
       if (event.type === 'BALL_TERRAIN_IMPACT') {
