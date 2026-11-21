@@ -25,7 +25,7 @@
       "texture": "concrete-grain",
       "borders": {
         "top": "grass",
-        "right": "stone",
+        "right": "none",
         "bottom": "none",
         "left": "stone"
       }
@@ -52,7 +52,7 @@
         ]
       ],
       "material": "normal",
-      "texture": "stone-strata",
+      "texture": "concrete-grain",
       "borders": [
         {
           "edge": 0,
@@ -60,7 +60,7 @@
         },
         {
           "edge": 1,
-          "style": "stone"
+          "style": "none"
         },
         {
           "edge": 2,
@@ -68,7 +68,7 @@
         },
         {
           "edge": 3,
-          "style": "stone"
+          "style": "none"
         }
       ]
     },
@@ -171,7 +171,7 @@
       "texture": "concrete-grain",
       "borders": {
         "top": "grass",
-        "right": "stone",
+        "right": "none",
         "bottom": "none",
         "left": "stone"
       }
@@ -234,7 +234,7 @@
         "top": "asphalt",
         "right": "stone",
         "bottom": "none",
-        "left": "stone"
+        "left": "none"
       }
     },
     {
@@ -360,9 +360,9 @@
       },
       "borders": {
         "top": "wood",
-        "right": "metal",
+        "right": "wood",
         "bottom": "wood",
-        "left": "metal"
+        "left": "wood"
       }
     },
     {
@@ -401,9 +401,9 @@
       },
       "borders": {
         "top": "stone",
-        "right": "metal",
+        "right": "stone",
         "bottom": "none",
-        "left": "metal"
+        "left": "stone"
       }
     },
     {
@@ -422,9 +422,9 @@
       },
       "borders": {
         "top": "stone",
-        "right": "metal",
+        "right": "stone",
         "bottom": "none",
-        "left": "metal"
+        "left": "stone"
       }
     },
     {
@@ -443,9 +443,9 @@
       },
       "borders": {
         "top": "ice",
-        "right": "metal",
-        "bottom": "none",
-        "left": "metal"
+        "right": "ice",
+        "bottom": "ice",
+        "left": "ice"
       }
     },
     {
@@ -485,9 +485,9 @@
       },
       "borders": {
         "top": "stone",
-        "right": "metal",
+        "right": "stone",
         "bottom": "none",
-        "left": "metal"
+        "left": "stone"
       }
     },
     {
@@ -527,9 +527,9 @@
       },
       "borders": {
         "top": "asphalt",
-        "right": "metal",
+        "right": "asphalt",
         "bottom": "none",
-        "left": "metal"
+        "left": "asphalt"
       }
     },
     {
@@ -548,9 +548,9 @@
       },
       "borders": {
         "top": "wood",
-        "right": "metal",
-        "bottom": "none",
-        "left": "metal"
+        "right": "wood",
+        "bottom": "wood",
+        "left": "wood"
       }
     },
     {

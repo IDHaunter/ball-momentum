@@ -169,6 +169,10 @@ export function drawSurfaceBorder(
         graphics.lineStyle(1.6, 0xf4ffff, 0.98);
         graphics.lineBetween(x - tangent.x * 3 - normal.x * 2, y - tangent.y * 3 - normal.y * 2, x + tangent.x * 3 + normal.x * 2, y + tangent.y * 3 + normal.y * 2);
       }
+      if (normal.y < -0.35) {
+        // An ice-and-snow crust sits outside the flat collision edge only.
+        drawIceCrystalCoating(graphics, edge, length, tangent, normal);
+      }
       break;
     }
     case 'wood': {
@@ -247,6 +251,108 @@ function drawStonePebbleCoating(
         glintX + xAxis.x * width * 0.17,
         glintY + xAxis.y * width * 0.17,
       );
+    }
+  }
+}
+
+interface IceChunkTone { body: number; shade: number; highlight: number; }
+
+const ICE_CHUNK_TONES: readonly IceChunkTone[] = [
+  { body: 0x8eddf0, shade: 0x397f9b, highlight: 0xf0fdff },
+  { body: 0xb9eff7, shade: 0x5babc0, highlight: 0xffffff },
+  { body: 0x70c8e5, shade: 0x286f91, highlight: 0xdffaff },
+  { body: 0xd3f5f8, shade: 0x76baca, highlight: 0xffffff },
+  { body: 0x9bcce9, shade: 0x507ea4, highlight: 0xf2fbff },
+];
+
+/**
+ * Paints a playful, shallow crust of rounded ice chunks, tiny crystals and
+ * snow sparkles along an exposed upper ice edge. It is purely decorative:
+ * the original edge remains the sole surface used by the physics engine.
+ */
+function drawIceCrystalCoating(
+  graphics: BorderGraphicsLike,
+  edge: BorderEdgeSegment,
+  length: number,
+  tangent: BorderPoint,
+  normal: BorderPoint,
+): void {
+  const random = createEdgeRandom(edge);
+  const spacing = 11.4;
+  const rows = 2;
+  const count = Math.max(2, Math.ceil(length / spacing));
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let index = 0; index < count; index += 1) {
+      const tone = ICE_CHUNK_TONES[Math.floor(random() * ICE_CHUNK_TONES.length)];
+      const width = 5.8 + random() * 5.2;
+      const height = 3.8 + random() * 3.3;
+      const along = Math.min(length, Math.max(0,
+        (index + 0.5 + row * 0.46) * spacing + (random() - 0.5) * 3.1,
+      ));
+      const offset = (row === 0 ? 1.0 : -2.7) + (random() - 0.5) * 1.2;
+      const centerX = edge.a.x + tangent.x * along + normal.x * offset;
+      const centerY = edge.a.y + tangent.y * along + normal.y * offset;
+
+      // Soft shadow, rounded ice lump and an icy rim make the layer readable.
+      graphics.fillStyle(0x17445b, 0.24);
+      graphics.fillEllipse(centerX - normal.x * 0.35, centerY - normal.y * 0.35, width * 1.08, height * 0.78);
+      graphics.fillStyle(tone.body, 0.96);
+      graphics.fillEllipse(centerX, centerY, width, height);
+      graphics.lineStyle(0.95, tone.shade, 0.9);
+      graphics.strokeEllipse(centerX, centerY, width, height);
+
+      // Curved-looking white glints and a small snow cap vary each ice lump.
+      graphics.fillStyle(tone.highlight, 0.7);
+      graphics.fillEllipse(
+        centerX - tangent.x * width * 0.12 - normal.x * height * 0.12,
+        centerY - tangent.y * width * 0.12 - normal.y * height * 0.12,
+        width * (0.28 + random() * 0.16),
+        height * 0.24,
+      );
+
+      // Every few lumps grow a playful faceted shard above the rolling plane.
+      if ((index + row * 2) % 3 === 1 || random() > 0.82) {
+        const shardAlong = along + (random() - 0.5) * width * 0.34;
+        const baseOffset = offset - height * 0.18;
+        const halfBase = 2.1 + random() * 2.2;
+        const tipHeight = 5.2 + random() * 4.6;
+        const baseLeft = {
+          x: edge.a.x + tangent.x * (shardAlong - halfBase) + normal.x * baseOffset,
+          y: edge.a.y + tangent.y * (shardAlong - halfBase) + normal.y * baseOffset,
+        };
+        const baseRight = {
+          x: edge.a.x + tangent.x * (shardAlong + halfBase) + normal.x * baseOffset,
+          y: edge.a.y + tangent.y * (shardAlong + halfBase) + normal.y * baseOffset,
+        };
+        const tip = {
+          x: edge.a.x + tangent.x * (shardAlong + (random() - 0.5) * 1.4) + normal.x * (baseOffset + tipHeight),
+          y: edge.a.y + tangent.y * (shardAlong + (random() - 0.5) * 1.4) + normal.y * (baseOffset + tipHeight),
+        };
+        graphics.lineStyle(2.5, tone.shade, 0.95);
+        graphics.lineBetween(baseLeft.x, baseLeft.y, tip.x, tip.y);
+        graphics.lineBetween(tip.x, tip.y, baseRight.x, baseRight.y);
+        graphics.lineStyle(1.15, tone.highlight, 1);
+        graphics.lineBetween(baseLeft.x, baseLeft.y, tip.x, tip.y);
+        graphics.lineBetween(tip.x, tip.y, baseRight.x, baseRight.y);
+        graphics.lineBetween(
+          tip.x, tip.y,
+          edge.a.x + tangent.x * shardAlong + normal.x * baseOffset,
+          edge.a.y + tangent.y * shardAlong + normal.y * baseOffset,
+        );
+      }
+
+      // Occasional tiny snowflake glints add a light, slightly silly sparkle.
+      if (random() > 0.72) {
+        const flakeAlong = along + (random() - 0.5) * 6;
+        const flakeOffset = offset + 3.8 + random() * 2.0;
+        const flakeX = edge.a.x + tangent.x * flakeAlong + normal.x * flakeOffset;
+        const flakeY = edge.a.y + tangent.y * flakeAlong + normal.y * flakeOffset;
+        const arm = 1.4 + random() * 1.0;
+        graphics.lineStyle(1.0, 0xffffff, 0.94);
+        graphics.lineBetween(flakeX - tangent.x * arm, flakeY - tangent.y * arm, flakeX + tangent.x * arm, flakeY + tangent.y * arm);
+        graphics.lineBetween(flakeX - normal.x * arm, flakeY - normal.y * arm, flakeX + normal.x * arm, flakeY + normal.y * arm);
+      }
     }
   }
 }

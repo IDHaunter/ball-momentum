@@ -79,6 +79,32 @@ describe('SurfaceBorderRenderer', () => {
     expect(side.lines.some((line) => line.color === 0x4a5864)).toBe(true);
   });
 
+  it('adds rounded ice chunks, raised crystals and snow sparkles only to upper ice edges', () => {
+    const top = new FakeGraphics();
+    drawBoxBorders(top, 0, 0, 170, 42, { top: 'ice', right: 'none', bottom: 'none', left: 'none' });
+    expect(top.ellipses.length).toBeGreaterThan(60);
+    expect(new Set(top.ellipses.filter((ellipse) => ellipse.fill).map((ellipse) => ellipse.color)).size).toBeGreaterThan(4);
+    expect(top.lines.some((line) => line.color === 0xffffff)).toBe(true);
+    expect(top.lines.some((line) => line.color === 0xdffaff || line.color === 0xf0fdff)).toBe(true);
+
+    const side = new FakeGraphics();
+    drawBoxBorders(side, 0, 0, 170, 42, { top: 'none', right: 'ice', bottom: 'none', left: 'none' });
+    expect(side.ellipses).toHaveLength(0);
+    expect(side.lines.some((line) => line.color === 0xf4ffff)).toBe(true);
+  });
+
+  it('keeps the ice coating deterministic on sloped upward-facing polygon edges', () => {
+    const first = new FakeGraphics();
+    const second = new FakeGraphics();
+    const vertices: Array<[number, number]> = [[0, 54], [70, 0], [140, 54], [140, 100], [0, 100]];
+    const borders = [{ edge: 0, style: 'ice' as const }];
+    drawPolygonBorders(first, vertices, borders);
+    drawPolygonBorders(second, vertices, borders);
+    expect(first.ellipses).toEqual(second.ellipses);
+    expect(first.lines).toEqual(second.lines);
+    expect(first.ellipses.length).toBeGreaterThan(20);
+  });
+
   it('keeps the pebble arrangement deterministic and follows sloped upper polygon edges', () => {
     const first = new FakeGraphics();
     const second = new FakeGraphics();
