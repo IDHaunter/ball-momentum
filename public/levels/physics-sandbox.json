@@ -251,10 +251,10 @@
       },
       "texture": "glass-facets",
       "borders": {
-        "top": "ice",
-        "right": "ice",
+        "top": "glass",
+        "right": "glass",
         "bottom": "none",
-        "left": "ice"
+        "left": "glass"
       }
     },
     {
@@ -288,11 +288,11 @@
       "borders": [
         {
           "edge": 0,
-          "style": "ice"
+          "style": "glass"
         },
         {
           "edge": 1,
-          "style": "ice"
+          "style": "glass"
         },
         {
           "edge": 2,
@@ -314,10 +314,10 @@
       },
       "texture": "glass-facets",
       "borders": {
-        "top": "ice",
-        "right": "ice",
+        "top": "glass",
+        "right": "glass",
         "bottom": "none",
-        "left": "ice"
+        "left": "glass"
       }
     },
     {
@@ -334,10 +334,10 @@
       },
       "texture": "glass-facets",
       "borders": {
-        "top": "ice",
-        "right": "ice",
-        "bottom": "ice",
-        "left": "ice"
+        "top": "glass",
+        "right": "glass",
+        "bottom": "glass",
+        "left": "glass"
       }
     },
     {
@@ -379,10 +379,10 @@
       },
       "texture": "glass-facets",
       "borders": {
-        "top": "ice",
-        "right": "ice",
+        "top": "glass",
+        "right": "glass",
         "bottom": "none",
-        "left": "ice"
+        "left": "glass"
       }
     },
     {
@@ -505,7 +505,7 @@
         "seed": 73
       },
       "borders": {
-        "top": "ice",
+        "top": "glass",
         "right": "metal",
         "bottom": "none",
         "left": "metal"

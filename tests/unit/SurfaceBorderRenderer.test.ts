@@ -79,6 +79,40 @@ describe('SurfaceBorderRenderer', () => {
     expect(side.lines.some((line) => line.color === 0x4a5864)).toBe(true);
   });
 
+  it('draws a subdued graphite glass rim with soft reflections and no ice-like strokes', () => {
+    const first = new FakeGraphics();
+    const second = new FakeGraphics();
+    const vertices: Array<[number, number]> = [[0, 50], [70, 0], [140, 50], [140, 100], [0, 100]];
+    const borders = [
+      { edge: 0, style: 'glass' as const },
+      { edge: 1, style: 'none' as const },
+      { edge: 2, style: 'none' as const },
+      { edge: 3, style: 'none' as const },
+      { edge: 4, style: 'none' as const },
+    ];
+
+    drawPolygonBorders(first, vertices, borders);
+    drawPolygonBorders(second, vertices, borders);
+
+    expect(first.lines).toEqual(second.lines);
+    expect(first.ellipses).toEqual(second.ellipses);
+    expect(first.lines.some((line) => line.color === 0x697780 && line.alpha < 0.4)).toBe(true);
+    expect(first.lines.some((line) => line.color === 0xc3ccd1 && line.alpha < 0.35)).toBe(true);
+    expect(first.lines.some((line) => line.color === 0x72d8ea || line.color === 0xe8fbff)).toBe(false);
+    expect(first.ellipses.some((ellipse) => ellipse.fill && ellipse.color === 0x9eabb2 && ellipse.alpha < 0.2)).toBe(true);
+    expect(first.ellipses.some((ellipse) => ellipse.fill && ellipse.color === 0xe1e7ea && ellipse.alpha < 0.3)).toBe(true);
+    // Only the four quiet continuous edge strokes remain; reflections are soft ovals, not ice-like dashes.
+    expect(first.lines).toHaveLength(4);
+    expect(first.ellipses.length).toBeLessThan(8);
+  });
+
+  it('uses the glass finish on vertical box edges as well as top edges', () => {
+    const graphics = new FakeGraphics();
+    drawBoxBorders(graphics, 0, 0, 120, 50, { top: 'none', right: 'glass', bottom: 'none', left: 'none' });
+    expect(graphics.lines.some((line) => line.color === 0x697780 && line.alpha < 0.4)).toBe(true);
+    expect(graphics.ellipses.length).toBeGreaterThan(0);
+  });
+
   it('adds rounded ice chunks, raised crystals and snow sparkles only to upper ice edges', () => {
     const top = new FakeGraphics();
     drawBoxBorders(top, 0, 0, 170, 42, { top: 'ice', right: 'none', bottom: 'none', left: 'none' });

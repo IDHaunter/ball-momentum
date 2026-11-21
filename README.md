@@ -71,7 +71,7 @@ Edit JSON files in `public/levels/`. `level-01.json` is the tutorial course and 
 
 ## Surface borders
 
-Boxes and polygons can customize each visible edge independently from their physics material and interior texture. Boxes use `borders: { top, right, bottom, left }`; polygons use a `borders` array with zero-based `{ edge, style }` entries. Built-in styles are `default`, `none`, `grass`, `asphalt`, `stone`, `metal`, `ice`, and `wood`. Spring-enabled edges are rendered on top as wide black-and-yellow hazard tape. See `SURFACE_BORDERS.md` for examples and the complete style reference.
+Boxes and polygons can customize each visible edge independently from their physics material and interior texture. Boxes use `borders: { top, right, bottom, left }`; polygons use a `borders` array with zero-based `{ edge, style }` entries. Built-in styles are `default`, `none`, `grass`, `asphalt`, `stone`, `metal`, `ice`, `glass`, and `wood`. The `glass` style uses a quiet, translucent graphite blue-grey rim that blends into the glass facets, with sparse soft oval reflections; unlike `ice`, it does not add snow, crystal chunks, or bright diagonal strokes. All border styles are visual-only and do not change collision geometry or material physics. Spring-enabled edges are rendered on top as wide black-and-yellow hazard tape. See `SURFACE_BORDERS.md` for examples and the complete style reference.
 
 ## Physics tuning
 

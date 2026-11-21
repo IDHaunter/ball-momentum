@@ -8,7 +8,7 @@ const materialSchema = z.object({
 });
 
 const springImpulseSchema = z.number().finite().positive().max(3000);
-const borderStyleSchema = z.enum(['default', 'none', 'grass', 'asphalt', 'stone', 'metal', 'ice', 'wood']);
+const borderStyleSchema = z.enum(['default', 'none', 'grass', 'asphalt', 'stone', 'metal', 'ice', 'glass', 'wood']);
 const boxBordersSchema = z.object({
   top: borderStyleSchema.optional(),
   right: borderStyleSchema.optional(),

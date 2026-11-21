@@ -35,6 +35,27 @@ describe('LevelValidator', () => {
   });
   it('requires a goal trigger', () => expect(() => validator.validate({ ...validLevel, triggers: [] })).toThrow(/goal trigger/));
 
+  it('accepts the glass border style without changing the physical glass material', () => {
+    const level = {
+      ...validLevel,
+      materials: { ...validLevel.materials, glass: { friction: 0.08, frictionStatic: 0.12, restitution: 0.34 } },
+      solids: [
+        { ...validLevel.solids[0], material: 'glass', borders: { top: 'glass', right: 'glass', bottom: 'none', left: 'glass' } },
+        { id: 'glass-triangle', type: 'polygon', vertices: [[200, 200], [250, 150], [300, 200]], borders: [
+          { edge: 0, style: 'glass' }, { edge: 1, style: 'glass' }, { edge: 2, style: 'none' },
+        ] },
+      ],
+    };
+
+    const validated = validator.validate(level);
+    const box = validated.solids[0];
+    const polygon = validated.solids[1];
+    if (box.type !== 'box' || polygon.type !== 'polygon') throw new Error('Expected a box and a polygon');
+    expect(box.borders?.top).toBe('glass');
+    expect(polygon.borders?.[0].style).toBe('glass');
+    expect(validated.materials?.glass).toEqual({ friction: 0.08, frictionStatic: 0.12, restitution: 0.34 });
+  });
+
   it('accepts a valid timed bomb with an energy-based blast configuration', () => {
     const level = {
       ...validLevel,

@@ -157,6 +157,33 @@ export function drawSurfaceBorder(
       }
       break;
     }
+    case 'glass': {
+      // Keep the border inside the muted graphite / blue-grey palette of the
+      // glass facets. Low alpha lets the face texture visually continue into
+      // the edge, so the solid reads as one translucent glass object.
+      stroke(8, 0x29343c, 0.3);
+      stroke(5.2, 0x697780, 0.32);
+      stroke(1.2, 0xc3ccd1, 0.28, -1.35);
+      stroke(1, 0x3e5059, 0.18, 1.45);
+
+      // Sparse, soft oval reflections give the rim a glass sheen. Unlike ice,
+      // glass has no diagonal scratches, cross-strokes, snow or crystal shapes.
+      const random = createEdgeRandom(edge);
+      const glints = Math.max(1, Math.floor(length / 92));
+      for (let index = 0; index < glints; index += 1) {
+        const t = (index + 0.42 + random() * 0.16) / glints;
+        const centerX = a.x + dx * t + normal.x * (-1.1 - random() * 0.45);
+        const centerY = a.y + dy * t + normal.y * (-1.1 - random() * 0.45);
+        const reflectionWidth = 7 + random() * 3.5;
+
+        // A diffuse grey reflection with a smaller soft highlight in its centre.
+        graphics.fillStyle(0x9eabb2, 0.16);
+        graphics.fillEllipse(centerX, centerY, reflectionWidth, 2.8);
+        graphics.fillStyle(0xe1e7ea, 0.24);
+        graphics.fillEllipse(centerX - tangent.x * 0.45, centerY - tangent.y * 0.45, reflectionWidth * 0.42, 1.15);
+      }
+      break;
+    }
     case 'ice': {
       stroke(9, 0x28627c, 0.98);
       stroke(6, 0x79d5ed, 1);
