@@ -866,24 +866,6 @@
       "depth": 1
     },
     {
-      "id": "sandbox-vomit-pit-glow-left",
-      "type": "circle",
-      "x": 6380,
-      "y": 1365,
-      "radius": 18,
-      "color": "#3a922d",
-      "depth": 2
-    },
-    {
-      "id": "sandbox-vomit-pit-glow-right",
-      "type": "circle",
-      "x": 6565,
-      "y": 1380,
-      "radius": 13,
-      "color": "#6acb3e",
-      "depth": 2
-    },
-    {
       "id": "sandbox-vomit-enemy-hint",
       "type": "text",
       "x": 6075,
