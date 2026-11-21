@@ -178,7 +178,7 @@ describe('MatterPhysicsWorld autonomous bots', () => {
     expect(harness.circles[7]).toMatchObject({ x: 210, y: botDefinition.y, radius: botDefinition.radius, color: 0xd65d86 });
     expect(harness.circles[8]).toMatchObject({ radius: botDefinition.radius * 0.215, color: 0xfffbf7, depth: 7 });
     const [mouth] = harness.labels;
-    expect(Number.parseFloat(String(mouth.style.fontSize))).toBeCloseTo(botDefinition.radius * 0.93, 6);
+    expect(Number.parseFloat(String(mouth.style.fontSize))).toBeCloseTo(Math.max(15, botDefinition.radius * 0.93), 6);
     expect(mouth.style.stroke).toBe('#6d2543');
 
     const botBody = harness.bodies.find((body) => body.label === 'BOT:patrol-bot')!;
