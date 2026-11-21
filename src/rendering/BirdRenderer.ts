@@ -63,6 +63,13 @@ export class BirdRenderer {
   private direction: -1 | 1 = 1;
   private attacking = false;
   private hitReactionMs = 0;
+  private visualBodyRotation = 0;
+  private invertedDurationMs = 0;
+  private recoveringFromFlip = false;
+  private recoveryStartRotation = 0;
+  private recoveryElapsedMs = 0;
+  private uprightLock = false;
+  private uprightStableMs = 0;
   private seed: number;
   private feathers: FeatherParticle[] = [];
   private disposed = false;
@@ -100,9 +107,78 @@ export class BirdRenderer {
     const flap = Math.sin(flapPhase) + Math.sin(flapPhase * 1.73 + 0.8) * 0.14;
     const lean = attacking ? direction * 0.085 : Math.sin(this.elapsedMs * 0.004) * 0.018;
     this.container.setScale(1, 1);
-    this.container.setRotation(bodyRotation + lean);
+    const visualRotation = this.resolveVisualRotation(bodyRotation, safeDelta);
+    this.container.setRotation(visualRotation + lean);
     this.drawBird(flap, flapPhase);
     this.updateFeathers(safeDelta);
+  }
+
+
+  /**
+   * A Matter circle can spin freely after a collision. Keep the bird readable:
+   * allow the initial tumble, then animate its artwork back upright and hold it
+   * there until the physical body's angle naturally returns near upright.
+   */
+  private resolveVisualRotation(bodyRotation: number, deltaMs: number): number {
+    const normalizedRotation = this.normalizeAngle(bodyRotation);
+    const inversionThreshold = Math.PI * 0.52;
+    const uprightThreshold = Math.PI * 0.16;
+    const inversionHoldMs = 260;
+    const recoveryDurationMs = 720;
+
+    if (this.recoveringFromFlip) {
+      this.recoveryElapsedMs = Math.min(recoveryDurationMs, this.recoveryElapsedMs + deltaMs);
+      const progress = this.recoveryElapsedMs / recoveryDurationMs;
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const settlingWobble = Math.sin(progress * Math.PI * 2) * 0.055 * (1 - progress);
+      this.visualBodyRotation = this.recoveryStartRotation * (1 - easedProgress) + settlingWobble;
+
+      if (progress >= 1) {
+        this.visualBodyRotation = 0;
+        this.recoveringFromFlip = false;
+        this.uprightLock = true;
+        this.uprightStableMs = 0;
+      }
+      return this.visualBodyRotation;
+    }
+
+    if (this.uprightLock) {
+      if (Math.abs(normalizedRotation) <= uprightThreshold) {
+        this.uprightStableMs += deltaMs;
+      } else {
+        this.uprightStableMs = 0;
+      }
+
+      if (this.uprightStableMs >= 180) {
+        this.uprightLock = false;
+        this.invertedDurationMs = 0;
+        this.visualBodyRotation = normalizedRotation;
+      } else {
+        this.visualBodyRotation = 0;
+      }
+      return this.visualBodyRotation;
+    }
+
+    if (Math.abs(normalizedRotation) >= inversionThreshold) {
+      this.invertedDurationMs += deltaMs;
+      if (this.invertedDurationMs >= inversionHoldMs) {
+        this.recoveringFromFlip = true;
+        this.recoveryStartRotation = normalizedRotation;
+        this.recoveryElapsedMs = 0;
+      }
+    } else {
+      this.invertedDurationMs = 0;
+    }
+
+    this.visualBodyRotation = normalizedRotation;
+    return this.visualBodyRotation;
+  }
+
+  private normalizeAngle(angle: number): number {
+    let normalized = angle % (Math.PI * 2);
+    if (normalized > Math.PI) normalized -= Math.PI * 2;
+    if (normalized < -Math.PI) normalized += Math.PI * 2;
+    return normalized;
   }
 
   /** Throws a ridiculous burst of loose feathers when the bird hits the ball. */

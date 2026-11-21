@@ -77,6 +77,28 @@ describe('BirdRenderer', () => {
     renderer.dispose();
   });
 
+  it('recovers upright after being flipped and stays upright while the circular body remains inverted', () => {
+    const harness = createScene();
+    const renderer = new BirdRenderer(harness.scene, 36, 'guardian-upright-recovery');
+
+    // Let the bird react to the collision first, then trigger its self-righting animation.
+    for (let frame = 0; frame < 3; frame += 1) renderer.update(80, 1, false, Math.PI);
+    expect(Math.abs(harness.container.rotation)).toBeGreaterThan(2.8);
+
+    renderer.update(80, 1, false, Math.PI);
+    const rotationAtRecoveryStart = Math.abs(harness.container.rotation);
+    for (let frame = 0; frame < 9; frame += 1) renderer.update(80, 1, false, Math.PI);
+
+    expect(Math.abs(harness.container.rotation)).toBeLessThan(0.1);
+    expect(Math.abs(harness.container.rotation)).toBeLessThan(rotationAtRecoveryStart);
+
+    // A circular Matter body may keep its accumulated angle; the artwork must not flip back.
+    for (let frame = 0; frame < 12; frame += 1) renderer.update(80, 1, false, Math.PI);
+    expect(Math.abs(harness.container.rotation)).toBeLessThan(0.1);
+
+    renderer.dispose();
+  });
+
   it('throws a deterministic feather burst that falls and eventually disappears', () => {
     const first = createScene();
     const second = createScene();
