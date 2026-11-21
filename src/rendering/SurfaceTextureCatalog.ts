@@ -33,7 +33,7 @@ export const SURFACE_TEXTURE_CATALOG: Record<SurfaceTexturePattern, SurfaceTextu
   },
   'asphalt-pavers': {
     label: 'Concrete paving blocks',
-    description: 'Neat small rectangular concrete pavers in aligned, subtly staggered rows.',
+    description: 'Neat staggered concrete pavers with gentle warm, cool and mineral-grey colour variation between slabs.',
     suggestedMaterials: ['normal', 'stone'],
     defaultDensity: 1.05,
     defaultOpacity: 0.92,

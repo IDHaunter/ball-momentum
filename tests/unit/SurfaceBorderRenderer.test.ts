@@ -205,11 +205,40 @@ describe('SurfaceBorderRenderer', () => {
     expect(first.ellipses.length).toBeGreaterThan(10);
   });
 
-  it('draws asphalt dashes along the selected box edge', () => {
-    const graphics = new FakeGraphics();
-    drawBoxBorders(graphics, 0, 0, 180, 40, { top: 'asphalt', right: 'none', bottom: 'none', left: 'none' });
-    expect(graphics.lines.some((line) => line.color === 0x46525e && line.width === 7)).toBe(true);
-    expect(graphics.lines.filter((line) => line.color === 0xe5e6d9).length).toBeGreaterThan(1);
+  it('draws one gently irregular larger concrete-paver course along upper asphalt edges', () => {
+    const first = new FakeGraphics();
+    const second = new FakeGraphics();
+    drawBoxBorders(first, 0, 0, 180, 42, { top: 'asphalt', right: 'none', bottom: 'none', left: 'none' });
+    drawBoxBorders(second, 0, 0, 180, 42, { top: 'asphalt', right: 'none', bottom: 'none', left: 'none' });
+
+    const bodyColors = new Set([0x929a99, 0xa69f91, 0x7f8c90, 0xb1a99a, 0x8d9088, 0x87979a, 0x9ba49b]);
+    const upperPavers = first.polygons.filter((polygon) => bodyColors.has(polygon.color));
+    expect(upperPavers.length).toBeGreaterThan(4);
+    expect(upperPavers.length).toBeLessThan(10);
+    expect(first.polygons).toEqual(second.polygons);
+    expect(new Set(upperPavers.map((polygon) => polygon.color)).size).toBeGreaterThan(2);
+    expect(upperPavers.every((polygon) => polygon.points.length === 8)).toBe(true);
+    expect(first.lines.some((line) => line.color === 0x3b454a && line.width === 10)).toBe(true);
+
+    const topWidths = upperPavers.map((polygon) => {
+      const xs = polygon.points.map((point) => point.x);
+      return Math.max(...xs) - Math.min(...xs);
+    });
+    expect(Math.min(...topWidths)).toBeGreaterThan(20);
+
+    const side = new FakeGraphics();
+    const bottom = new FakeGraphics();
+    drawBoxBorders(side, 0, 0, 42, 120, { top: 'none', right: 'asphalt', bottom: 'none', left: 'none' });
+    drawBoxBorders(bottom, 0, 0, 120, 42, { top: 'none', right: 'none', bottom: 'asphalt', left: 'none' });
+    const sidePavers = side.polygons.filter((polygon) => bodyColors.has(polygon.color));
+    const bottomPavers = bottom.polygons.filter((polygon) => bodyColors.has(polygon.color));
+    expect(sidePavers.length).toBeGreaterThan(3);
+    expect(bottomPavers.length).toBeGreaterThan(3);
+    const sideLengths = sidePavers.map((polygon) => {
+      const ys = polygon.points.map((point) => point.y);
+      return Math.max(...ys) - Math.min(...ys);
+    });
+    expect(Math.max(...sideLengths)).toBeLessThan(Math.min(...topWidths));
   });
 
   it('applies styles by polygon edge index and supports hidden edges', () => {

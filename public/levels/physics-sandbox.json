@@ -464,9 +464,9 @@
       },
       "borders": {
         "top": "asphalt",
-        "right": "metal",
-        "bottom": "none",
-        "left": "metal"
+        "right": "asphalt",
+        "bottom": "asphalt",
+        "left": "asphalt"
       }
     },
     {

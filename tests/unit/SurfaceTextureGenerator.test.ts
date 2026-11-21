@@ -110,6 +110,32 @@ describe('SurfaceTextureGenerator', () => {
     expect(render('brick-main-2', 'brick-masonry')).toEqual(render('rubber-chevrons', 'rubber-chevrons'));
   });
 
+  it('renders concrete pavers with a restrained mix of warm, cool and mineral grey slabs', () => {
+    const harness = createTextureHarness();
+    createSurfaceTextureCanvas(
+      harness.scene,
+      'varied-concrete-pavers',
+      220,
+      140,
+      [{ x: 0, y: 0 }, { x: 220, y: 0 }, { x: 220, y: 140 }, { x: 0, y: 140 }],
+      { pattern: 'asphalt-pavers', seed: 31 },
+    );
+
+    expect(harness.fillStyles).toContain('rgba(57,67,73,0.86)');
+    const slabColours = harness.fillStyles.filter((style) => /^rgba\(\d+,\d+,\d+,0\.97\)$/.test(style));
+    expect(new Set(slabColours).size).toBeGreaterThan(4);
+    expect(slabColours.some((style) => {
+      const [, red, green, blue] = style.match(/^rgba\((\d+),(\d+),(\d+),/) ?? [];
+      return red !== undefined && Number(red) > Number(green) + 3 && Number(green) > Number(blue);
+    })).toBe(true); // Warm greige slab.
+    expect(slabColours.some((style) => {
+      const [, red, green, blue] = style.match(/^rgba\((\d+),(\d+),(\d+),/) ?? [];
+      return red !== undefined && Number(blue) > Number(red) + 5;
+    })).toBe(true); // Cool blue-grey slab.
+    expect(harness.calls.filter((call) => call === 'fillRect').length).toBeGreaterThan(20);
+    expect(harness.calls).toContain('arc');
+  });
+
   it('renders wood as warm planks and brick as staggered masonry rather than grey grain or purple grip', () => {
     const polygon = [{ x: 0, y: 0 }, { x: 160, y: 0 }, { x: 160, y: 100 }, { x: 0, y: 100 }];
     const wood = createTextureHarness();

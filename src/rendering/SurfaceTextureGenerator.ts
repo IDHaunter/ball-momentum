@@ -255,24 +255,50 @@ function drawConcretePavers(ctx: CanvasRenderingContext2D, width: number, height
   const rowH = Math.max(15, spacing * 0.48);
   const blockW = Math.max(22, spacing * 0.82);
   const joint = Math.max(1.8, spacing * 0.045);
-  ctx.fillStyle = 'rgba(66,76,84,0.72)';
+  const paverPalette: ReadonlyArray<[number, number, number]> = [
+    [132, 139, 139], // balanced concrete grey
+    [151, 143, 130], // warm sand-grey
+    [119, 132, 139], // muted blue-grey
+    [163, 154, 140], // pale limestone-grey
+    [125, 128, 119], // soft sage-grey
+    [143, 148, 140], // mineral green-grey
+    [136, 132, 125], // taupe concrete
+    [111, 124, 130], // darker cool slab
+  ];
+  ctx.fillStyle = 'rgba(57,67,73,0.86)';
   ctx.fillRect(0, 0, width, height);
   for (let row = -1; row * rowH < height + rowH; row += 1) {
     const offset = (row & 1) ? blockW * 0.5 : 0;
     for (let x = -blockW + offset; x < width + blockW; x += blockW) {
       const left = x + joint, top = row * rowH + joint;
       const w = blockW - joint * 1.8, h = rowH - joint * 1.8;
-      const shade = 116 + Math.floor(random() * 34);
-      ctx.fillStyle = `rgba(${shade},${shade + 5},${shade + 8},0.96)`;
+      const [baseR, baseG, baseB] = paverPalette[Math.floor(random() * paverPalette.length)];
+      const toneShift = Math.floor((random() - 0.5) * 9);
+      const red = clamp(baseR + toneShift, 0, 255);
+      const green = clamp(baseG + toneShift, 0, 255);
+      const blue = clamp(baseB + toneShift, 0, 255);
+      ctx.fillStyle = `rgba(${red},${green},${blue},0.97)`;
       ctx.fillRect(left, top, w, h);
-      ctx.fillStyle = 'rgba(245,249,250,0.22)';
+
+      // A softly mottled inset plane makes individual concrete slabs feel less factory-uniform.
+      if (random() > 0.28) {
+        const inset = 2 + random() * 2.5;
+        ctx.fillStyle = random() > 0.5 ? 'rgba(238,230,214,0.075)' : 'rgba(39,51,57,0.075)';
+        ctx.fillRect(left + inset, top + inset, Math.max(0, w - inset * 2), Math.max(0, h - inset * 2));
+      }
+      ctx.fillStyle = 'rgba(245,244,235,0.24)';
       ctx.fillRect(left + 1, top + 1, Math.max(0, w - 2), Math.max(1, h * 0.1));
-      ctx.fillStyle = 'rgba(32,42,49,0.2)';
+      ctx.fillStyle = 'rgba(32,42,49,0.22)';
       ctx.fillRect(left + 1, top + h - Math.max(1.5, h * 0.1), Math.max(0, w - 2), Math.max(1.5, h * 0.1));
-      // A restrained aggregate fleck, not a noisy asphalt grain.
-      if (random() > 0.45) {
-        ctx.fillStyle = 'rgba(42,52,59,0.16)';
-        ctx.beginPath(); ctx.arc(left + random() * w, top + random() * h, 0.7 + random(), 0, Math.PI * 2); ctx.fill();
+
+      // A handful of varied fine aggregate marks: more than the old single grey dot, still restrained.
+      const flecks = random() > 0.35 ? 2 : 1;
+      for (let fleck = 0; fleck < flecks; fleck += 1) {
+        const light = random() > 0.48;
+        ctx.fillStyle = light ? 'rgba(244,239,226,0.2)' : 'rgba(39,49,54,0.19)';
+        ctx.beginPath();
+        ctx.arc(left + random() * w, top + random() * h, 0.55 + random() * 1.05, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
   }

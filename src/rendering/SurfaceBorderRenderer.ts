@@ -111,16 +111,12 @@ export function drawSurfaceBorder(
       break;
     }
     case 'asphalt': {
-      stroke(10, 0x26313b, 1);
-      stroke(7, 0x46525e, 1);
-      stroke(1.4, 0x89949e, 0.85, -2.6);
-      const dashCount = Math.max(2, Math.floor(length / 34));
-      graphics.lineStyle(2.1, 0xe5e6d9, 0.95);
-      for (let index = 0; index < dashCount; index += 2) {
-        const start = (index + 0.2) / dashCount;
-        const end = Math.min(1, start + 0.44 / dashCount);
-        graphics.lineBetween(a.x + dx * start, a.y + dy * start, a.x + dx * end, a.y + dy * end);
-      }
+      // Concrete pavers use the same quiet mixed greys as their face texture.
+      // The top course is deliberately a little more expressive; side and
+      // bottom courses remain neat, small, staggered paving blocks.
+      stroke(10, 0x3b454a, 0.98);
+      stroke(6.5, 0x646e70, 0.9);
+      drawConcretePaverBorder(graphics, edge, length, tangent, normal);
       break;
     }
     case 'stone': {
@@ -405,6 +401,116 @@ function drawBrickMasonryBorder(
           0.75 + random() * 0.45,
         );
       }
+    }
+  }
+}
+
+
+interface ConcretePaverTone { body: number; shade: number; highlight: number; }
+
+const CONCRETE_PAVER_EDGE_TONES: readonly ConcretePaverTone[] = [
+  { body: 0x929a99, shade: 0x596367, highlight: 0xc4c9c5 },
+  { body: 0xa69f91, shade: 0x68665f, highlight: 0xd4cbb9 },
+  { body: 0x7f8c90, shade: 0x4c5a60, highlight: 0xb8c2c3 },
+  { body: 0xb1a99a, shade: 0x70695f, highlight: 0xded4c3 },
+  { body: 0x8d9088, shade: 0x5b605c, highlight: 0xc4c6bc },
+  { body: 0x87979a, shade: 0x526368, highlight: 0xc0ccca },
+  { body: 0x9ba49b, shade: 0x606a64, highlight: 0xcbd3c8 },
+];
+
+/**
+ * Paints a decorative concrete-paver border. The exposed top gets one course
+ * of larger, gently irregular slabs; vertical and bottom edges retain compact,
+ * regular pavers. This is visual-only and never modifies the physics edge.
+ */
+function drawConcretePaverBorder(
+  graphics: BorderGraphicsLike,
+  edge: BorderEdgeSegment,
+  length: number,
+  tangent: BorderPoint,
+  normal: BorderPoint,
+): void {
+  const random = createEdgeRandom(edge);
+  const isUpperEdge = normal.y < -0.35;
+  const pitch = isUpperEdge ? 29.2 : 18.4;
+  const blockCount = Math.ceil(length / pitch) + 1;
+
+  for (let index = 0; index < blockCount; index += 1) {
+    const tone = CONCRETE_PAVER_EDGE_TONES[Math.floor(random() * CONCRETE_PAVER_EDGE_TONES.length)];
+    const start = index * pitch + 0.7 + (random() - 0.5) * (isUpperEdge ? 1.1 : 0.55);
+    const availableLength = Math.min(isUpperEdge ? 27.3 : 16.9, length - start - 0.55);
+    if (availableLength < (isUpperEdge ? 14 : 7)) continue;
+
+    const blockLength = Math.min(
+      availableLength,
+      isUpperEdge ? 23.4 + random() * 3.1 : 14.2 + random() * 2.2,
+    );
+    const depth = (isUpperEdge ? 8.3 : 6.8) + random() * (isUpperEdge ? 1.3 : 0.8);
+    const offset = (isUpperEdge ? -2.1 : 0) + (random() - 0.5) * (isUpperEdge ? 1.25 : 0.3);
+    const angle = (random() - 0.5) * (isUpperEdge ? 0.105 : 0.025);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const blockTangent = {
+      x: tangent.x * cos - normal.x * sin,
+      y: tangent.y * cos - normal.y * sin,
+    };
+    const blockNormal = {
+      x: tangent.x * sin + normal.x * cos,
+      y: tangent.y * sin + normal.y * cos,
+    };
+    const halfLength = blockLength * 0.5;
+    const halfDepth = depth * 0.5;
+    const centerAlong = start + halfLength;
+    const center = {
+      x: edge.a.x + tangent.x * centerAlong + normal.x * offset,
+      y: edge.a.y + tangent.y * centerAlong + normal.y * offset,
+    };
+    const chamfer = Math.min(isUpperEdge ? 1.7 : 1.25, halfDepth * 0.44, halfLength * 0.14);
+    const point = (along: number, outward: number): BorderPoint => ({
+      x: center.x + blockTangent.x * along + blockNormal.x * outward,
+      y: center.y + blockTangent.y * along + blockNormal.y * outward,
+    });
+    const raisedStart = isUpperEdge && random() > 0.66 ? 0.7 + random() * 1.1 : 0;
+    const raisedEnd = isUpperEdge && random() > 0.76 ? 0.6 + random() * 0.9 : 0;
+    const points = [
+      point(-halfLength + chamfer, halfDepth + raisedStart),
+      point(halfLength - chamfer, halfDepth + raisedEnd),
+      point(halfLength, halfDepth - chamfer * 0.55),
+      point(halfLength, -halfDepth + chamfer),
+      point(halfLength - chamfer, -halfDepth),
+      point(-halfLength + chamfer, -halfDepth),
+      point(-halfLength, -halfDepth + chamfer),
+      point(-halfLength, halfDepth - chamfer * 0.55),
+    ];
+
+    // Recessed dark joints and a soft contact shadow give each slab a little depth.
+    graphics.fillStyle(0x303a3f, 0.24);
+    graphics.fillPoints(points.map((p) => ({ x: p.x + normal.x * 0.65, y: p.y + normal.y * 0.65 })), true, true);
+    graphics.fillStyle(tone.body, 0.98);
+    graphics.fillPoints(points, true, true);
+
+    graphics.lineStyle(0.85, tone.shade, 0.84);
+    for (let pointIndex = 0; pointIndex < points.length; pointIndex += 1) {
+      const current = points[pointIndex];
+      const next = points[(pointIndex + 1) % points.length];
+      graphics.lineBetween(current.x, current.y, next.x, next.y);
+    }
+    graphics.lineStyle(isUpperEdge ? 1.05 : 0.8, tone.highlight, isUpperEdge ? 0.58 : 0.42);
+    graphics.lineBetween(points[0].x, points[0].y, points[1].x, points[1].y);
+    graphics.lineStyle(0.8, tone.shade, 0.64);
+    graphics.lineBetween(points[4].x, points[4].y, points[5].x, points[5].y);
+
+    // Occasional fine aggregate flecks add a concrete feel without visual noise.
+    if (random() > 0.58) {
+      const fleckAlong = (random() - 0.5) * blockLength * 0.46;
+      const fleckOffset = (random() - 0.5) * depth * 0.25;
+      graphics.fillStyle(tone.highlight, 0.28);
+      graphics.fillEllipse(
+        center.x + blockTangent.x * fleckAlong + blockNormal.x * fleckOffset,
+        center.y + blockTangent.y * fleckAlong + blockNormal.y * fleckOffset,
+        1.2 + random() * 1.1,
+        0.7 + random() * 0.55,
+      );
     }
   }
 }

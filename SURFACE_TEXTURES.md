@@ -44,7 +44,7 @@ The texture is drawn procedurally to a cached CanvasTexture and clipped to the e
 | `stone-fragments` | stone, normal | Loose scatter of small irregular pebbles, mineral flecks and shallow fractures |
 | `stone-strata` | stone, normal | Uneven sediment layers |
 | `ice-strata` | ice | Small soft snow drifts mixed with translucent ice chips |
-| `asphalt-pavers` | normal, stone | Neat rectangular concrete paving blocks in aligned, subtly staggered rows |
+| `asphalt-pavers` | normal, stone | Neat staggered concrete pavers in restrained warm, cool and mineral-grey tones; the matching `asphalt` edge uses one larger, gently irregular top course and compact regular side/bottom blocks |
 | `metal-sheen` | metal, normal | Smooth continuous metal with broad soft reflections and restrained glints |
 | `brick-masonry` | brick, stone | Warm terracotta bricks in staggered courses with visible mortar |
 | `glass-facets` | glass | Soft translucent triangular colour planes and isolated glints, without drawn cross-seams |

@@ -58,7 +58,7 @@ describe('SurfaceTextureCatalog', () => {
     const sandbox = JSON.parse(readFileSync(resolve(process.cwd(), 'public/levels/physics-sandbox.json'), 'utf8')) as {
       world: { width: number };
       camera: { maxX: number };
-      solids: Array<{ id: string; x: number; width: number; material?: string; texture?: string | { pattern: string } }>; 
+      solids: Array<{ id: string; x: number; width: number; material?: string; texture?: string | { pattern: string }; borders?: Record<string, string> }>; 
       triggers: Array<{ id: string; x: number; width: number }>;
       materials: Record<string, { friction: number; frictionStatic: number; restitution: number }>;
     };
@@ -72,7 +72,9 @@ describe('SurfaceTextureCatalog', () => {
     expect(new Set(galleryPatterns)).toEqual(new Set(expectedPatterns));
     expect(gallery.map((solid) => solid.material)).toContain('brick');
     expect(gallery.map((solid) => solid.material)).toContain('wood');
-    expect(gallery.find((solid) => solid.texture && (typeof solid.texture === 'string' ? solid.texture : solid.texture.pattern) === 'asphalt-pavers')?.material).toBe('normal');
+    const paverSample = gallery.find((solid) => solid.texture && (typeof solid.texture === 'string' ? solid.texture : solid.texture.pattern) === 'asphalt-pavers');
+    expect(paverSample?.material).toBe('normal');
+    expect(paverSample?.borders).toEqual({ top: 'asphalt', right: 'asphalt', bottom: 'asphalt', left: 'asphalt' });
     expect(gallery.find((solid) => solid.texture && (typeof solid.texture === 'string' ? solid.texture : solid.texture.pattern) === 'metal-sheen')?.material).toBe('normal');
     expect(sandbox.materials.normal).toEqual({ friction: 0.35, frictionStatic: 0.55, restitution: 0.02 });
     expect(sandbox.materials.brick).toEqual(sandbox.materials.rubber);
