@@ -168,6 +168,14 @@ export class LevelBuilder {
     this.triggerRenderer.setActiveCheckpoint(id);
   }
 
+  activateGoal(id: string): void {
+    this.triggerRenderer.activateGoal(id);
+  }
+
+  update(deltaMs: number): void {
+    this.triggerRenderer.update(deltaMs);
+  }
+
   getBreakable(id: string): BreakableSolidDefinition | null {
     return this.breakables.get(id);
   }

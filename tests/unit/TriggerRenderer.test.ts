@@ -7,6 +7,11 @@ import {
   CHECKPOINT_GLASS_TEXTURE_KEY,
   CHECKPOINT_GLOW_TEXTURE_KEY,
 } from '../../src/rendering/CheckpointLightTextures';
+import {
+  GOAL_PORTAL_FIELD_TEXTURE_KEY,
+  GOAL_PORTAL_FLOW_TEXTURE_KEY,
+  GOAL_PORTAL_GLOW_TEXTURE_KEY,
+} from '../../src/rendering/GoalPortalTextures';
 
 class FakeDisplayObject {
   width = 0;
@@ -17,12 +22,14 @@ class FakeDisplayObject {
   scaleY = 1;
   angle = 0;
   alpha = 1;
+  fillAlpha = 1;
   depth = 0;
   destroyed = false;
   textureKey = '';
   readonly calls: string[] = [];
   readonly fillColors: number[] = [];
   readonly strokeWidths: number[] = [];
+  readonly roundedRectArgs: number[][] = [];
   private readonly sourceWidth: number;
   private readonly sourceHeight: number;
 
@@ -70,6 +77,12 @@ class FakeDisplayObject {
   closePath() { this.calls.push('closePath'); return this; }
   fillPath() { this.calls.push('fillPath'); return this; }
   strokePath() { this.calls.push('strokePath'); return this; }
+  strokeEllipse() { this.calls.push('strokeEllipse'); return this; }
+  strokeRoundedRect(...args: number[]) {
+    this.calls.push('strokeRoundedRect');
+    this.roundedRectArgs.push(args);
+    return this;
+  }
   lineBetween() { this.calls.push('lineBetween'); return this; }
   destroy() { this.destroyed = true; }
 }
@@ -96,8 +109,16 @@ function createScene() {
         return object;
       },
       ellipse: (x: number, y: number, width: number, height: number) => new FakeDisplayObject(x, y, width, height),
-      rectangle: (x: number, y: number, width: number, height: number) => {
+      rectangle: (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        _fillColor?: number,
+        fillAlpha = 1,
+      ) => {
         const object = new FakeDisplayObject(x, y, width, height);
+        object.fillAlpha = fillAlpha;
         rectangles.push(object);
         return object;
       },
@@ -138,6 +159,95 @@ const checkpoint = {
   respawnX: 3050, respawnY: 832,
 };
 
+
+describe('TriggerRenderer goal portals', () => {
+  const goal = {
+    id: 'goal-a', type: 'goal' as const,
+    x: 8400, y: 620, width: 110, height: 210,
+  };
+
+  it('renders the goal as a soft energy portal instead of a yellow trigger rectangle', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+    renderer.render([goal]);
+
+    expect(harness.containers).toHaveLength(1);
+    expect(harness.containers[0].x).toBe(8455);
+    expect(harness.containers[0].y).toBe(725);
+    expect(harness.images.map((image) => image.textureKey)).toEqual([
+      GOAL_PORTAL_GLOW_TEXTURE_KEY,
+      GOAL_PORTAL_FIELD_TEXTURE_KEY,
+      GOAL_PORTAL_FLOW_TEXTURE_KEY,
+    ]);
+    expect(harness.graphics[0].calls).not.toContain('fillRect');
+    expect(harness.graphics[0].calls).not.toContain('strokeRect');
+
+    const [glow, field, flow] = harness.containers[0].children;
+    expect(glow.width).toBeCloseTo(goal.width * 1.52, 5);
+    expect(glow.height).toBeCloseTo(goal.height * 1.52, 5);
+    expect(field.width).toBe(goal.width);
+    expect(field.height).toBe(goal.height);
+    expect(flow.width).toBeCloseTo(goal.width * 0.94, 5);
+    expect(flow.height).toBeCloseTo(goal.height * 0.94, 5);
+  });
+
+  it('preserves a square portal when the configured goal trigger is square', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+    const squareGoal = { ...goal, id: 'goal-square', x: 1200, y: 300, width: 160, height: 160 };
+    renderer.render([squareGoal]);
+
+    const [glow, field, flow] = harness.containers[0].children;
+    expect(harness.containers[0].x).toBe(1280);
+    expect(harness.containers[0].y).toBe(380);
+    expect(field.width).toBe(160);
+    expect(field.height).toBe(160);
+    expect(glow.width).toBeCloseTo(glow.height, 5);
+    expect(flow.width).toBeCloseTo(flow.height, 5);
+  });
+
+  it('animates flowing energy waves and plays a restrained entry ripple when the ball reaches the goal', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+    renderer.render([goal]);
+    const portalChildren = harness.containers[0].children;
+    const field = portalChildren[1];
+    const waveGraphics = portalChildren[3];
+
+    renderer.update(260);
+    expect(waveGraphics.calls).toContain('lineTo');
+    const idleAlpha = field.alpha;
+
+    renderer.activateGoal('goal-a');
+    renderer.update(180);
+
+    expect(field.alpha).toBeGreaterThan(idleAlpha);
+    expect(waveGraphics.calls).toContain('strokeRoundedRect');
+    const [rippleX, rippleY, rippleWidth, rippleHeight] = waveGraphics.roundedRectArgs[0];
+    expect(rippleWidth / rippleHeight).toBeCloseTo(goal.width / goal.height, 5);
+    expect(rippleX).toBeLessThan(0);
+    expect(rippleY).toBeLessThan(0);
+    expect(waveGraphics.calls).not.toContain('strokeEllipse');
+    expect(waveGraphics.calls).toContain('fillCircle');
+  });
+
+  it('keeps the portal static when reduced motion is enabled', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+    renderer.render([goal]);
+    renderer.setReducedMotion(true);
+    renderer.activateGoal('goal-a');
+    renderer.update(500);
+
+    const [glow, field, flow, waves] = harness.containers[0].children;
+    expect(glow.alpha).toBe(0.42);
+    expect(field.alpha).toBe(0.82);
+    expect(flow.y).toBe(0);
+    expect(flow.angle).toBe(0);
+    expect(waves.calls).not.toContain('strokeRoundedRect');
+  });
+});
+
 describe('TriggerRenderer checkpoints', () => {
   it('renders a decorative lamp post at the trigger base without a physical-looking trigger rectangle', () => {
     const harness = createScene();
@@ -173,7 +283,7 @@ describe('TriggerRenderer checkpoints', () => {
     expect(stem.width).toBe(7);
     expect(stem.height).toBe(112);
     expect(stemShadow.width).toBe(9);
-    expect(stemShadow.alpha).toBe(0.2);
+    expect(stemShadow.fillAlpha).toBe(0.2);
     expect(flame.textureKey).toBe(CHECKPOINT_FLAME_DORMANT_TEXTURE_KEY);
     expect(flame.width).toBe(14);
     expect(flame.height).toBe(21);

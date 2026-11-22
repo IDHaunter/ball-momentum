@@ -202,6 +202,7 @@ export class GameplayScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     const state = this.gameRegistry.flow.state;
+    if (state === 'PLAYING' || state === 'LEVEL_COMPLETE') this.levelBuilder?.update(delta);
     if (state !== 'PLAYING' && state !== 'RESPAWNING') {
       this.accumulator = 0;
       return;
@@ -412,7 +413,10 @@ export class GameplayScene extends Phaser.Scene {
           this.levelBuilder.activateCheckpoint(trigger.id);
           this.gameRegistry.events.emit('checkpoint', { id: trigger.id });
         }
-      } else if (event.triggerType === 'goal') this.completeLevel();
+      } else if (event.triggerType === 'goal') {
+        this.levelBuilder?.activateGoal(event.triggerId);
+        this.completeLevel();
+      }
     }
   }
 
