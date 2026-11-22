@@ -10,7 +10,7 @@ export interface CollisionPairLike {
 export interface CollisionEventLike { pairs: CollisionPairLike[]; }
 
 export interface PhysicsBodyMetadata {
-  kind: 'ball' | 'terrain' | 'trigger' | 'spike' | 'movable' | 'bot' | 'bomb' | 'bird' | 'vomitEnemy' | 'demon' | 'lever';
+  kind: 'ball' | 'terrain' | 'trigger' | 'spike' | 'movable' | 'rollingObject' | 'bot' | 'bomb' | 'bird' | 'vomitEnemy' | 'demon' | 'lever';
   id: string;
   mass?: number;
   minimumImpactEnergy?: number;
@@ -18,6 +18,7 @@ export interface PhysicsBodyMetadata {
   spikeParentId?: string;
   breakable?: boolean;
   breakableThresholdEnergy?: number;
+  breakableVelocityRetention?: number;
   springSurfaces?: Array<{ id: string; normal: Vector2; impulse: number }>;
   patrolGeometry?: PatrolGeometry;
   dynamic?: boolean;

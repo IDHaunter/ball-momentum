@@ -80,7 +80,7 @@ export class TerrainFactory {
             id: solid.id, x: solid.x, y: solid.y, width: solid.width, height: solid.height,
             friction: material.friction, frictionStatic: material.frictionStatic, restitution: material.restitution,
             breakable: Boolean(solid.breakable),
-            ...(solid.breakable ? { breakableThresholdEnergy: solid.breakable.thresholdEnergy } : {}),
+            ...(solid.breakable ? { breakableThresholdEnergy: solid.breakable.thresholdEnergy, breakableVelocityRetention: solid.breakable.velocityRetention } : {}),
             springSurfaces: solid.material === 'glass' ? [] : getBoxSpringSurfaces(solid),
           });
           createSpikeSensorsForBox(this.world, solid);
@@ -92,7 +92,7 @@ export class TerrainFactory {
           vertices: collisionVertices,
           friction: material.friction, frictionStatic: material.frictionStatic, restitution: material.restitution,
           breakable: Boolean(solid.breakable),
-          ...(solid.breakable ? { breakableThresholdEnergy: solid.breakable.thresholdEnergy } : {}),
+          ...(solid.breakable ? { breakableThresholdEnergy: solid.breakable.thresholdEnergy, breakableVelocityRetention: solid.breakable.velocityRetention } : {}),
           springSurfaces: solid.material === 'glass' ? [] : getPolygonSpringSurfaces(solid, collisionVertices),
         });
         createSpikeSensorsForPolygon(this.world, solid);

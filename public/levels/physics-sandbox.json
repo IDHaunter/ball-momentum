@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "physics-sandbox",
   "title": "Physics Sandbox",
-  "description": "A safe course for testing momentum, slopes, enemy collisions, and interactive machinery.",
+  "description": "A safe course for testing momentum, slopes, enemies, interactive machinery, and rolling rigid bodies.",
   "world": {
-    "width": 8800,
+    "width": 10800,
     "height": 1500,
     "killPlaneY": 1420,
     "backgroundColor": "#18212f"
@@ -689,6 +689,157 @@
         "bottom": "none",
         "left": "stone"
       }
+    },
+    {
+      "id": "sandbox-rock-access-ramp",
+      "type": "polygon",
+      "vertices": [
+        [
+          8800,
+          930
+        ],
+        [
+          9010,
+          760
+        ],
+        [
+          9010,
+          1400
+        ],
+        [
+          8800,
+          1400
+        ]
+      ],
+      "material": "stone",
+      "texture": {
+        "pattern": "stone-fragments",
+        "density": 1.0,
+        "opacity": 0.55,
+        "seed": 317
+      },
+      "borders": [
+        {
+          "edge": 0,
+          "style": "stone"
+        },
+        {
+          "edge": 1,
+          "style": "none"
+        },
+        {
+          "edge": 2,
+          "style": "none"
+        },
+        {
+          "edge": 3,
+          "style": "none"
+        }
+      ]
+    },
+    {
+      "id": "sandbox-rock-launch-shelf",
+      "type": "box",
+      "x": 9010,
+      "y": 760,
+      "width": 150,
+      "height": 640,
+      "material": "stone",
+      "texture": {
+        "pattern": "stone-strata",
+        "density": 0.95,
+        "opacity": 0.52,
+        "seed": 319
+      },
+      "borders": {
+        "top": "stone",
+        "right": "none",
+        "bottom": "none",
+        "left": "none"
+      }
+    },
+    {
+      "id": "sandbox-rock-downhill-ramp",
+      "type": "polygon",
+      "vertices": [
+        [
+          9160,
+          760
+        ],
+        [
+          9780,
+          920
+        ],
+        [
+          9780,
+          1400
+        ],
+        [
+          9160,
+          1400
+        ]
+      ],
+      "material": "stone",
+      "texture": {
+        "pattern": "stone-fragments",
+        "density": 1.0,
+        "opacity": 0.55,
+        "seed": 323
+      },
+      "borders": [
+        {
+          "edge": 0,
+          "style": "stone"
+        },
+        {
+          "edge": 1,
+          "style": "none"
+        },
+        {
+          "edge": 2,
+          "style": "none"
+        },
+        {
+          "edge": 3,
+          "style": "none"
+        }
+      ]
+    },
+    {
+      "id": "sandbox-rock-runout-floor",
+      "type": "box",
+      "x": 9780,
+      "y": 920,
+      "width": 1020,
+      "height": 480,
+      "material": "normal",
+      "texture": "concrete-grain",
+      "borders": {
+        "top": "pavers",
+        "right": "stone",
+        "bottom": "none",
+        "left": "none"
+      }
+    },
+    {
+      "id": "sandbox-rolling-rock-glass-wall",
+      "type": "box",
+      "x": 10080,
+      "y": 760,
+      "width": 44,
+      "height": 160,
+      "material": "glass",
+      "breakable": {
+        "thresholdEnergy": 420000,
+        "velocityRetention": 0.72
+      },
+      "texture": "glass-facets",
+      "borders": {
+        "top": "glass",
+        "right": "glass",
+        "bottom": "none",
+        "left": "glass"
+      }
     }
   ],
   "triggers": [
@@ -705,8 +856,8 @@
     {
       "id": "sandbox-goal",
       "type": "goal",
-      "x": 8610,
-      "y": 720,
+      "x": 10580,
+      "y": 710,
       "width": 110,
       "height": 210
     }
@@ -752,7 +903,7 @@
     "followOffsetX": 0.38,
     "smoothing": 0.1,
     "minX": 0,
-    "maxX": 8800
+    "maxX": 10800
   },
   "decorations": [
     {
@@ -769,7 +920,7 @@
       "type": "text",
       "x": 2650,
       "y": 570,
-      "text": "GLASS WALL \u00b7 BUILD SPEED",
+      "text": "GLASS WALL · BUILD SPEED",
       "color": "#a8f0ff",
       "depth": 3
     },
@@ -796,7 +947,7 @@
       "type": "text",
       "x": 1460,
       "y": 785,
-      "text": "PUSHABLE CRATE \u2192 PIT",
+      "text": "PUSHABLE CRATE → PIT",
       "color": "#f0c66d",
       "depth": 3
     },
@@ -814,7 +965,7 @@
       "type": "text",
       "x": 1200,
       "y": 310,
-      "text": "BOT ISLAND \u00b7 PATROL",
+      "text": "BOT ISLAND · PATROL",
       "color": "#ffb3ca",
       "depth": 3
     },
@@ -823,7 +974,7 @@
       "type": "text",
       "x": 3435,
       "y": 805,
-      "text": "TIME BOMB \u00b7 3 SEC BLAST",
+      "text": "TIME BOMB · 3 SEC BLAST",
       "color": "#ffbd70",
       "depth": 4
     },
@@ -931,7 +1082,7 @@
       "type": "text",
       "x": 3890,
       "y": 815,
-      "text": "POOP BOOST \u00b7 +25% SPEED / +45% SPIN",
+      "text": "POOP BOOST · +25% SPEED / +45% SPIN",
       "color": "#d6a16e",
       "depth": 4
     },
@@ -968,7 +1119,7 @@
       "type": "text",
       "x": 6320,
       "y": 900,
-      "text": "SPIKE PIT \u00b7 DON'T LAND!",
+      "text": "SPIKE PIT · DON'T LAND!",
       "color": "#ff9b87",
       "depth": 4
     },
@@ -986,7 +1137,7 @@
       "type": "text",
       "x": 6440,
       "y": 748,
-      "text": "PURPLE DEMON \u00b7 LIGHTNING",
+      "text": "PURPLE DEMON · LIGHTNING",
       "color": "#dca8ff",
       "depth": 4
     },
@@ -995,7 +1146,7 @@
       "type": "text",
       "x": 7330,
       "y": 800,
-      "text": "HIT RIGHT: ON  \u00b7  HIT LEFT: OFF",
+      "text": "HIT RIGHT: ON  ·  HIT LEFT: OFF",
       "color": "#f5d276",
       "depth": 4
     },
@@ -1004,7 +1155,7 @@
       "type": "text",
       "x": 7860,
       "y": 918,
-      "text": "ROCKET PLATFORM \u00b7 WAIT FOR IT",
+      "text": "ROCKET PLATFORM · WAIT FOR IT",
       "color": "#9edcf4",
       "depth": 4
     },
@@ -1015,6 +1166,24 @@
       "y": 860,
       "text": "FINAL LANDING",
       "color": "#b8e6a2",
+      "depth": 4
+    },
+    {
+      "id": "sandbox-rolling-stone-hint",
+      "type": "text",
+      "x": 9040,
+      "y": 675,
+      "text": "ROLL THE STONE",
+      "color": "#c7d4df",
+      "depth": 4
+    },
+    {
+      "id": "sandbox-rolling-glass-hint",
+      "type": "text",
+      "x": 10060,
+      "y": 710,
+      "text": "GLASS BREAKER",
+      "color": "#a8f0ff",
       "depth": 4
     }
   ],
@@ -1163,6 +1332,18 @@
           }
         ]
       }
+    }
+  ],
+  "rollingObjects": [
+    {
+      "id": "sandbox-rolling-stone",
+      "x": 9122,
+      "y": 722,
+      "radius": 38,
+      "mass": 7.5,
+      "appearance": "stone",
+      "friction": 0.56,
+      "restitution": 0.08
     }
   ]
 }

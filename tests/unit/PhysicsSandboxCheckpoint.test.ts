@@ -12,7 +12,8 @@ describe('Physics Sandbox checkpoint', () => {
     const checkpoint = validated.triggers.find((trigger) => trigger.id === 'sandbox-checkpoint-switch-approach');
     const spikeWall = validated.solids.find((solid) => solid.id === 'sandbox-spike-finish-wall');
     const approachDeck = validated.solids.find((solid) => solid.id === 'sandbox-vomit-landing');
-    const landingDeck = validated.solids.find((solid) => solid.id === 'sandbox-switch-landing-deck');
+    const switchLandingDeck = validated.solids.find((solid) => solid.id === 'sandbox-switch-landing-deck');
+    const finalRunoutFloor = validated.solids.find((solid) => solid.id === 'sandbox-rock-runout-floor');
     const switchMechanism = validated.platformSwitches?.find((item) => item.id === 'sandbox-rocket-bridge-switch');
     const goal = validated.triggers.find((trigger) => trigger.id === 'sandbox-goal');
 
@@ -28,7 +29,8 @@ describe('Physics Sandbox checkpoint', () => {
     expect(checkpoint).toBeDefined();
     expect(spikeWall?.type).toBe('box');
     expect(approachDeck?.type).toBe('box');
-    expect(landingDeck?.type).toBe('box');
+    expect(switchLandingDeck?.type).toBe('box');
+    expect(finalRunoutFloor?.type).toBe('box');
     expect(switchMechanism).toBeDefined();
     expect(goal).toBeDefined();
 
@@ -42,12 +44,11 @@ describe('Physics Sandbox checkpoint', () => {
     expect(checkpoint.respawnX).toBeLessThan(approachDeck.x + approachDeck.width);
     expect(checkpoint.respawnY).toBe(approachDeck.y - 18);
     expect(checkpoint.x).toBeLessThan(goal!.x);
-    // The visual/sensor portal should finish exactly at the top of the landing deck,
-    // rather than extending down into the platform body.
-    expect(landingDeck?.type).toBe('box');
-    if (landingDeck?.type !== 'box') throw new Error('Expected final landing deck');
-    expect(goal!.y + goal!.height).toBe(landingDeck.y);
-    expect(goal!.x).toBeGreaterThanOrEqual(landingDeck.x);
-    expect(goal!.x + goal!.width).toBeLessThanOrEqual(landingDeck.x + landingDeck.width);
+    // The goal is at the end of the rolling-stone extension. Its visible/sensor
+    // area must meet the top of that runout floor, not the earlier switch landing deck.
+    if (finalRunoutFloor?.type !== 'box') throw new Error('Expected final rolling-stone runout floor');
+    expect(goal!.y + goal!.height).toBe(finalRunoutFloor.y);
+    expect(goal!.x).toBeGreaterThanOrEqual(finalRunoutFloor.x);
+    expect(goal!.x + goal!.width).toBeLessThanOrEqual(finalRunoutFloor.x + finalRunoutFloor.width);
   });
 });

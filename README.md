@@ -61,6 +61,29 @@ Example level definition:
 
 `minimumImpactEnergy` is measured as `0.5 * ballMass * normalImpactSpeed²`; glancing impacts therefore transfer less energy than direct side hits. The material supplies friction and restitution. Movable boxes cannot also be glass breakables.
 
+## Rolling objects
+
+Levels can define passive dynamic round bodies in a top-level `rollingObjects` array. They are active immediately, respond to gravity, roll with angular motion, and collide with terrain, the player, movable crates, bombs, enemies, and other rolling objects. `appearance` currently supports `stone` and `snow`; it changes only the canvas texture, while the same circular Matter body and physics parameters are used for both. A sufficiently energetic impact against breakable glass uses the rolling object's own mass and incoming speed along the collision normal, then removes the glass and lets the object continue with the configured velocity retention.
+
+```json
+{
+  "rollingObjects": [
+    {
+      "id": "rolling-stone",
+      "x": 9122,
+      "y": 722,
+      "radius": 38,
+      "mass": 7.5,
+      "appearance": "stone",
+      "friction": 0.56,
+      "restitution": 0.08
+    }
+  ]
+}
+```
+
+`radius` is in pixels and `mass` is a Matter mass value. `friction` and `restitution` are optional contact properties. Objects are removed when they fall below the level kill plane. The Physics Sandbox's final section includes a stone ramp and a breakable glass wall to test rolling momentum and glass impacts.
+
 ## Time bombs
 
 Levels can define timed bombs in a top-level `bombs` array. Bombs are activated by the player ball or autonomous bots, can be pushed during their countdown, and apply a quadratic radial blast to dynamic objects and breakable glass. See `TIME_BOMB_FEATURE.md` for the JSON fields and physics model.

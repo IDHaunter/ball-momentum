@@ -53,7 +53,7 @@ describe('TerrainFactory breakable solids', () => {
       title: 'Glass test',
       world: { width: 500, height: 400, killPlaneY: 380 },
       spawn: { x: 20, y: 20 },
-      solids: [{ id: 'glass-wall', type: 'box', x: 100, y: 100, width: 40, height: 200, material: 'glass', breakable: { thresholdEnergy: 1000 } }],
+      solids: [{ id: 'glass-wall', type: 'box', x: 100, y: 100, width: 40, height: 200, material: 'glass', breakable: { thresholdEnergy: 1000, velocityRetention: 0.72 } }],
       triggers: [],
       materials: { glass: { friction: 0.08, frictionStatic: 0.12, restitution: 0.34 } },
     });
@@ -69,6 +69,8 @@ describe('TerrainFactory breakable solids', () => {
       frictionStatic: 0.12,
       restitution: 0.34,
       breakable: true,
+      breakableThresholdEnergy: 1000,
+      breakableVelocityRetention: 0.72,
     });
   });
 

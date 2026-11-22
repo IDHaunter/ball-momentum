@@ -78,6 +78,14 @@ export class LevelValidator {
       }
     }
 
+    for (const rollingObject of level.rollingObjects ?? []) {
+      addId(rollingObject.id, `rollingObjects.${rollingObject.id}`);
+      if (rollingObject.x - rollingObject.radius < 0 || rollingObject.x + rollingObject.radius > level.world.width
+        || rollingObject.y - rollingObject.radius < 0 || rollingObject.y + rollingObject.radius > level.world.height) {
+        errors.push(`rollingObjects.${rollingObject.id}: rolling object circle must be inside world bounds`);
+      }
+    }
+
     for (const bomb of level.bombs ?? []) {
       addId(bomb.id, `bombs.${bomb.id}`);
       if (bomb.x - bomb.radius < 0 || bomb.x + bomb.radius > level.world.width

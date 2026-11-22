@@ -33,6 +33,20 @@ export interface MovableDefinition {
   minimumImpactEnergy: number;
 }
 
+export type RollingObjectAppearance = 'stone' | 'snow';
+
+/** Passive dynamic round object that rolls, collides, and can shatter glass. */
+export interface RollingObjectDefinition {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  appearance?: RollingObjectAppearance;
+  friction?: number;
+  restitution?: number;
+}
+
 export interface BombDefinition {
   id: string;
   x: number;
@@ -200,6 +214,7 @@ export interface LevelDefinition {
   bots?: BotDefinition[];
   birds?: BirdDefinition[];
   bombs?: BombDefinition[];
+  rollingObjects?: RollingObjectDefinition[];
   poopPickups?: PoopPickupDefinition[];
   vomitEnemies?: VomitEnemyDefinition[];
   demonEnemies?: DemonDefinition[];

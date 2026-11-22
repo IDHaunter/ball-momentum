@@ -27,12 +27,24 @@ export interface SpikeSensorOptions { id: string; parentTerrainId: string; verti
 
 export interface StaticBoxOptions {
   id: string; x: number; y: number; width: number; height: number;
-  friction: number; frictionStatic: number; restitution: number; breakable?: boolean; breakableThresholdEnergy?: number; springSurfaces?: SpringSurfacePhysicsDefinition[];
+  friction: number; frictionStatic: number; restitution: number; breakable?: boolean; breakableThresholdEnergy?: number; breakableVelocityRetention?: number; springSurfaces?: SpringSurfacePhysicsDefinition[];
 }
 
 export interface StaticPolygonOptions {
   id: string; vertices: Vector2[];
-  friction: number; frictionStatic: number; restitution: number; breakable?: boolean; breakableThresholdEnergy?: number; springSurfaces?: SpringSurfacePhysicsDefinition[];
+  friction: number; frictionStatic: number; restitution: number; breakable?: boolean; breakableThresholdEnergy?: number; breakableVelocityRetention?: number; springSurfaces?: SpringSurfacePhysicsDefinition[];
+}
+
+export interface RollingObjectPhysicsOptions {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  mass: number;
+  appearance: 'stone' | 'snow';
+  friction: number;
+  restitution: number;
+  killPlaneY: number;
 }
 
 export interface BombPhysicsOptions {
@@ -157,6 +169,7 @@ export interface SensorOptions {
 export type SpikeEntityKind = 'player' | 'bot' | 'bird' | 'vomitEnemy' | 'demon';
 
 export type PhysicsEvent =
+  | { type: 'ROLLING_OBJECT_BREAKABLE_IMPACT'; rollingObjectId: string; terrainId: string; impactEnergy: number }
   | { type: 'SPIKE_ENTITY_HIT'; spikeId: string; entityKind: SpikeEntityKind; entityId: string; position: Vector2 }
   | { type: 'BALL_BOT_IMPACT'; botId: string; normal: Vector2; contactPoint: Vector2; impactSpeed: number }
   | { type: 'BALL_ENEMY_IMPACT'; enemyKind: 'bird' | 'vomitEnemy' | 'demon'; enemyId: string; normal: Vector2; contactPoint: Vector2; impactSpeed: number }

@@ -321,6 +321,14 @@ export class GameplayScene extends Phaser.Scene {
         }
         continue;
       }
+      if (event.type === 'ROLLING_OBJECT_BREAKABLE_IMPACT') {
+        if (this.gameRegistry.flow.state !== 'PLAYING' || !this.levelBuilder) continue;
+        const breakable = this.levelBuilder.getBreakable(event.terrainId);
+        if (!breakable || event.impactEnergy < breakable.breakable.thresholdEnergy) continue;
+        const broken = this.levelBuilder.breakSolid(event.terrainId);
+        for (const solid of broken) this.effects.glassShatter(solid);
+        continue;
+      }
       if (event.type === 'BALL_SPRING_IMPACT') {
         if (this.gameRegistry.flow.state === 'PLAYING') {
           this.ballVisual?.impact(Math.max(event.impactSpeed, event.impulse));

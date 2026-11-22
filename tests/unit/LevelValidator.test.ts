@@ -120,6 +120,25 @@ describe('LevelValidator', () => {
     expect(() => validator.validate({ ...validLevel, vomitEnemies: [{ ...baseEnemy, id: 'floor' }] })).toThrow(/duplicate ID/);
   });
 
+  it('accepts configurable passive rolling stones and the future snowball appearance', () => {
+    const level = {
+      ...validLevel,
+      rollingObjects: [
+        { id: 'stone-a', x: 420, y: 160, radius: 38, mass: 7.5, appearance: 'stone', friction: 0.56, restitution: 0.08 },
+        { id: 'snowball-a', x: 620, y: 160, radius: 28, mass: 4, appearance: 'snow' },
+      ],
+    };
+    const validated = validator.validate(level);
+    expect(validated.rollingObjects?.map((item) => item.appearance)).toEqual(['stone', 'snow']);
+  });
+
+  it('rejects rolling objects outside the world, with invalid dimensions, or duplicate IDs', () => {
+    const rolling = { id: 'stone-a', x: 420, y: 160, radius: 38, mass: 7.5, appearance: 'stone' };
+    expect(() => validator.validate({ ...validLevel, rollingObjects: [{ ...rolling, x: 990 }] })).toThrow(/rolling object circle must be inside world bounds/);
+    expect(() => validator.validate({ ...validLevel, rollingObjects: [{ ...rolling, radius: 8 }] })).toThrow(/radius/);
+    expect(() => validator.validate({ ...validLevel, rollingObjects: [{ ...rolling, id: 'floor' }] })).toThrow(/duplicate ID/);
+  });
+
   it('accepts a valid timed bomb with an energy-based blast configuration', () => {
     const level = {
       ...validLevel,

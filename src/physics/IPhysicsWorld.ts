@@ -1,4 +1,4 @@
-import type { BallPhysicsOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, MovableBoxOptions, BotPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, VomitEnemyPhysicsOptions, DemonPhysicsOptions, PlatformSwitchPhysicsOptions, SpikeSensorOptions, Vector2 } from './PhysicsTypes';
+import type { BallPhysicsOptions, PhysicsEvent, SensorOptions, StaticBoxOptions, StaticPolygonOptions, MovableBoxOptions, BotPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, VomitEnemyPhysicsOptions, DemonPhysicsOptions, PlatformSwitchPhysicsOptions, RollingObjectPhysicsOptions, SpikeSensorOptions, Vector2 } from './PhysicsTypes';
 import type { IPhysicsBody } from './IPhysicsBody';
 
 export interface IPhysicsWorld {
@@ -11,6 +11,7 @@ export interface IPhysicsWorld {
   createBot(definition: BotPhysicsOptions): void;
   createBird(definition: BirdPhysicsOptions): void;
   createBomb(definition: BombPhysicsOptions): void;
+  createRollingObject(definition: RollingObjectPhysicsOptions): void;
   createVomitEnemy(definition: VomitEnemyPhysicsOptions): void;
   createDemonEnemy(definition: DemonPhysicsOptions): void;
   createPlatformSwitch(definition: PlatformSwitchPhysicsOptions): void;

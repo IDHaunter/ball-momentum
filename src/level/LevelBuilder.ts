@@ -40,6 +40,19 @@ export class LevelBuilder {
     this.terrainFactory.build(level);
     this.triggerFactory.build(level);
     this.poopPickupFactory.build(level.poopPickups ?? []);
+    for (const rollingObject of level.rollingObjects ?? []) {
+      this.world.createRollingObject({
+        id: rollingObject.id,
+        x: rollingObject.x,
+        y: rollingObject.y,
+        radius: rollingObject.radius,
+        mass: rollingObject.mass,
+        appearance: rollingObject.appearance ?? 'stone',
+        friction: rollingObject.friction ?? 0.62,
+        restitution: rollingObject.restitution ?? 0.08,
+        killPlaneY: level.world.killPlaneY,
+      });
+    }
     for (const bot of level.bots ?? []) {
       this.world.createBot({
         id: bot.id,
