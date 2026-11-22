@@ -208,12 +208,14 @@ export class DemonRenderer {
     const g = this.bodyPen;
     g.clear();
     const r = this.radius;
-    const wingBeat = Math.sin(this.elapsedMs * (this.knockbackMs > 0 ? 0.044 : 0.026)) * (this.knockbackMs > 0 ? 0.72 : 0.55);
-    const wingKick = Math.sin(this.elapsedMs * 0.052) * 0.14;
+    // Broad, unmistakable bat wings move with a slow, self-important sway.
+    // A knockback briefly makes the demon twitch its wings more quickly.
+    const wingBeat = Math.sin(this.elapsedMs * (this.knockbackMs > 0 ? 0.018 : 0.0042))
+      * (this.knockbackMs > 0 ? 0.24 : 0.13);
+    const wingKick = Math.sin(this.elapsedMs * 0.012) * 0.035;
 
-    // Tiny bat wings flutter behind the round body.
-    this.drawWing(-r * 0.65, -r * 0.12, -1, wingBeat, r);
-    this.drawWing(r * 0.65, -r * 0.12, 1, -wingBeat, r);
+    this.drawWing(-r * 0.58, -r * 0.12, -1, wingBeat, r);
+    this.drawWing(r * 0.58, -r * 0.12, 1, -wingBeat, r);
 
     // Tail peeks out behind the left side.
     g.lineStyle(Math.max(1.4, r * 0.095), OUTLINE, 1);
@@ -280,27 +282,53 @@ export class DemonRenderer {
 
   private drawWing(originX: number, originY: number, facing: -1 | 1, flap: number, radius: number): void {
     const g = this.bodyPen;
-    const length = radius * 1.1;
-    const lift = flap * radius * 0.35;
-    const points = [
-      { x: originX, y: originY },
-      { x: originX + facing * length * 0.35, y: originY - radius * 0.54 - lift },
-      { x: originX + facing * length * 0.68, y: originY - radius * 0.38 - lift * 0.6 },
-      { x: originX + facing * length, y: originY + radius * 0.1 },
-      { x: originX + facing * length * 0.68, y: originY + radius * 0.14 },
-      { x: originX + facing * length * 0.38, y: originY + radius * 0.34 },
+    const lift = flap * radius;
+    const point = (x: number, y: number): Vector2 => ({
+      x: originX + facing * x * radius,
+      y: originY + y * radius + lift * (x / 1.55),
+    });
+
+    // A broad leathery membrane with a high outer tip and three scalloped
+    // trailing lobes. The scallops make the bat-wing silhouette readable
+    // even when the demon is only a few dozen pixels across.
+    const outline = [
+      point(0, 0.02),
+      point(0.42, -0.62),
+      point(0.78, -0.94),
+      point(1.48, -0.56),
+      point(1.31, -0.24),
+      point(1.16, 0.03),
+      point(0.99, -0.13),
+      point(0.82, 0.23),
+      point(0.62, 0.02),
+      point(0.43, 0.34),
+      point(0.25, 0.12),
     ];
-    g.fillStyle(0x3d125b, 1);
-    this.fillPolygon(points);
-    g.lineStyle(1.2, 0x2a0d3e, 1);
-    this.strokePolygon(points);
-    g.lineStyle(1, 0xc276e5, 0.75);
-    for (let index = 0; index < 3; index += 1) {
-      const x = originX + facing * length * (0.36 + index * 0.16);
-      const y = originY - radius * (0.24 + index * 0.06) - lift * (1 - index * 0.18);
-      g.beginPath().moveTo(originX + facing * radius * 0.16, originY + radius * 0.05)
-        .lineTo(x, y).lineTo(originX + facing * length * (0.84 - index * 0.08), originY + radius * (0.12 + index * 0.05)).strokePath();
+
+    g.fillStyle(0x35104d, 1);
+    this.fillPolygon(outline);
+    g.fillStyle(0x65218a, 0.96);
+    this.fillPolygon([
+      point(0.08, 0.01), point(0.44, -0.53), point(0.78, -0.82),
+      point(1.35, -0.53), point(1.19, -0.25), point(1.03, -0.04),
+      point(0.83, 0.13), point(0.63, -0.06), point(0.44, 0.23), point(0.27, 0.06),
+    ]);
+
+    g.lineStyle(Math.max(1.1, radius * 0.065), 0x260b39, 1);
+    this.strokePolygon(outline);
+
+    // Raised wing fingers radiate from the shoulder into each membrane lobe.
+    g.lineStyle(Math.max(0.85, radius * 0.045), 0xc276e5, 0.9);
+    const shoulder = point(0.08, 0.02);
+    for (const [x, y] of [[0.78, -0.88], [1.42, -0.53], [1.12, 0.0], [0.82, 0.2], [0.43, 0.31]]) {
+      const tip = point(x, y);
+      g.beginPath().moveTo(shoulder.x, shoulder.y).lineTo(tip.x, tip.y).strokePath();
     }
+    // A small highlight along the leading edge gives the membrane some volume.
+    const leadingA = point(0.42, -0.62);
+    const leadingB = point(0.78, -0.94);
+    g.lineStyle(Math.max(0.7, radius * 0.035), 0xe0a0f5, 0.72);
+    g.beginPath().moveTo(leadingA.x, leadingA.y).lineTo(leadingB.x, leadingB.y).strokePath();
   }
 
   private drawHorn(x: number, y: number, facing: -1 | 1, radius: number): void {
