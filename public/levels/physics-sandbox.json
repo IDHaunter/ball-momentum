@@ -981,16 +981,6 @@
       "depth": 4
     },
     {
-      "id": "sandbox-switch-pit-backdrop",
-      "type": "rectangle",
-      "x": 8035,
-      "y": 1170,
-      "width": 510,
-      "height": 510,
-      "color": "#0e1724",
-      "depth": -40
-    },
-    {
       "id": "sandbox-switch-hint",
       "type": "text",
       "x": 7330,
