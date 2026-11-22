@@ -161,6 +161,7 @@ export class LevelBuilder {
 
   setReducedMotion(enabled: boolean): void {
     this.poopPickupRenderer.setReducedMotion(enabled);
+    this.triggerRenderer.setReducedMotion(enabled);
   }
 
   activateCheckpoint(id: string): void {

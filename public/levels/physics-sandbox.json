@@ -693,6 +693,16 @@
   ],
   "triggers": [
     {
+      "id": "sandbox-checkpoint-switch-approach",
+      "type": "checkpoint",
+      "x": 7005,
+      "y": 748,
+      "width": 70,
+      "height": 132,
+      "respawnX": 7130,
+      "respawnY": 862
+    },
+    {
       "id": "sandbox-goal",
       "type": "goal",
       "x": 8610,
@@ -759,7 +769,7 @@
       "type": "text",
       "x": 2650,
       "y": 570,
-      "text": "GLASS WALL · BUILD SPEED",
+      "text": "GLASS WALL \u00b7 BUILD SPEED",
       "color": "#a8f0ff",
       "depth": 3
     },
@@ -786,7 +796,7 @@
       "type": "text",
       "x": 1460,
       "y": 785,
-      "text": "PUSHABLE CRATE → PIT",
+      "text": "PUSHABLE CRATE \u2192 PIT",
       "color": "#f0c66d",
       "depth": 3
     },
@@ -804,7 +814,7 @@
       "type": "text",
       "x": 1200,
       "y": 310,
-      "text": "BOT ISLAND · PATROL",
+      "text": "BOT ISLAND \u00b7 PATROL",
       "color": "#ffb3ca",
       "depth": 3
     },
@@ -813,7 +823,7 @@
       "type": "text",
       "x": 3435,
       "y": 805,
-      "text": "TIME BOMB · 3 SEC BLAST",
+      "text": "TIME BOMB \u00b7 3 SEC BLAST",
       "color": "#ffbd70",
       "depth": 4
     },
@@ -921,7 +931,7 @@
       "type": "text",
       "x": 3890,
       "y": 815,
-      "text": "POOP BOOST · +25% SPEED / +45% SPIN",
+      "text": "POOP BOOST \u00b7 +25% SPEED / +45% SPIN",
       "color": "#d6a16e",
       "depth": 4
     },
@@ -958,7 +968,7 @@
       "type": "text",
       "x": 6320,
       "y": 900,
-      "text": "SPIKE PIT · DON'T LAND!",
+      "text": "SPIKE PIT \u00b7 DON'T LAND!",
       "color": "#ff9b87",
       "depth": 4
     },
@@ -976,7 +986,7 @@
       "type": "text",
       "x": 6440,
       "y": 748,
-      "text": "PURPLE DEMON · LIGHTNING",
+      "text": "PURPLE DEMON \u00b7 LIGHTNING",
       "color": "#dca8ff",
       "depth": 4
     },
@@ -985,7 +995,7 @@
       "type": "text",
       "x": 7330,
       "y": 800,
-      "text": "HIT RIGHT: ON  ·  HIT LEFT: OFF",
+      "text": "HIT RIGHT: ON  \u00b7  HIT LEFT: OFF",
       "color": "#f5d276",
       "depth": 4
     },
@@ -994,7 +1004,7 @@
       "type": "text",
       "x": 7860,
       "y": 918,
-      "text": "ROCKET PLATFORM · WAIT FOR IT",
+      "text": "ROCKET PLATFORM \u00b7 WAIT FOR IT",
       "color": "#9edcf4",
       "depth": 4
     },

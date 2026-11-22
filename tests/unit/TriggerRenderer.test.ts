@@ -1,0 +1,257 @@
+import { describe, expect, it } from 'vitest';
+import type Phaser from 'phaser';
+import { TriggerRenderer } from '../../src/rendering/TriggerRenderer';
+import {
+  CHECKPOINT_FLAME_ACTIVE_TEXTURE_KEY,
+  CHECKPOINT_FLAME_DORMANT_TEXTURE_KEY,
+  CHECKPOINT_GLASS_TEXTURE_KEY,
+  CHECKPOINT_GLOW_TEXTURE_KEY,
+} from '../../src/rendering/CheckpointLightTextures';
+
+class FakeDisplayObject {
+  width = 0;
+  height = 0;
+  x = 0;
+  y = 0;
+  scaleX = 1;
+  scaleY = 1;
+  angle = 0;
+  alpha = 1;
+  depth = 0;
+  destroyed = false;
+  textureKey = '';
+  readonly calls: string[] = [];
+  readonly fillColors: number[] = [];
+  readonly strokeWidths: number[] = [];
+  private readonly sourceWidth: number;
+  private readonly sourceHeight: number;
+
+  constructor(x = 0, y = 0, width = 0, height = 0, textureKey = '') {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.textureKey = textureKey;
+    this.sourceWidth = width > 0 ? width : 128;
+    this.sourceHeight = height > 0 ? height : 128;
+  }
+  setDepth(value: number) { this.depth = value; return this; }
+  setPosition(x: number, y: number) { this.x = x; this.y = y; return this; }
+  setScale(x: number, y = x) {
+    this.scaleX = x;
+    this.scaleY = y;
+    this.width = this.sourceWidth * x;
+    this.height = this.sourceHeight * y;
+    return this;
+  }
+  setDisplaySize(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+    this.scaleX = width / this.sourceWidth;
+    this.scaleY = height / this.sourceHeight;
+    return this;
+  }
+  setTexture(key: string) { this.textureKey = key; return this; }
+  setAngle(value: number) { this.angle = value; return this; }
+  setAlpha(value: number) { this.alpha = value; return this; }
+  setOrigin() { return this; }
+  setStrokeStyle(width = 0) { this.strokeWidths.push(width); return this; }
+  setFillStyle(color: number) { this.fillColors.push(color); return this; }
+  clear() { return this; }
+  fillStyle(color: number) { this.fillColors.push(color); return this; }
+  lineStyle(width = 0) { this.strokeWidths.push(width); return this; }
+  fillRect() { this.calls.push('fillRect'); return this; }
+  strokeRect() { this.calls.push('strokeRect'); return this; }
+  fillCircle() { this.calls.push('fillCircle'); return this; }
+  fillEllipse() { this.calls.push('fillEllipse'); return this; }
+  beginPath() { this.calls.push('beginPath'); return this; }
+  moveTo() { this.calls.push('moveTo'); return this; }
+  lineTo() { this.calls.push('lineTo'); return this; }
+  closePath() { this.calls.push('closePath'); return this; }
+  fillPath() { this.calls.push('fillPath'); return this; }
+  strokePath() { this.calls.push('strokePath'); return this; }
+  lineBetween() { this.calls.push('lineBetween'); return this; }
+  destroy() { this.destroyed = true; }
+}
+
+class FakeContainer extends FakeDisplayObject {
+  constructor(x: number, y: number, readonly children: FakeDisplayObject[]) { super(x, y); }
+  destroy(_fromScene?: boolean) { this.destroyed = true; }
+}
+
+function createScene() {
+  const containers: FakeContainer[] = [];
+  const graphics: FakeDisplayObject[] = [];
+  const images: FakeDisplayObject[] = [];
+  const rectangles: FakeDisplayObject[] = [];
+  const tweenConfigs: Array<Record<string, unknown>> = [];
+  const killedTweens: unknown[] = [];
+
+  const scene = {
+    textures: { exists: () => true },
+    add: {
+      graphics: () => {
+        const object = new FakeDisplayObject();
+        graphics.push(object);
+        return object;
+      },
+      ellipse: (x: number, y: number, width: number, height: number) => new FakeDisplayObject(x, y, width, height),
+      rectangle: (x: number, y: number, width: number, height: number) => {
+        const object = new FakeDisplayObject(x, y, width, height);
+        rectangles.push(object);
+        return object;
+      },
+      image: (x: number, y: number, textureKey: string) => {
+        // Checkpoint image textures are 128x128 canvas textures. Keep the
+        // fake object's scale semantics aligned with Phaser setDisplaySize.
+        const object = new FakeDisplayObject(x, y, 128, 128, textureKey);
+        images.push(object);
+        return object;
+      },
+      container: (x: number, y: number, children: FakeDisplayObject[]) => {
+        const container = new FakeContainer(x, y, children);
+        containers.push(container);
+        return container;
+      },
+      text: () => new FakeDisplayObject(),
+    },
+    tweens: {
+      add: (config: Record<string, unknown>) => { tweenConfigs.push(config); return config; },
+      killTweensOf: (target: unknown) => { killedTweens.push(target); },
+    },
+  };
+
+  return {
+    scene: scene as unknown as Phaser.Scene,
+    containers,
+    graphics,
+    images,
+    rectangles,
+    tweenConfigs,
+    killedTweens,
+  };
+}
+
+const checkpoint = {
+  id: 'cp-a', type: 'checkpoint' as const,
+  x: 3000, y: 650, width: 50, height: 200,
+  respawnX: 3050, respawnY: 832,
+};
+
+describe('TriggerRenderer checkpoints', () => {
+  it('renders a decorative lamp post at the trigger base without a physical-looking trigger rectangle', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+
+    renderer.render([checkpoint]);
+
+    expect(harness.containers).toHaveLength(1);
+    expect(harness.containers[0].x).toBe(3025);
+    expect(harness.containers[0].y).toBe(850);
+    expect(harness.containers[0].children).toHaveLength(15);
+    expect(harness.graphics[0].calls).not.toContain('fillRect');
+    expect(harness.images.map((image) => image.textureKey)).toEqual([
+      CHECKPOINT_GLOW_TEXTURE_KEY,
+      CHECKPOINT_FLAME_DORMANT_TEXTURE_KEY,
+      CHECKPOINT_GLASS_TEXTURE_KEY,
+    ]);
+  });
+
+  it('uses a slim metal stem and a small dormant flame inside a transparent glass lantern', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+    renderer.render([checkpoint]);
+
+    const children = harness.containers[0].children;
+    const glow = children[1];
+    const stemShadow = children[6];
+    const stem = children[7];
+    const flame = children[9];
+    const glass = children[10];
+
+    expect(glow.alpha).toBe(0);
+    expect(stem.width).toBe(7);
+    expect(stem.height).toBe(112);
+    expect(stemShadow.width).toBe(9);
+    expect(stemShadow.alpha).toBe(0.2);
+    expect(flame.textureKey).toBe(CHECKPOINT_FLAME_DORMANT_TEXTURE_KEY);
+    expect(flame.width).toBe(14);
+    expect(flame.height).toBe(21);
+    expect(flame.alpha).toBe(0.72);
+    expect(glass.textureKey).toBe(CHECKPOINT_GLASS_TEXTURE_KEY);
+    expect(glass.width).toBe(48);
+    expect(glass.height).toBe(58);
+  });
+
+  it('lights a small flame inside the unchanged glass shell and gently animates the fire and glow', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+    renderer.render([checkpoint]);
+    renderer.setActiveCheckpoint('cp-a');
+
+    const children = harness.containers[0].children;
+    const glow = children[1];
+    const flame = children[9];
+    const glass = children[10];
+
+    expect(glow.alpha).toBe(0.22);
+    expect(flame.textureKey).toBe(CHECKPOINT_FLAME_ACTIVE_TEXTURE_KEY);
+    expect(flame.width).toBe(14);
+    expect(flame.height).toBe(21);
+    expect(flame.alpha).toBe(1);
+    expect(glass.textureKey).toBe(CHECKPOINT_GLASS_TEXTURE_KEY);
+    expect(harness.tweenConfigs.some((config) => config.targets === glow && config.repeat === -1 && config.yoyo === true)).toBe(true);
+
+    const ignitionTween = harness.tweenConfigs.find((config) => config.targets === flame && config.yoyo === true);
+    expect(ignitionTween).toBeDefined();
+    expect(ignitionTween?.scaleX).toBeCloseTo(flame.scaleX * 1.5, 6);
+    expect(ignitionTween?.scaleY).toBeCloseTo(flame.scaleY * 1.5, 6);
+    expect(ignitionTween?.duration).toBe(190);
+    expect(ignitionTween?.repeat).toBeUndefined();
+
+    // Once the one-shot ignition has returned to its baseline size, only a
+    // few-percent sway is allowed for the ongoing flame animation.
+    (ignitionTween?.onComplete as (() => void) | undefined)?.();
+    const steadyFlameTween = harness.tweenConfigs.find((config) => config.targets === flame && config.repeat === -1);
+    expect(steadyFlameTween).toBeDefined();
+    expect(steadyFlameTween?.scaleX).toBeCloseTo(flame.scaleX * 1.025, 6);
+    expect(steadyFlameTween?.scaleY).toBeCloseTo(flame.scaleY * 1.035, 6);
+    expect((steadyFlameTween?.scaleX as number)).toBeLessThan(flame.scaleX * 1.06);
+    expect((steadyFlameTween?.scaleY as number)).toBeLessThan(flame.scaleY * 1.06);
+  });
+
+  it('turns the previous lamp off when a later checkpoint becomes active', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+    renderer.render([
+      checkpoint,
+      { ...checkpoint, id: 'cp-b', x: 3400, respawnX: 3450 },
+    ]);
+
+    const firstChildren = harness.containers[0].children;
+    const firstGlow = firstChildren[1];
+    const firstFlame = firstChildren[9];
+    renderer.setActiveCheckpoint('cp-a');
+    renderer.setActiveCheckpoint('cp-b');
+
+    expect(firstGlow.alpha).toBe(0);
+    expect(firstFlame.textureKey).toBe(CHECKPOINT_FLAME_DORMANT_TEXTURE_KEY);
+    expect(harness.killedTweens).toContain(firstGlow);
+    expect(harness.containers[1].children[1].alpha).toBe(0.22);
+  });
+
+  it('keeps a steady lit flame and stable ambient glow when reduced motion is enabled', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+    renderer.render([checkpoint]);
+    renderer.setReducedMotion(true);
+    const tweenCount = harness.tweenConfigs.length;
+
+    renderer.setActiveCheckpoint('cp-a');
+
+    const children = harness.containers[0].children;
+    expect(children[1].alpha).toBe(0.28);
+    expect(children[9].textureKey).toBe(CHECKPOINT_FLAME_ACTIVE_TEXTURE_KEY);
+    expect(harness.tweenConfigs).toHaveLength(tweenCount);
+  });
+});
