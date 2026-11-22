@@ -18,20 +18,8 @@ export interface DemonGraphicsLike {
   destroy(): void;
 }
 
-export interface DemonContainerLike {
-  add(child: object): this;
-  setDepth(depth: number): this;
-  setSize(width: number, height: number): this;
-  setRotation(value: number): this;
-  setPosition(x: number, y: number): this;
-  setVisible(value: boolean): this;
-  setScale(x: number, y?: number): this;
-  destroy(): void;
-}
-
 export interface DemonRendererSceneLike {
   add: {
-    container(x: number, y: number): DemonContainerLike;
     graphics(): DemonGraphicsLike;
   };
 }
@@ -44,13 +32,91 @@ const PURPLE_HIGHLIGHT = 0xe5b3ff;
 const ELECTRIC = 0xb7f7ff;
 
 /**
+ * Draws demon artwork authored in local coordinates onto a plain world-space
+ * Graphics object. The Graphics itself is never moved, rotated, scaled or
+ * hidden: every point is transformed here and an empty `clear()` is how the
+ * body disappears. This is the same technique as the teleport/strike effects.
+ */
+class WorldSpacePen {
+  private originX = 0;
+  private originY = 0;
+  private cos = 1;
+  private sin = 0;
+  private scaleX = 1;
+  private scaleY = 1;
+
+  constructor(private readonly target: DemonGraphicsLike) {}
+
+  setTransform(x: number, y: number, rotation: number, scaleX: number, scaleY: number): void {
+    this.originX = x;
+    this.originY = y;
+    this.cos = Math.cos(rotation);
+    this.sin = Math.sin(rotation);
+    this.scaleX = scaleX;
+    this.scaleY = scaleY;
+  }
+
+  clear(): this { this.target.clear(); return this; }
+  fillStyle(color: number, alpha?: number): this { this.target.fillStyle(color, alpha); return this; }
+  lineStyle(width: number, color: number, alpha?: number): this {
+    this.target.lineStyle(width * Math.sqrt(Math.abs(this.scaleX * this.scaleY)), color, alpha);
+    return this;
+  }
+  beginPath(): this { this.target.beginPath(); return this; }
+  closePath(): this { this.target.closePath(); return this; }
+  fillPath(): this { this.target.fillPath(); return this; }
+  strokePath(): this { this.target.strokePath(); return this; }
+  moveTo(x: number, y: number): this {
+    const point = this.map(x, y);
+    this.target.moveTo(point.x, point.y);
+    return this;
+  }
+  lineTo(x: number, y: number): this {
+    const point = this.map(x, y);
+    this.target.lineTo(point.x, point.y);
+    return this;
+  }
+  fillEllipse(x: number, y: number, width: number, height: number): this {
+    this.ellipsePath(x, y, width, height);
+    this.target.fillPath();
+    return this;
+  }
+  strokeEllipse(x: number, y: number, width: number, height: number): this {
+    this.ellipsePath(x, y, width, height);
+    this.target.strokePath();
+    return this;
+  }
+
+  private ellipsePath(x: number, y: number, width: number, height: number): void {
+    const segments = 22;
+    this.target.beginPath();
+    for (let index = 0; index < segments; index += 1) {
+      const angle = (index / segments) * Math.PI * 2;
+      const point = this.map(x + Math.cos(angle) * width / 2, y + Math.sin(angle) * height / 2);
+      if (index === 0) this.target.moveTo(point.x, point.y);
+      else this.target.lineTo(point.x, point.y);
+    }
+    this.target.closePath();
+  }
+
+  private map(x: number, y: number): Vector2 {
+    const localX = x * this.scaleX;
+    const localY = y * this.scaleY;
+    return {
+      x: this.originX + localX * this.cos - localY * this.sin,
+      y: this.originY + localX * this.sin + localY * this.cos,
+    };
+  }
+}
+
+/**
  * A small purple devil emoji with horns, bat wings and a hand-held trident.
  * Teleport/strike lightning lives on independent world-space graphics so it
  * does not rotate with the physical circle.
  */
 export class DemonRenderer {
-  readonly container: DemonContainerLike;
   private readonly bodyGraphics: DemonGraphicsLike;
+  private readonly bodyPen: WorldSpacePen;
   private readonly teleportGraphics: DemonGraphicsLike;
   private readonly strikeGraphics: DemonGraphicsLike;
   private readonly radius: number;
@@ -62,18 +128,18 @@ export class DemonRenderer {
   private strikeFrom: Vector2 | null = null;
   private strikeTo: Vector2 | null = null;
   private phase: DemonVisualPhase = 'hidden';
-  private phasePosition: Vector2 = { x: 0, y: 0 };
   private disposed = false;
 
   constructor(scene: DemonRendererSceneLike, radius: number, id: string, x: number, y: number) {
     this.radius = Math.max(10, radius);
     this.seed = this.hash(id);
-    const extent = this.radius * 4.3;
-    this.container = scene.add.container(x, y).setSize(extent, extent).setDepth(8).setVisible(false);
-    this.bodyGraphics = scene.add.graphics();
-    this.container.add(this.bodyGraphics);
-    this.teleportGraphics = scene.add.graphics().setDepth(12);
-    this.strikeGraphics = scene.add.graphics().setDepth(13);
+    // Every demon visual is a standalone, never-transformed, never-hidden
+    // world-space Graphics object (identical to the teleport effect, which is
+    // known to render). Nothing is nested in a Container or tied to Matter.
+    this.bodyGraphics = scene.add.graphics().setDepth(20);
+    this.bodyPen = new WorldSpacePen(this.bodyGraphics);
+    this.teleportGraphics = scene.add.graphics().setDepth(21);
+    this.strikeGraphics = scene.add.graphics().setDepth(22);
   }
 
   get isVisible(): boolean { return this.phase === 'active'; }
@@ -84,20 +150,21 @@ export class DemonRenderer {
     this.elapsedMs += delta;
     this.knockbackMs = Math.max(0, this.knockbackMs - delta);
     this.phase = phase;
-    this.phasePosition = { ...position };
 
     if (phase === 'active') {
       this.materializeMs = Math.min(220, this.materializeMs + delta);
-      this.container.setVisible(true).setPosition(position.x, position.y).setRotation(rotation);
       const pop = Math.min(1, this.materializeMs / 180);
       const scale = 0.76 + 0.24 * (1 - (1 - pop) ** 3);
-      this.container.setScale(scale, 1.08 - 0.08 * pop);
-      this.drawDemon();
+      const valid = Number.isFinite(position.x) && Number.isFinite(position.y) && Number.isFinite(rotation);
+      if (valid) {
+        this.bodyPen.setTransform(position.x, position.y, rotation, scale, 1.08 - 0.08 * pop);
+        this.drawDemon();
+      } else {
+        this.bodyGraphics.clear();
+      }
       this.teleportGraphics.clear();
     } else {
-      this.container.setVisible(false);
       this.bodyGraphics.clear();
-      this.container.setRotation(0).setScale(1, 1);
       if (phase === 'telegraph') this.drawTelegraph(position);
       else if (phase === 'vanishing') this.drawVanish(position);
       else this.teleportGraphics.clear();
@@ -113,7 +180,6 @@ export class DemonRenderer {
 
   onMaterialize(position: Vector2): void {
     this.materializeMs = 0;
-    this.phasePosition = { ...position };
   }
 
   /** Draws a brief jagged bolt, sparks and a glow from the demon to the ball. */
@@ -121,7 +187,8 @@ export class DemonRenderer {
     if (this.disposed) return;
     this.strikeFrom = { ...source };
     this.strikeTo = { ...target };
-    this.strikeMs = 260;
+    // Keep the discharge on screen long enough to read clearly at 60 FPS.
+    this.strikeMs = 800;
     this.drawStrike();
   }
 
@@ -132,12 +199,13 @@ export class DemonRenderer {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.bodyGraphics.destroy();
     this.teleportGraphics.destroy();
     this.strikeGraphics.destroy();
   }
 
   private drawDemon(): void {
-    const g = this.bodyGraphics;
+    const g = this.bodyPen;
     g.clear();
     const r = this.radius;
     const wingBeat = Math.sin(this.elapsedMs * (this.knockbackMs > 0 ? 0.044 : 0.026)) * (this.knockbackMs > 0 ? 0.72 : 0.55);
@@ -211,7 +279,7 @@ export class DemonRenderer {
   }
 
   private drawWing(originX: number, originY: number, facing: -1 | 1, flap: number, radius: number): void {
-    const g = this.bodyGraphics;
+    const g = this.bodyPen;
     const length = radius * 1.1;
     const lift = flap * radius * 0.35;
     const points = [
@@ -243,14 +311,14 @@ export class DemonRenderer {
       { x: x + facing * radius * 0.26, y: y - radius * 0.12 },
       { x: x + facing * radius * 0.12, y: y + radius * 0.24 },
     ];
-    this.bodyGraphics.fillStyle(0xe6c6f2, 1);
+    this.bodyPen.fillStyle(0xe6c6f2, 1);
     this.fillPolygon(points);
-    this.bodyGraphics.lineStyle(1.25, OUTLINE, 1);
+    this.bodyPen.lineStyle(1.25, OUTLINE, 1);
     this.strokePolygon(points);
   }
 
   private drawEye(x: number, y: number, radius: number, bodyRadius: number, pupilBias: number): void {
-    const g = this.bodyGraphics;
+    const g = this.bodyPen;
     g.fillStyle(0x35104d, 0.26).fillEllipse(x + 0.8, y + 1.2, radius * 2.3, radius * 2.35);
     g.fillStyle(0xfff8ff, 1).fillEllipse(x, y, radius * 2.12, radius * 2.2);
     g.lineStyle(Math.max(0.8, bodyRadius * 0.045), OUTLINE, 1).strokeEllipse(x, y, radius * 2.12, radius * 2.2);
@@ -339,14 +407,14 @@ export class DemonRenderer {
   }
 
   private fillPolygon(points: Vector2[]): void {
-    const g = this.bodyGraphics;
+    const g = this.bodyPen;
     g.beginPath().moveTo(points[0]!.x, points[0]!.y);
     for (let index = 1; index < points.length; index += 1) g.lineTo(points[index]!.x, points[index]!.y);
     g.closePath().fillPath();
   }
 
   private strokePolygon(points: Vector2[]): void {
-    const g = this.bodyGraphics;
+    const g = this.bodyPen;
     g.beginPath().moveTo(points[0]!.x, points[0]!.y);
     for (let index = 1; index < points.length; index += 1) g.lineTo(points[index]!.x, points[index]!.y);
     g.closePath().strokePath();

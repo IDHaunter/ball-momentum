@@ -5,7 +5,7 @@ import { COLLISION_CATEGORIES } from '../../src/physics/CollisionCategories';
 import type { MatterBodyLike, MatterGameObjectLike } from '../../src/physics/MatterPhysicsBody';
 import type { CollisionEventLike } from '../../src/physics/MatterCollisionMapper';
 import type { DemonPhysicsOptions, Vector2 } from '../../src/physics/PhysicsTypes';
-import type { DemonGraphicsLike, DemonContainerLike } from '../../src/rendering/DemonRenderer';
+import type { DemonGraphicsLike } from '../../src/rendering/DemonRenderer';
 
 type TestBody = MatterBodyLike & {
   isStatic?: boolean;
@@ -18,13 +18,18 @@ type TestBody = MatterBodyLike & {
 function createHarness() {
   const handlers = new Map<string, (event: CollisionEventLike) => void>();
   const bodies: TestBody[] = [];
-  const graphics: Array<{ commands: string[]; destroyed: boolean }> = [];
+  const graphics: Array<{
+    commands: string[];
+    destroyed: boolean;
+  }> = [];
+  const gameObjectVisuals: object[] = [];
   const makeGraphics = (): DemonGraphicsLike => {
     const state = { commands: [] as string[], destroyed: false };
     graphics.push(state);
     const record = (name: string) => { state.commands.push(name); return api; };
     const api: DemonGraphicsLike = {
-      clear() { return record('clear'); }, setDepth() { return api; }, fillStyle() { return record('fillStyle'); },
+      clear() { return record('clear'); }, setDepth() { return api; },
+      fillStyle() { return record('fillStyle'); },
       lineStyle() { return record('lineStyle'); }, fillEllipse() { return record('fillEllipse'); }, strokeEllipse() { return record('strokeEllipse'); },
       beginPath() { return record('beginPath'); }, moveTo() { return record('moveTo'); }, lineTo() { return record('lineTo'); },
       closePath() { return record('closePath'); }, fillPath() { return record('fillPath'); }, strokePath() { return record('strokePath'); },
@@ -44,11 +49,7 @@ function createHarness() {
   };
   const scene = {
     add: {
-      zone: () => ({}), graphics: makeGraphics,
-      container: () => ({
-        add() { return this; }, setDepth() { return this; }, setSize() { return this; }, setRotation() { return this; },
-        setPosition() { return this; }, setVisible() { return this; }, setScale() { return this; }, destroy() { return this; },
-      } satisfies DemonContainerLike),
+      zone: () => ({ kind: 'zone' }), graphics: makeGraphics,
     },
     matter: {
       world: {
@@ -66,7 +67,8 @@ function createHarness() {
         fromVertices(x: number, y: number, _vertices: Vector2[][], options: Record<string, unknown>) {
           return makeBody(x, y, String(options.label ?? ''), options);
         },
-        gameObject(_visual: object, body: MatterBodyLike): MatterGameObjectLike {
+        gameObject(visual: object, body: MatterBodyLike): MatterGameObjectLike {
+          gameObjectVisuals.push(visual);
           return {
             body,
             setPosition(x: number, y: number) { body.position.x = x; body.position.y = y; return this; },
@@ -85,7 +87,7 @@ function createHarness() {
     },
   };
   const world = new MatterPhysicsWorld(scene as never);
-  return { world, bodies, graphics, handlers };
+  return { world, bodies, graphics, gameObjectVisuals, handlers };
 }
 
 const ballOptions = {
@@ -109,6 +111,13 @@ const demonDefinition: DemonPhysicsOptions = {
   killPlaneY: 800,
 };
 
+/** True when something was drawn after the most recent clear(). */
+function hasLiveArtwork(state: { commands: string[] } | undefined): boolean {
+  if (!state) return false;
+  const lastClear = state.commands.lastIndexOf('clear');
+  return state.commands.slice(lastClear + 1).some((command) => command === 'fillPath' || command === 'strokePath');
+}
+
 function bodyFor(harness: ReturnType<typeof createHarness>, label: string): TestBody {
   const body = harness.bodies.find((item) => item.label === label);
   if (!body) throw new Error(`Missing test body ${label}`);
@@ -120,6 +129,7 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     const harness = createHarness();
     harness.world.createDemonEnemy(demonDefinition);
     const demon = bodyFor(harness, 'DEMON:purple-devil');
+    expect((harness.gameObjectVisuals[0] as { kind?: string }).kind).toBe('zone');
     expect(demon.isStatic).toBe(true);
     expect(demon.collisionFilter?.category).toBe(COLLISION_CATEGORIES.DEMON_ENEMY);
     expect(demon.collisionFilter?.mask).toBe(0);
@@ -129,7 +139,7 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     expect(demon.collisionFilter?.mask).toBeGreaterThan(0);
     expect(demon.collisionFilter!.mask & COLLISION_CATEGORIES.BALL).toBeTruthy();
     expect(demon.collisionFilter!.mask & COLLISION_CATEGORIES.TRIGGER).toBeTruthy();
-    expect(harness.graphics[0]?.commands).toContain('fillEllipse');
+    expect(hasLiveArtwork(harness.graphics[0])).toBe(true);
     harness.world.dispose();
   });
 
@@ -151,7 +161,7 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     harness.world.step(500); // first zap
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(-220, 4);
     expect(ball.setVelocityCalls).toBe(1);
-    expect(harness.graphics[2]?.commands).toContain('strokePath');
+    expect(hasLiveArtwork(harness.graphics[2])).toBe(true);
     harness.world.step(500);
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(-220, 4);
     harness.world.dispose();
@@ -199,6 +209,59 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     harness.world.dispose();
   });
 
+  it('keeps drawing the body at the Matter position throughout the active phase', () => {
+    const harness = createHarness();
+    harness.world.createDemonEnemy({ ...demonDefinition, activeSeconds: 4 });
+    const demon = bodyFor(harness, 'DEMON:purple-devil');
+
+    harness.world.step(1000);
+    expect(hasLiveArtwork(harness.graphics[0])).toBe(true);
+
+    demon.position.x += 37;
+    demon.position.y += 12;
+    harness.world.step(16);
+    expect(hasLiveArtwork(harness.graphics[0])).toBe(true);
+
+    harness.world.step(3000);
+    expect(hasLiveArtwork(harness.graphics[0])).toBe(true);
+    harness.world.step(984);
+    expect(hasLiveArtwork(harness.graphics[0])).toBe(false);
+    harness.world.dispose();
+  });
+
+  it('puts the demon back on its spawn point when Matter produces a non-finite state', () => {
+    const harness = createHarness();
+    harness.world.createDemonEnemy({ ...demonDefinition, activeSeconds: 4, spawnPoints: [{ x: 220, y: 100 }] });
+    const demon = bodyFor(harness, 'DEMON:purple-devil');
+    harness.world.step(1000);
+    demon.position.x = Number.NaN;
+    demon.position.y = Number.NaN;
+    harness.world.step(16);
+    expect(demon.position).toEqual({ x: 220, y: 100 });
+    expect(hasLiveArtwork(harness.graphics[0])).toBe(true);
+    harness.world.dispose();
+  });
+
+  it('treats attackRadius as the clear gap between the ball and demon collision circles', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 340, y: 100 }, ballOptions);
+    harness.world.createDemonEnemy({
+      ...demonDefinition,
+      spawnPoints: [{ x: 220, y: 100 }],
+      attackRadius: 90,
+      activeSeconds: 4,
+    });
+    const ball = bodyFor(harness, 'BALL');
+
+    harness.world.step(1000);
+    harness.world.step(500);
+    // Centre distance is 120 px, but the clear gap is 84 px after
+    // subtracting both 18 px collision radii.
+    expect(ball.setVelocityCalls).toBe(1);
+    expect(hasLiveArtwork(harness.graphics[2])).toBe(true);
+    harness.world.dispose();
+  });
+
   it('keeps the zap armed outside attackRadius and strikes once the player enters it', () => {
     const harness = createHarness();
     harness.world.createBall({ x: 500, y: 100 }, ballOptions);
@@ -223,7 +286,7 @@ describe('MatterPhysicsWorld teleporting demon', () => {
       PhysicsAdapter.fromMatterVelocity(ball.velocity).x,
       PhysicsAdapter.fromMatterVelocity(ball.velocity).y,
     )).toBeCloseTo(220, 4);
-    expect(harness.graphics[2]?.commands).toContain('strokePath');
+    expect(hasLiveArtwork(harness.graphics[2])).toBe(true);
 
     harness.world.step(500);
     expect(ball.setVelocityCalls).toBe(1);
@@ -270,8 +333,8 @@ describe('MatterPhysicsWorld teleporting demon', () => {
 
   it('does not strike a player outside the configurable attack radius', () => {
     const harness = createHarness();
-    harness.world.createBall({ x: 260, y: 100 }, ballOptions);
-    harness.world.createDemonEnemy({ ...demonDefinition, attackRadius: 80 });
+    harness.world.createBall({ x: 360, y: 100 }, ballOptions);
+    harness.world.createDemonEnemy({ ...demonDefinition, spawnPoints: [{ x: 100, y: 100 }], attackRadius: 80 });
     const ball = bodyFor(harness, 'BALL');
     harness.world.step(1000);
     harness.world.step(500);
@@ -319,6 +382,7 @@ describe('MatterPhysicsWorld teleporting demon', () => {
 
     expect(demon.destroyed).toBe(true);
     expect(harness.graphics[1]?.destroyed).toBe(true);
+    expect(harness.graphics[0]?.destroyed).toBe(true);
     expect(harness.graphics[2]?.destroyed).toBe(true);
     harness.world.dispose();
   });
@@ -337,7 +401,7 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     }] });
     harness.world.step(500); // the ram does not consume the scheduled zap
     expect(ball.setVelocityCalls).toBe(1);
-    expect(harness.graphics[2]?.commands).toContain('strokePath');
+    expect(hasLiveArtwork(harness.graphics[2])).toBe(true);
     harness.world.step(1500);
     expect(demon.isStatic).toBe(false);
     expect(demon.destroyed).toBe(false);

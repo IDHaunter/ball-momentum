@@ -678,7 +678,11 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const spawnPoint = { ...definition.spawnPoints[0]! };
     const rawBody = this.factory.circle(spawnPoint.x, spawnPoint.y, definition.radius, {
       label: `DEMON:${definition.id}`,
-      isStatic: true,
+      // Created dynamic and frozen below via setStatic(true), exactly like
+      // bombs and movable crates. Creating it with isStatic:true plus an
+      // explicit mass leaves Matter with inconsistent mass/inertia values
+      // that are restored when the demon later turns dynamic.
+      isStatic: false,
       mass: definition.mass,
       friction: definition.friction,
       frictionStatic: Math.min(1, definition.friction * 1.15),
@@ -694,7 +698,11 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       spawnPoint.x,
       spawnPoint.y,
     );
-    const object = this.factory.gameObject(renderer.container, rawBody, true);
+    // Keep the Matter body on a non-rendering Zone. The demon artwork is
+    // rendered by standalone world-space Graphics, so Matter's GameObject
+    // lifecycle cannot hide or replace it when the body switches static/dynamic.
+    const physicsZone = (this.scene as unknown as MatterSceneLike).add.zone(spawnPoint.x, spawnPoint.y, 1, 1);
+    const object = this.factory.gameObject(physicsZone, rawBody, true);
     object.body.label = `DEMON:${definition.id}`;
     object.setStatic(true);
     this.setDemonCollisionActive(object.body, false);
@@ -1759,6 +1767,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const ballMass = ballBody ? this.metadata.get(ballBody)?.mass ?? 1 : 1;
     for (const [id, demon] of [...this.demons.entries()]) {
       const body = demon.object.body;
+      this.recoverDemonBodyIfInvalid(demon);
       if (demon.phase === 'active' && body.position.y > demon.killPlaneY) {
         this.removeDemonEnemy(id);
         continue;
@@ -1831,7 +1840,11 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
               const dx = ballBody.position.x - body.position.x;
               const dy = ballBody.position.y - body.position.y;
               const distance = Math.hypot(dx, dy);
-              if (distance <= demon.attackRadius) {
+              const ballRadius = Math.max(10, ballBody.circleRadius ?? 18);
+              // attackRadius describes the free gap between the two circular
+              // bodies, not merely the distance between their centres.
+              const edgeDistance = Math.max(0, distance - demon.radius - ballRadius);
+              if (edgeDistance <= demon.attackRadius) {
                 const direction = distance > 0.001
                   ? { x: dx / distance, y: dy / distance }
                   : this.getDemonOverlapZapDirection(demon);
@@ -1860,7 +1873,9 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
                 demon.attacked = true;
               } else {
                 // Recheck frequently while the demon is materialized. The zap
-                // still fires only once, on the first in-range check.
+                // still fires only once, on the first in-range check. Measuring
+                // edge-to-edge distance also avoids missing a player whose
+                // collision shell is already inside the configured radius.
                 demon.attackRemainingMs = DEMON_ATTACK_RETRY_MS;
               }
             } else {
@@ -1915,6 +1930,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private updateDemonEnemiesAfterStep(stepMs: number): void {
     for (const [id, demon] of [...this.demons.entries()]) {
       const body = demon.object.body;
+      this.recoverDemonBodyIfInvalid(demon);
       if (demon.phase === 'active' && body.position.y > demon.killPlaneY) {
         this.removeDemonEnemy(id);
         continue;
@@ -1923,6 +1939,23 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       const phaseRotation = demon.phase === 'active' ? body.angle : 0;
       demon.renderer.update(stepMs, phasePosition, phaseRotation, demon.phase);
     }
+  }
+
+  /**
+   * A body whose position, angle or velocity became NaN/Infinity can never be
+   * drawn and makes every distance check (the lightning zap included) fail
+   * silently. Put it back on its spawn point at rest instead.
+   */
+  private recoverDemonBodyIfInvalid(demon: DemonRecord): void {
+    const body = demon.object.body;
+    const finite = Number.isFinite(body.position.x) && Number.isFinite(body.position.y)
+      && Number.isFinite(body.angle) && Number.isFinite(body.velocity.x) && Number.isFinite(body.velocity.y);
+    if (finite) return;
+    console.warn(`Demon "${demon.id}" had an invalid physics state and was reset to its spawn point.`);
+    demon.object.setPosition(demon.spawnPoint.x, demon.spawnPoint.y);
+    demon.object.setVelocity(0, 0);
+    demon.object.setAngularVelocity(0);
+    demon.object.setRotation?.(0);
   }
 
   private isDemonSpawnPointSafe(demon: DemonRecord, point: Vector2, ballBody: MatterBodyLike): boolean {
