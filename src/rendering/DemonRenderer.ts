@@ -119,6 +119,7 @@ export class DemonRenderer {
   private readonly bodyPen: WorldSpacePen;
   private readonly teleportGraphics: DemonGraphicsLike;
   private readonly strikeGraphics: DemonGraphicsLike;
+  private readonly contactGraphics: DemonGraphicsLike;
   private readonly radius: number;
   private readonly seed: number;
   private elapsedMs = 0;
@@ -127,6 +128,10 @@ export class DemonRenderer {
   private knockbackMs = 0;
   private strikeFrom: Vector2 | null = null;
   private strikeTo: Vector2 | null = null;
+  private contactMs = 0;
+  private contactCenter: Vector2 | null = null;
+  private contactTarget: Vector2 | null = null;
+  private contactPower = 0;
   private phase: DemonVisualPhase = 'hidden';
   private disposed = false;
 
@@ -140,6 +145,7 @@ export class DemonRenderer {
     this.bodyPen = new WorldSpacePen(this.bodyGraphics);
     this.teleportGraphics = scene.add.graphics().setDepth(21);
     this.strikeGraphics = scene.add.graphics().setDepth(22);
+    this.contactGraphics = scene.add.graphics().setDepth(23);
   }
 
   get isVisible(): boolean { return this.phase === 'active'; }
@@ -149,6 +155,7 @@ export class DemonRenderer {
     const delta = Math.max(0, Math.min(80, deltaMs));
     this.elapsedMs += delta;
     this.knockbackMs = Math.max(0, this.knockbackMs - delta);
+    this.contactMs = Math.max(0, this.contactMs - delta);
     this.phase = phase;
 
     if (phase === 'active') {
@@ -176,6 +183,8 @@ export class DemonRenderer {
     } else {
       this.strikeGraphics.clear();
     }
+    if (this.contactMs > 0) this.drawContactBurst();
+    else this.contactGraphics.clear();
   }
 
   onMaterialize(position: Vector2): void {
@@ -192,6 +201,16 @@ export class DemonRenderer {
     this.drawStrike();
   }
 
+  /** A bright, short contact discharge with branching arcs and radial sparks. */
+  onContact(demonPosition: Vector2, ballPosition: Vector2, impulse: number): void {
+    if (this.disposed) return;
+    this.contactCenter = { ...demonPosition };
+    this.contactTarget = { ...ballPosition };
+    this.contactPower = Math.max(0.35, Math.min(1.8, impulse / 520));
+    this.contactMs = 360;
+    this.drawContactBurst();
+  }
+
   onKnockback(): void {
     this.knockbackMs = 260;
   }
@@ -202,6 +221,7 @@ export class DemonRenderer {
     this.bodyGraphics.destroy();
     this.teleportGraphics.destroy();
     this.strikeGraphics.destroy();
+    this.contactGraphics.destroy();
   }
 
   private drawDemon(): void {
@@ -382,6 +402,41 @@ export class DemonRenderer {
       const from = { x: position.x + Math.cos(angle) * this.radius * 0.3, y: position.y + Math.sin(angle) * this.radius * 0.4 };
       const to = { x: position.x + Math.cos(angle) * this.radius * 1.3 * pulse, y: position.y + Math.sin(angle) * this.radius * 1.5 * pulse };
       this.drawWorldBolt(g, from, to, 2, this.seed + index * 7, 0xd5c2ff, 0.76 * pulse);
+    }
+  }
+
+
+  private drawContactBurst(): void {
+    const g = this.contactGraphics;
+    g.clear();
+    if (!this.contactCenter || !this.contactTarget || this.contactMs <= 0) return;
+    const alpha = Math.min(1, this.contactMs / 85);
+    const cx = (this.contactCenter.x + this.contactTarget.x) / 2;
+    const cy = (this.contactCenter.y + this.contactTarget.y) / 2;
+    const dx = this.contactTarget.x - this.contactCenter.x;
+    const dy = this.contactTarget.y - this.contactCenter.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const nx = -dy / length;
+    const ny = dx / length;
+    const reach = (this.radius * 1.25 + 8) * this.contactPower;
+    // Multiple jagged arcs make the collision read as a burst, not the demon's
+    // separate ranged lightning attack.
+    for (let branch = -1; branch <= 1; branch += 1) {
+      const offset = branch * reach * 0.42;
+      const start = { x: cx + nx * offset, y: cy + ny * offset };
+      const end = { x: cx - nx * offset * 0.7 + dx / length * reach * 0.34, y: cy - ny * offset * 0.7 + dy / length * reach * 0.34 };
+      this.drawWorldBolt(g, start, end, 2.2 + this.contactPower, this.seed + branch * 31 + Math.floor(this.elapsedMs / 18), ELECTRIC, alpha);
+    }
+    g.fillStyle(0xf5ffff, 0.78 * alpha).fillEllipse(cx, cy, reach * 0.9, reach * 0.9);
+    g.lineStyle(2, 0xd5faff, alpha);
+    for (let index = 0; index < 8; index += 1) {
+      const angle = index * Math.PI / 4 + this.elapsedMs * 0.018;
+      const inner = reach * 0.28;
+      const outer = reach * (0.72 + (index % 2) * 0.18);
+      g.beginPath()
+        .moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner)
+        .lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer)
+        .strokePath();
     }
   }
 

@@ -133,6 +133,8 @@ export interface DemonDefinition {
   attackRadius: number;
   /** Momentum impulse applied to the player during a successful zap. */
   lightningImpulse: number;
+  /** Equal-and-opposite momentum applied when the ball physically touches the demon. Defaults to 520. */
+  collisionImpulse?: number;
   restitution?: number;
   friction?: number;
 }

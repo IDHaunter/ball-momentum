@@ -145,6 +145,7 @@ const demonEnemySchema = z.object({
   activeSeconds: z.number().finite().min(0.5).max(8).optional(),
   attackRadius: z.number().finite().min(20).max(1400),
   lightningImpulse: z.number().finite().min(0).max(6000),
+  collisionImpulse: z.number().finite().min(0).max(6000).optional(),
   restitution: z.number().min(0).max(1).optional(),
   friction: z.number().min(0).max(1).optional(),
 });

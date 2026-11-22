@@ -22,7 +22,6 @@ import { DemonRenderer, type DemonRendererSceneLike, type DemonVisualPhase } fro
 
 const DEMON_SPAWN_RETRY_MS = 250;
 const DEMON_ATTACK_RETRY_MS = 120;
-const DEMON_RAM_IMPACT_SPEED = 140;
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -180,6 +179,7 @@ interface DemonRecord {
   activeMs: number;
   attackRadius: number;
   lightningImpulse: number;
+  collisionImpulse: number;
   attackRemainingMs: number;
   attacked: boolean;
   disrupted: boolean;
@@ -728,6 +728,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       activeMs: definition.activeSeconds * 1000,
       attackRadius: definition.attackRadius,
       lightningImpulse: definition.lightningImpulse,
+      collisionImpulse: definition.collisionImpulse,
       attackRemainingMs: definition.attackDelaySeconds * 1000,
       attacked: false,
       disrupted: false,
@@ -1062,26 +1063,50 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const demonBody = metaA.kind === 'demon' ? bodyA : bodyB;
     const otherBody = metaA.kind === 'demon' ? bodyB : bodyA;
     if (otherMeta.kind === 'ball') {
-      const ballVelocity = this.preStepVelocities.get(otherBody)
-        ?? PhysicsAdapter.fromMatterVelocity(otherBody.velocity);
-      const demonVelocity = this.preStepVelocities.get(demonBody)
-        ?? PhysicsAdapter.fromMatterVelocity(demonBody.velocity);
-      const relativeSpeed = Math.hypot(
-        ballVelocity.x - demonVelocity.x,
-        ballVelocity.y - demonVelocity.y,
-      );
+      // The contact burst is deliberately stronger and more readable than the
+      // ordinary Matter collision: apply one configurable, equal-and-opposite
+      // momentum impulse along the centre-to-centre contact normal.
+      const dx = otherBody.position.x - demonBody.position.x;
+      const dy = otherBody.position.y - demonBody.position.y;
+      const distance = Math.hypot(dx, dy);
+      let nx = distance > 0.001 ? dx / distance : 1;
+      let ny = distance > 0.001 ? dy / distance : 0;
+      if (distance <= 0.001) {
+        const relative = this.preStepVelocities.get(otherBody)
+          ?? PhysicsAdapter.fromMatterVelocity(otherBody.velocity);
+        const speed = Math.hypot(relative.x, relative.y);
+        if (speed > 0.001) { nx = -relative.x / speed; ny = -relative.y / speed; }
+      }
 
-      // Touching/overlapping at the instant of materialization is not a ram.
-      // Keep the scheduled lightning attack armed unless the player actually
-      // hits the demon with a meaningful amount of speed.
-      if (relativeSpeed < DEMON_RAM_IMPACT_SPEED) return;
+      if (demon.collisionImpulse > 0) {
+        const ballMass = otherMeta.mass ?? 1;
+        const demonMass = demonMeta.mass ?? demon.mass;
+        const ballVelocity = PhysicsAdapter.fromMatterVelocity(otherBody.velocity);
+        const demonVelocity = PhysicsAdapter.fromMatterVelocity(demonBody.velocity);
+        const ballNext = {
+          x: ballVelocity.x + nx * demon.collisionImpulse / ballMass,
+          y: ballVelocity.y + ny * demon.collisionImpulse / ballMass,
+        };
+        const demonNext = {
+          x: demonVelocity.x - nx * demon.collisionImpulse / demonMass,
+          y: demonVelocity.y - ny * demon.collisionImpulse / demonMass,
+        };
+        const ballMatter = PhysicsAdapter.toMatterVelocity(ballNext);
+        const demonMatter = PhysicsAdapter.toMatterVelocity(demonNext);
+        if (this.ballObject) {
+          this.ballObject.setVelocity(ballMatter.x, ballMatter.y);
+          this.ballObject.setAwake();
+        }
+        const demonObject = demon.object;
+        demonObject.setVelocity(demonMatter.x, demonMatter.y);
+        demonObject.setAwake();
+      }
+      demon.renderer.onContact(demonBody.position, otherBody.position, demon.collisionImpulse);
     }
 
-    // A real impact by the player or another physical character interrupts the
-    // teleport cycle. The demon remains a normal pushable body from this point.
+    // Physical contact interrupts the teleport cycle, leaving the demon as a
+    // normal pushable body. The scheduled zap remains armed for a later pass.
     demon.disrupted = true;
-    // A physical ram interrupts the teleport cycle, but it must not consume
-    // the pending zap. The demon can still discharge once while it is nearby.
     demon.renderer.onKnockback();
   }
 

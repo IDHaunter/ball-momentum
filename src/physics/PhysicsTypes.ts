@@ -77,6 +77,8 @@ export interface DemonPhysicsOptions {
   activeSeconds: number;
   attackRadius: number;
   lightningImpulse: number;
+  /** Momentum impulse shared equally and oppositely by the ball and demon on contact. */
+  collisionImpulse: number;
   restitution: number;
   friction: number;
   killPlaneY: number;

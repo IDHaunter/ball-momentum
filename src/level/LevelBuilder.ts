@@ -105,6 +105,7 @@ export class LevelBuilder {
         activeSeconds: demon.activeSeconds ?? 4.0,
         attackRadius: demon.attackRadius,
         lightningImpulse: demon.lightningImpulse,
+        collisionImpulse: demon.collisionImpulse ?? 520,
         restitution: demon.restitution ?? 0.12,
         friction: demon.friction ?? 0.46,
         killPlaneY: level.world.killPlaneY,

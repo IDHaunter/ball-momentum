@@ -106,6 +106,7 @@ const demonDefinition: DemonPhysicsOptions = {
   activeSeconds: 1.5,
   attackRadius: 80,
   lightningImpulse: 220,
+  collisionImpulse: 520,
   restitution: 0.14,
   friction: 0.48,
   killPlaneY: 800,
@@ -160,8 +161,9 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBe(0);
     harness.world.step(500); // first zap
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(-220, 4);
-    expect(ball.setVelocityCalls).toBe(1);
+    expect(ball.setVelocityCalls).toBe(2); // contact recoil plus the scheduled zap
     expect(hasLiveArtwork(harness.graphics[2])).toBe(true);
+    expect(hasLiveArtwork(harness.graphics[3])).toBe(true);
     harness.world.step(500);
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(-220, 4);
     harness.world.dispose();
@@ -257,8 +259,9 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     harness.world.step(500);
     // Centre distance is 120 px, but the clear gap is 84 px after
     // subtracting both 18 px collision radii.
-    expect(ball.setVelocityCalls).toBe(1);
+    expect(ball.setVelocityCalls).toBe(2); // contact recoil plus the scheduled zap
     expect(hasLiveArtwork(harness.graphics[2])).toBe(true);
+    expect(hasLiveArtwork(harness.graphics[3])).toBe(true);
     harness.world.dispose();
   });
 
@@ -326,8 +329,29 @@ describe('MatterPhysicsWorld teleporting demon', () => {
 
     harness.world.step(500);
     const velocity = PhysicsAdapter.fromMatterVelocity(ball.velocity);
-    expect(ball.setVelocityCalls).toBe(1);
-    expect(Math.hypot(velocity.x, velocity.y)).toBeCloseTo(220, 4);
+    expect(ball.setVelocityCalls).toBe(2); // contact recoil plus the scheduled ranged zap
+    expect(Math.hypot(velocity.x, velocity.y)).toBeGreaterThan(220);
+    harness.world.dispose();
+  });
+
+  it('applies configurable equal-and-opposite contact momentum and draws an electric burst', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 130, y: 100 }, ballOptions);
+    harness.world.createDemonEnemy({ ...demonDefinition, spawnPoints: [{ x: 150, y: 100 }], collisionImpulse: 600 });
+    const demon = bodyFor(harness, 'DEMON:purple-devil');
+    const ball = bodyFor(harness, 'BALL');
+    harness.world.step(1000);
+
+    harness.handlers.get('collisionstart')?.({ pairs: [{
+      bodyA: ball, bodyB: demon, collision: { normal: { x: -1, y: 0 }, supports: [] },
+    }] });
+
+    const ballSpeed = PhysicsAdapter.fromMatterVelocity(ball.velocity).x;
+    const demonSpeed = PhysicsAdapter.fromMatterVelocity(demon.velocity).x;
+    expect(ballSpeed).toBeLessThan(0);
+    expect(demonSpeed).toBeGreaterThan(0);
+    expect(ballSpeed * 1 + demonSpeed * 1.35).toBeCloseTo(0, 4);
+    expect(hasLiveArtwork(harness.graphics[3])).toBe(true);
     harness.world.dispose();
   });
 
@@ -384,6 +408,7 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     expect(harness.graphics[1]?.destroyed).toBe(true);
     expect(harness.graphics[0]?.destroyed).toBe(true);
     expect(harness.graphics[2]?.destroyed).toBe(true);
+    expect(harness.graphics[3]?.destroyed).toBe(true);
     harness.world.dispose();
   });
 
@@ -400,8 +425,9 @@ describe('MatterPhysicsWorld teleporting demon', () => {
       bodyA: ball, bodyB: demon, collision: { normal: { x: -1, y: 0 }, supports: [] },
     }] });
     harness.world.step(500); // the ram does not consume the scheduled zap
-    expect(ball.setVelocityCalls).toBe(1);
+    expect(ball.setVelocityCalls).toBe(2); // contact recoil plus the scheduled zap
     expect(hasLiveArtwork(harness.graphics[2])).toBe(true);
+    expect(hasLiveArtwork(harness.graphics[3])).toBe(true);
     harness.world.step(1500);
     expect(demon.isStatic).toBe(false);
     expect(demon.destroyed).toBe(false);
