@@ -155,6 +155,7 @@ const platformSwitchSchema = z.object({
   lever: z.object({
     x: z.number().finite(),
     y: z.number().finite(),
+    height: z.number().finite().min(24).max(100).optional(),
     minimumImpactSpeed: z.number().finite().min(20).max(2000),
     initialState: z.enum(['on', 'off']).optional(),
   }),

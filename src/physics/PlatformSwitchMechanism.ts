@@ -1,6 +1,6 @@
 import type { Vector2 } from './PhysicsTypes';
 
-/** Returns ON for a sufficiently fast rightward hit, OFF for a leftward hit. */
+/** Returns ON for a sufficiently fast hit from the left, OFF for a hit from the right. */
 export function getPlatformSwitchTargetState(horizontalSpeed: number, minimumImpactSpeed: number): boolean | null {
   if (!Number.isFinite(horizontalSpeed) || Math.abs(horizontalSpeed) < minimumImpactSpeed) return null;
   return horizontalSpeed > 0;

@@ -116,6 +116,7 @@ export class LevelBuilder {
         id: mechanism.id,
         leverX: mechanism.lever.x,
         leverY: mechanism.lever.y,
+        leverHeight: mechanism.lever.height ?? 48,
         minimumImpactSpeed: mechanism.lever.minimumImpactSpeed,
         initiallyEnabled: mechanism.lever.initialState === 'on',
         platformWidth: mechanism.platform.width,

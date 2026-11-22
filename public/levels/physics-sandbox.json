@@ -1145,7 +1145,8 @@
         "x": 7670,
         "y": 880,
         "minimumImpactSpeed": 245,
-        "initialState": "off"
+        "initialState": "off",
+        "height": 52
       },
       "platform": {
         "width": 170,

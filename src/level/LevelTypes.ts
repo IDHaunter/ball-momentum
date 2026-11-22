@@ -148,6 +148,8 @@ export interface PlatformSwitchDefinition {
     /** Hinge position; y is the top surface the lever is mounted on. */
     x: number;
     y: number;
+    /** Physical and visual rod length in pixels. Defaults to 48. */
+    height?: number;
     /** Required horizontal ball speed in px/s to move the lever. */
     minimumImpactSpeed: number;
     initialState?: 'on' | 'off';

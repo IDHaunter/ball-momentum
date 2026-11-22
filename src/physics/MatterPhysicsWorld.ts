@@ -195,8 +195,10 @@ interface PlatformSwitchRecord {
   renderer: PlatformSwitchRenderer;
   leverX: number;
   leverY: number;
+  leverHeight: number;
   minimumImpactSpeed: number;
   enabled: boolean;
+  pendingAngle?: number;
   cooldownMs: number;
   points: Vector2[];
   targetIndex: number;
@@ -789,20 +791,21 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.registerLevelObject(platformObject, { kind: 'terrain', id: `${definition.id}:platform`, dynamic: true });
 
     const initialAngle = definition.initiallyEnabled ? 0.5 : -0.5;
-    const leverLength = 38;
+    const leverLength = Math.max(24, Math.min(100, definition.leverHeight ?? 48));
     const leverCenter = {
       x: definition.leverX + Math.sin(initialAngle) * leverLength / 2,
       y: definition.leverY - Math.cos(initialAngle) * leverLength / 2,
     };
-    const leverRawBody = this.factory.rectangle(leverCenter.x, leverCenter.y, 11, leverLength, {
+    const leverRawBody = this.factory.rectangle(leverCenter.x, leverCenter.y, 14, leverLength, {
       label: `PLATFORM_LEVER:${definition.id}`,
       isStatic: true,
-      // The rod detects a strong hit but does not become an invisible wall;
-      // the ball keeps its momentum and can continue towards the platform.
-      isSensor: true,
-      friction: 0.45,
-      restitution: 0.12,
-      collisionFilter: { category: COLLISION_CATEGORIES.TRIGGER, mask: COLLISION_CATEGORIES.BALL },
+      // Unlike the previous trigger-only rod, this is a solid collider. The
+      // ball physically rebounds from the shaft and can strike it again from
+      // the opposite side to move the lever back.
+      isSensor: false,
+      friction: 0.38,
+      restitution: 0.2,
+      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL },
     });
     const leverObject = this.factory.gameObject(
       (this.scene as unknown as MatterSceneLike).add.zone(leverCenter.x, leverCenter.y, 1, 1),
@@ -819,6 +822,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       { x: definition.leverX, y: definition.leverY },
       definition.platformWidth,
       definition.platformSurface,
+      leverLength,
       definition.initiallyEnabled,
     );
     this.platformSwitches.set(definition.id, {
@@ -828,6 +832,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       renderer,
       leverX: definition.leverX,
       leverY: definition.leverY,
+      leverHeight: leverLength,
       minimumImpactSpeed: definition.minimumImpactSpeed,
       enabled: definition.initiallyEnabled,
       cooldownMs: 0,
@@ -1166,16 +1171,20 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const switchRecord = this.platformSwitches.get(leverMeta.id);
     if (!switchRecord || switchRecord.cooldownMs > 0) return;
     const ballBody = leverIsA ? bodyB : bodyA;
+    // Read the ball's velocity captured immediately before Matter resolved
+    // this contact. A rightward hit from the left clicks ON; a leftward hit
+    // from the right clicks OFF. The solid shaft supplies the physical rebound.
     const velocity = this.preStepVelocities.get(ballBody)
-      ?? PhysicsAdapter.fromMatterVelocity(ballBody.velocity);
-    // A rightward impact clicks the lever to ON; a leftward impact clicks it
-    // to OFF. Vertical brushes and weak taps do not change the mechanism.
+      ?? (this.ballObject?.body === ballBody && this.preStepBallVelocity
+        ? this.preStepBallVelocity
+        : PhysicsAdapter.fromMatterVelocity(ballBody.velocity));
+    // Vertical brushes and weak taps do not change the mechanism.
     const nextEnabled = getPlatformSwitchTargetState(velocity.x, switchRecord.minimumImpactSpeed);
     if (nextEnabled === null) return;
     if (nextEnabled === switchRecord.enabled) return;
     switchRecord.enabled = nextEnabled;
+    switchRecord.pendingAngle = nextEnabled ? 0.5 : -0.5;
     switchRecord.cooldownMs = 420;
-    this.positionLever(switchRecord.id, nextEnabled ? 0.5 : -0.5);
     switchRecord.renderer.setEnabled(nextEnabled);
     switchRecord.renderer.onImpact();
   }
@@ -1183,7 +1192,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private positionLever(id: string, angle: number): void {
     const mechanism = this.platformSwitches.get(id);
     if (!mechanism) return;
-    const halfLength = 19;
+    const halfLength = mechanism.leverHeight / 2;
     mechanism.leverObject.setPosition(
       mechanism.leverX + Math.sin(angle) * halfLength,
       mechanism.leverY - Math.cos(angle) * halfLength,
@@ -1224,6 +1233,12 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
 
   private updatePlatformSwitchesAfterStep(fixedStepMs: number): void {
     for (const mechanism of this.platformSwitches.values()) {
+      // Move the solid lever after Matter finishes resolving the contact so
+      // the current collision uses the old, stable collider geometry.
+      if (mechanism.pendingAngle !== undefined) {
+        this.positionLever(mechanism.id, mechanism.pendingAngle);
+        mechanism.pendingAngle = undefined;
+      }
       mechanism.renderer.update(fixedStepMs, mechanism.platformObject.body.position);
       if (!mechanism.enabled) mechanism.platformObject.setVelocity(0, 0);
     }

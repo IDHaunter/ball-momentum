@@ -157,14 +157,24 @@ describe('LevelValidator', () => {
       ...validLevel,
       platformSwitches: [{
         id: 'rocket-bridge',
-        lever: { x: 420, y: 200, minimumImpactSpeed: 240, initialState: 'off' },
+        lever: { x: 420, y: 200, height: 56, minimumImpactSpeed: 240, initialState: 'off' },
         platform: { width: 160, surface: 'metal', speed: 140, points: [{ x: 500, y: 500 }, { x: 700, y: 500 }] },
       }],
     };
     expect(validator.validate(level).platformSwitches?.[0]).toMatchObject({
-      id: 'rocket-bridge', lever: { minimumImpactSpeed: 240, initialState: 'off' },
+      id: 'rocket-bridge', lever: { height: 56, minimumImpactSpeed: 240, initialState: 'off' },
       platform: { width: 160, surface: 'metal', speed: 140 },
     });
+  });
+
+  it('rejects a lever whose configured physical body would leave world bounds', () => {
+    const mechanism = {
+      id: 'edge-lever',
+      lever: { x: 12, y: 200, height: 72, minimumImpactSpeed: 240 },
+      platform: { width: 160, surface: 'glass', speed: 140, points: [{ x: 500, y: 500 }, { x: 700, y: 500 }] },
+    };
+    expect(() => validator.validate({ ...validLevel, platformSwitches: [mechanism] }))
+      .toThrow(/complete lever must stay inside world bounds/);
   });
 
   it('rejects platform routes that exceed world bounds and duplicate mechanism IDs', () => {

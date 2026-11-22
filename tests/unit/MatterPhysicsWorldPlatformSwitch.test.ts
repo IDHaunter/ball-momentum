@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MatterPhysicsWorld } from '../../src/physics/MatterPhysicsWorld';
 import { PhysicsAdapter } from '../../src/physics/PhysicsAdapter';
+import { COLLISION_CATEGORIES } from '../../src/physics/CollisionCategories';
 import type { MatterBodyLike, MatterGameObjectLike } from '../../src/physics/MatterPhysicsBody';
 import type { CollisionEventLike } from '../../src/physics/MatterCollisionMapper';
 import type { BallPhysicsOptions, PlatformSwitchPhysicsOptions, Vector2 } from '../../src/physics/PhysicsTypes';
@@ -12,6 +13,7 @@ function createHarness() {
   const bodies: TestBody[] = [];
   const textObjects: Array<{ value: string; color: string; setText(value: string): unknown; setColor(value: string): unknown }> = [];
   let pendingPairs: CollisionEventLike['pairs'] = [];
+  let pendingPostCollisionVelocity: Vector2 | undefined;
 
   const makeGraphics = () => {
     const api: Record<string, unknown> = {};
@@ -52,15 +54,23 @@ function createHarness() {
         off(event: string) { handlers.delete(event); },
         step() {
           if (pendingPairs.length) {
+            const ball = pendingPairs.flatMap((pair) => [pair.bodyA, pair.bodyB])
+              .find((body) => body.label === 'BALL');
+            if (ball && pendingPostCollisionVelocity) {
+              const resolved = PhysicsAdapter.toMatterVelocity(pendingPostCollisionVelocity);
+              ball.velocity.x = resolved.x;
+              ball.velocity.y = resolved.y;
+            }
             handlers.get('collisionstart')?.({ pairs: pendingPairs });
             pendingPairs = [];
+            pendingPostCollisionVelocity = undefined;
           }
         },
         setGravity() {},
       },
       add: {
         circle(x: number, y: number, _radius: number, options: Record<string, unknown>) { return makeBody(x, y, options); },
-        rectangle(x: number, y: number, _width: number, _height: number, options: Record<string, unknown>) { return makeBody(x, y, options); },
+        rectangle(x: number, y: number, width: number, height: number, options: Record<string, unknown>) { return makeBody(x, y, { ...options, width, height }); },
         fromVertices(x: number, y: number, _vertices: Vector2[][], options: Record<string, unknown>) { return makeBody(x, y, options); },
         gameObject(_visual: object, body: MatterBodyLike): MatterGameObjectLike {
           return {
@@ -85,6 +95,10 @@ function createHarness() {
     collide(ball: TestBody, lever: TestBody) {
       pendingPairs = [{ bodyA: ball, bodyB: lever, collision: { normal: { x: -1, y: 0 }, supports: [] } }];
     },
+    collideWithResolvedVelocity(ball: TestBody, lever: TestBody, resolvedVelocity: Vector2) {
+      pendingPairs = [{ bodyA: ball, bodyB: lever, collision: { normal: { x: -1, y: 0 }, supports: [] } }];
+      pendingPostCollisionVelocity = resolvedVelocity;
+    },
   };
 }
 
@@ -93,7 +107,7 @@ const ballOptions: BallPhysicsOptions = {
   frictionStatic: 0.8, frictionAir: 0, fixedRotation: false,
 };
 const switchOptions: PlatformSwitchPhysicsOptions = {
-  id: 'rocket-bridge', leverX: 420, leverY: 200, minimumImpactSpeed: 240,
+  id: 'rocket-bridge', leverX: 420, leverY: 200, leverHeight: 48, minimumImpactSpeed: 240,
   initiallyEnabled: false, platformWidth: 160, platformSurface: 'metal', platformSpeed: 140,
   platformPoints: [{ x: 500, y: 500 }, { x: 700, y: 500 }],
 };
@@ -113,23 +127,32 @@ describe('MatterPhysicsWorld paired platform switch', () => {
     const lever = bodyFor(harness, 'PLATFORM_LEVER:rocket-bridge');
     const platform = bodyFor(harness, 'MOVING_PLATFORM:rocket-bridge');
 
+    expect(lever.options?.isSensor).toBe(false);
+    expect(lever.options).toMatchObject({ width: 14, height: 48 });
+    expect(lever.options?.collisionFilter).toMatchObject({
+      category: COLLISION_CATEGORIES.TERRAIN,
+      mask: COLLISION_CATEGORIES.BALL,
+    });
+
     ball.velocity = PhysicsAdapter.toMatterVelocity({ x: 200, y: 0 });
-    harness.collide(ball, lever);
+    harness.collideWithResolvedVelocity(ball, lever, { x: -60, y: 0 });
     harness.world.step(16);
     expect(harness.textObjects[0]?.value).toBe('OFF');
 
     ball.velocity = PhysicsAdapter.toMatterVelocity({ x: 300, y: 0 });
-    harness.collide(ball, lever);
+    harness.collideWithResolvedVelocity(ball, lever, { x: -90, y: 0 });
     harness.world.step(16);
     expect(harness.textObjects[0]?.value).toBe('ON');
+    expect(lever.angle).toBeCloseTo(0.5, 4);
     harness.world.step(16);
     expect(PhysicsAdapter.fromMatterVelocity(platform.velocity).x).toBeCloseTo(140, 4);
 
     for (let index = 0; index < 27; index += 1) harness.world.step(16);
     ball.velocity = PhysicsAdapter.toMatterVelocity({ x: -300, y: 0 });
-    harness.collide(ball, lever);
+    harness.collideWithResolvedVelocity(ball, lever, { x: 90, y: 0 });
     harness.world.step(16);
     expect(harness.textObjects[0]?.value).toBe('OFF');
+    expect(lever.angle).toBeCloseTo(-0.5, 4);
     harness.world.step(16);
     expect(platform.velocity).toEqual({ x: 0, y: 0 });
     harness.world.dispose();

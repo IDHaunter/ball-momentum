@@ -67,7 +67,7 @@ Levels can define timed bombs in a top-level `bombs` array. Bombs are activated 
 
 ## Paired lever switches and moving platforms
 
-Levels can define a `platformSwitches` array. Each entry is one paired mechanism: it always creates both a physical lever and its moving platform, so neither can be configured independently. A sufficiently fast rightward ball impact switches the lever ON and starts the platform; a sufficiently fast leftward impact switches it OFF and stops the platform at its current position. Weak impacts are ignored. The lever shows a green/red state lamp and tilts to match its state.
+Levels can define a `platformSwitches` array. Each entry is one paired mechanism: it always creates both a physical lever and its moving platform, so neither can be configured independently. The lever shaft is a solid collider, so the ball rebounds from it instead of passing through a sensor. A sufficiently fast rightward impact from the left switches the lever ON and starts the platform; a sufficiently fast leftward impact from the right switches it OFF and stops the platform at its current position. Direction is read from the ball velocity immediately before collision resolution. Weak and mostly vertical impacts are ignored. The lever shows a green/red state lamp and tilts to match its state; its physical and visual rod length can be configured with `lever.height` (24–100 px, default 48).
 
 The platform follows its `points` array at a constant configured speed, loops back to the first point, and can be stopped anywhere along the route. Its chassis and animated rocket exhaust stay consistent; `surface` changes only the top treatment (`stone`, `glass`, `metal`, or `grass`). Example:
 
@@ -79,6 +79,7 @@ The platform follows its `points` array at a constant configured speed, loops ba
       "lever": {
         "x": 7550,
         "y": 760,
+        "height": 52,
         "minimumImpactSpeed": 245,
         "initialState": "off"
       },
@@ -96,7 +97,7 @@ The platform follows its `points` array at a constant configured speed, loops ba
 }
 ```
 
-`minimumImpactSpeed` is measured in px/s from the ball's horizontal velocity. `speed` is the platform travel speed in px/s. Each path point is the centre of the platform, and the platform height is fixed by the renderer/physics implementation.
+`minimumImpactSpeed` is measured in px/s from the ball's incoming horizontal velocity. `height` controls the lever shaft length in pixels. `speed` is the platform travel speed in px/s. Each path point is the centre of the platform, and the platform height is fixed by the renderer/physics implementation.
 
 ## Editing levels
 

@@ -3,7 +3,6 @@ import type { Vector2 } from '../physics/PhysicsTypes';
 import type { MovingPlatformSurface } from '../level/LevelTypes';
 
 const PLATFORM_HEIGHT = 28;
-const LEVER_LENGTH = 38;
 
 /** Draws the paired lever and its rocket-assisted moving platform. */
 export class PlatformSwitchRenderer {
@@ -20,6 +19,7 @@ export class PlatformSwitchRenderer {
     private readonly leverPosition: Vector2,
     private readonly platformWidth: number,
     private readonly surface: MovingPlatformSurface,
+    private readonly leverLength: number,
     initiallyEnabled: boolean,
   ) {
     this.enabled = initiallyEnabled;
@@ -129,8 +129,8 @@ export class PlatformSwitchRenderer {
     const g = this.leverGraphics;
     const { x, y } = this.leverPosition;
     const angle = this.enabled ? 0.5 : -0.5;
-    const tipX = x + Math.sin(angle) * LEVER_LENGTH;
-    const tipY = y - Math.cos(angle) * LEVER_LENGTH;
+    const tipX = x + Math.sin(angle) * this.leverLength;
+    const tipY = y - Math.cos(angle) * this.leverLength;
     const activeColor = this.enabled ? 0x62e58b : 0xff6662;
 
     // Mounting plate, pivot and two-tone lever shaft.

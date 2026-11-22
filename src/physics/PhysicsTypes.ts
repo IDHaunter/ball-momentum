@@ -88,6 +88,7 @@ export interface PlatformSwitchPhysicsOptions {
   id: string;
   leverX: number;
   leverY: number;
+  leverHeight?: number;
   minimumImpactSpeed: number;
   initiallyEnabled: boolean;
   platformWidth: number;

@@ -161,9 +161,9 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBe(0);
     harness.world.step(500); // first zap
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(-220, 4);
-    expect(ball.setVelocityCalls).toBe(2); // contact recoil plus the scheduled zap
-    expect(hasLiveArtwork(harness.graphics[2])).toBe(true);
-    expect(hasLiveArtwork(harness.graphics[3])).toBe(true);
+    expect(ball.setVelocityCalls).toBe(1); // only the scheduled ranged zap; no contact event was emitted
+    expect(hasLiveArtwork(harness.graphics[2])).toBe(true); // ranged lightning artwork
+    expect(hasLiveArtwork(harness.graphics[3])).toBe(false); // no physical-contact burst in this scenario
     harness.world.step(500);
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(-220, 4);
     harness.world.dispose();
@@ -259,9 +259,9 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     harness.world.step(500);
     // Centre distance is 120 px, but the clear gap is 84 px after
     // subtracting both 18 px collision radii.
-    expect(ball.setVelocityCalls).toBe(2); // contact recoil plus the scheduled zap
-    expect(hasLiveArtwork(harness.graphics[2])).toBe(true);
-    expect(hasLiveArtwork(harness.graphics[3])).toBe(true);
+    expect(ball.setVelocityCalls).toBe(1); // only the scheduled ranged zap; no contact event was emitted
+    expect(hasLiveArtwork(harness.graphics[2])).toBe(true); // ranged lightning artwork
+    expect(hasLiveArtwork(harness.graphics[3])).toBe(false); // no physical-contact burst in this scenario
     harness.world.dispose();
   });
 
@@ -336,7 +336,7 @@ describe('MatterPhysicsWorld teleporting demon', () => {
 
   it('applies configurable equal-and-opposite contact momentum and draws an electric burst', () => {
     const harness = createHarness();
-    harness.world.createBall({ x: 130, y: 100 }, ballOptions);
+    harness.world.createBall({ x: 90, y: 100 }, ballOptions);
     harness.world.createDemonEnemy({ ...demonDefinition, spawnPoints: [{ x: 150, y: 100 }], collisionImpulse: 600 });
     const demon = bodyFor(harness, 'DEMON:purple-devil');
     const ball = bodyFor(harness, 'BALL');

@@ -120,8 +120,11 @@ export class LevelValidator {
     for (const mechanism of level.platformSwitches ?? []) {
       addId(mechanism.id, `platformSwitches.${mechanism.id}`);
       const { x, y } = mechanism.lever;
-      if (x < 20 || x > level.world.width - 20 || y < 42 || y > level.world.height - 20) {
-        errors.push(`platformSwitches.${mechanism.id}.lever: mounting point must be inside world bounds`);
+      const leverHeight = mechanism.lever.height ?? 48;
+      const horizontalReach = Math.sin(0.5) * leverHeight + 10;
+      if (x - horizontalReach < 0 || x + horizontalReach > level.world.width
+        || y - leverHeight - 8 < 0 || y + 20 > level.world.height) {
+        errors.push(`platformSwitches.${mechanism.id}.lever: complete lever must stay inside world bounds`);
       }
       for (const [index, point] of mechanism.platform.points.entries()) {
         if (point.x - mechanism.platform.width / 2 < 0
