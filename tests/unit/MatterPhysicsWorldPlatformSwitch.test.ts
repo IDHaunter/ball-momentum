@@ -18,7 +18,7 @@ function createHarness() {
   const makeGraphics = () => {
     const api: Record<string, unknown> = {};
     const chain = () => api;
-    for (const method of ['clear', 'setDepth', 'fillStyle', 'fillRect', 'lineStyle', 'strokeRect', 'lineBetween', 'fillCircle', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fillPath', 'destroy']) {
+    for (const method of ['clear', 'setDepth', 'fillStyle', 'fillRect', 'lineStyle', 'strokeRect', 'lineBetween', 'fillCircle', 'fillEllipse', 'strokeEllipse', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fillPath', 'destroy']) {
       api[method] = chain;
     }
     return api;
@@ -137,12 +137,11 @@ describe('MatterPhysicsWorld paired platform switch', () => {
     ball.velocity = PhysicsAdapter.toMatterVelocity({ x: 200, y: 0 });
     harness.collideWithResolvedVelocity(ball, lever, { x: -60, y: 0 });
     harness.world.step(16);
-    expect(harness.textObjects[0]?.value).toBe('OFF');
+    expect(harness.textObjects).toHaveLength(0);
 
     ball.velocity = PhysicsAdapter.toMatterVelocity({ x: 300, y: 0 });
     harness.collideWithResolvedVelocity(ball, lever, { x: -90, y: 0 });
     harness.world.step(16);
-    expect(harness.textObjects[0]?.value).toBe('ON');
     expect(lever.angle).toBeCloseTo(0.5, 4);
     harness.world.step(16);
     expect(PhysicsAdapter.fromMatterVelocity(platform.velocity).x).toBeCloseTo(140, 4);
@@ -151,7 +150,7 @@ describe('MatterPhysicsWorld paired platform switch', () => {
     ball.velocity = PhysicsAdapter.toMatterVelocity({ x: -300, y: 0 });
     harness.collideWithResolvedVelocity(ball, lever, { x: 90, y: 0 });
     harness.world.step(16);
-    expect(harness.textObjects[0]?.value).toBe('OFF');
+    expect(harness.textObjects).toHaveLength(0);
     expect(lever.angle).toBeCloseTo(-0.5, 4);
     harness.world.step(16);
     expect(platform.velocity).toEqual({ x: 0, y: 0 });

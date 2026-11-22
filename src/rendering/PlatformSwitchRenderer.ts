@@ -8,7 +8,6 @@ const PLATFORM_HEIGHT = 28;
 export class PlatformSwitchRenderer {
   private readonly platformGraphics: Phaser.GameObjects.Graphics;
   private readonly leverGraphics: Phaser.GameObjects.Graphics;
-  private readonly statusText: Phaser.GameObjects.Text;
   private elapsedMs = 0;
   private impactMs = 0;
   private enabled: boolean;
@@ -27,20 +26,12 @@ export class PlatformSwitchRenderer {
     // and its status lamp remain legible above nearby objects.
     this.platformGraphics = scene.add.graphics().setDepth(4);
     this.leverGraphics = scene.add.graphics().setDepth(7);
-    this.statusText = scene.add.text(leverPosition.x, leverPosition.y + 12, '', {
-      fontFamily: 'Arial, sans-serif', fontSize: '10px', fontStyle: 'bold',
-      color: initiallyEnabled ? '#8df5a5' : '#ff8b87',
-      backgroundColor: '#111925', padding: { x: 4, y: 2 },
-    }).setOrigin(0.5, 0).setDepth(13);
-    this.statusText.setText(initiallyEnabled ? 'ON' : 'OFF');
   }
 
   setEnabled(enabled: boolean): void {
     if (this.enabled === enabled) return;
     this.enabled = enabled;
     this.impactMs = 260;
-    this.statusText.setText(enabled ? 'ON' : 'OFF');
-    this.statusText.setColor(enabled ? '#8df5a5' : '#ff8b87');
   }
 
   onImpact(): void {
@@ -59,7 +50,6 @@ export class PlatformSwitchRenderer {
   dispose(): void {
     this.platformGraphics.destroy();
     this.leverGraphics.destroy();
-    this.statusText.destroy();
   }
 
   private drawPlatform(position: Vector2): void {
@@ -133,22 +123,38 @@ export class PlatformSwitchRenderer {
     const tipY = y - Math.cos(angle) * this.leverLength;
     const activeColor = this.enabled ? 0x62e58b : 0xff6662;
 
-    // Mounting plate, pivot and two-tone lever shaft.
-    g.fillStyle(0x111c2a, 1).fillRect(x - 17, y - 5, 34, 10);
-    g.lineStyle(2, 0x91a3b6, 1).strokeRect(x - 17, y - 5, 34, 10);
-    g.lineStyle(10, 0x182333, 1).lineBetween(x, y - 3, tipX, tipY);
-    g.lineStyle(6, 0xe2e9ee, 1).lineBetween(x, y - 3, tipX, tipY);
-    g.lineStyle(2, 0x697d90, 1).lineBetween(x - 2, y - 4, tipX - 2, tipY + 1);
-    g.fillStyle(0x25364a, 1).fillCircle(x, y - 2, 8);
-    g.fillStyle(0xb7c4cf, 1).fillCircle(x, y - 2, 4);
+    // Flattened brushed-metal foot, matching the checkpoint lantern pedestal.
+    // The oval silhouette replaces the old rectangular mounting plate.
+    g.fillStyle(0x101925, 0.24).fillEllipse(x, y + 8, 42, 7);
+    g.fillStyle(0x526b7a, 1).fillEllipse(x, y + 2, 38, 12);
+    g.lineStyle(1.1, 0x344754, 0.88).strokeEllipse(x, y + 2, 38, 12);
+    g.fillStyle(0xa9bbc4, 1).fillEllipse(x, y - 1, 28, 5);
+    g.lineStyle(0.8, 0x344754, 0.72).strokeEllipse(x, y - 1, 28, 5);
+    for (const boltX of [x - 12, x + 12]) {
+      g.fillStyle(0x293b47, 1).fillCircle(boltX, y + 2, 1.8);
+      g.fillStyle(0xd5e2e7, 0.72).fillCircle(boltX - 0.45, y + 1.4, 0.65);
+    }
+
+    // Compact pivot housing with restrained metal highlights.
+    g.fillStyle(0x25364a, 1).fillEllipse(x, y - 2, 18, 11);
+    g.lineStyle(1, 0x344754, 0.9).strokeEllipse(x, y - 2, 18, 11);
+    g.fillStyle(0xb7c4cf, 1).fillEllipse(x, y - 3, 10, 5.5);
+    g.fillStyle(0x344754, 1).fillCircle(x, y - 3, 2.1);
+
+    // Slightly slimmer two-tone shaft and a glossy state-coloured knob.
+    g.lineStyle(8, 0x182333, 1).lineBetween(x, y - 3, tipX, tipY);
+    g.lineStyle(5, 0xe2e9ee, 1).lineBetween(x, y - 3, tipX, tipY);
+    g.lineStyle(1.2, 0x697d90, 0.9).lineBetween(x - 1.8, y - 4, tipX - 1.8, tipY + 0.8);
     g.fillStyle(0x222f42, 1).fillCircle(tipX, tipY, 9);
     g.fillStyle(activeColor, 1).fillCircle(tipX, tipY, 6);
-    g.fillStyle(0xffffff, 0.55).fillCircle(tipX - 2, tipY - 2, 2);
+    g.fillStyle(0xffffff, 0.58).fillCircle(tipX - 2, tipY - 2, 2);
 
-    // Clear red/green state lamp at the base.
-    g.fillStyle(0x0b111b, 1).fillCircle(x, y + 10, 5.5);
-    g.fillStyle(activeColor, 0.2 + (this.impactMs > 0 ? 0.5 : 0)).fillCircle(x, y + 10, 9);
-    g.fillStyle(activeColor, 1).fillCircle(x, y + 10, 3.5);
+    // The red/green indicator is integrated into the front of the metal foot;
+    // its colour and short impact pulse communicate the state without a label.
+    const indicatorY = y + 4;
+    g.fillStyle(0x0b111b, 1).fillCircle(x, indicatorY, 5.2);
+    g.fillStyle(activeColor, 0.16 + (this.impactMs > 0 ? 0.46 : 0)).fillCircle(x, indicatorY, 8.5);
+    g.fillStyle(activeColor, 1).fillCircle(x, indicatorY, 3.4);
     if (this.impactMs > 0) {
       const progress = this.impactMs / 260;
       g.lineStyle(1.5, activeColor, progress);
