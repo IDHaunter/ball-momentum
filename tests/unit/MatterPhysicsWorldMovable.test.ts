@@ -11,7 +11,7 @@ function createHarness(withTexture = false) {
   const handlers = new Map<string, (event: CollisionEventLike) => void>();
   const bodies: TestBody[] = [];
   let pendingCollision: CollisionEventLike | null = null;
-  const markerStates: Array<{ destroyed: boolean; x: number; y: number; rotation: number }> = [];
+  let movableMarkerTextCalls = 0;
   const textureStates: Array<{ destroyed: boolean; x: number; y: number; rotation: number }> = [];
   const borderStates: Array<{ destroyed: boolean; x: number; y: number; rotation: number; lines: number }> = [];
   const removedTextureKeys: string[] = [];
@@ -56,16 +56,9 @@ function createHarness(withTexture = false) {
           destroy() { state.destroyed = true; },
         };
       },
-      text: (x: number, y: number) => {
-        const state = { destroyed: false, x, y, rotation: 0 };
-        markerStates.push(state);
-        return {
-          setOrigin() { return this; },
-          setDepth() { return this; },
-          setPosition(px: number, py: number) { state.x = px; state.y = py; return this; },
-          setRotation(value: number) { state.rotation = value; return this; },
-          destroy() { state.destroyed = true; },
-        };
+      text: () => {
+        movableMarkerTextCalls += 1;
+        throw new Error('Movable blocks must not render direction arrows');
       },
     },
     textures: {
@@ -131,7 +124,7 @@ function createHarness(withTexture = false) {
     ball,
     ballBody,
     blockBody,
-    markerStates,
+    get movableMarkerTextCalls() { return movableMarkerTextCalls; },
     textureStates,
     borderStates,
     removedTextureKeys,
@@ -151,6 +144,7 @@ describe('MatterPhysicsWorld movable blocks', () => {
     harness.physics.step(1000 / 60);
 
     expect(harness.blockBody.isStatic).toBe(false);
+    expect(harness.movableMarkerTextCalls).toBe(0);
     const blockVelocity = PhysicsAdapter.fromMatterVelocity(harness.blockBody.velocity);
     const ballVelocity = PhysicsAdapter.fromMatterVelocity(harness.ballBody.velocity);
     expect(blockVelocity.x).toBeCloseTo(81.6, 5);
@@ -200,7 +194,7 @@ describe('MatterPhysicsWorld movable blocks', () => {
     harness.blockBody.position.y = 510;
     harness.physics.step(1000 / 60);
     expect(harness.blockBody.destroyed).toBe(true);
-    expect(harness.markerStates[0].destroyed).toBe(true);
+    expect(harness.movableMarkerTextCalls).toBe(0);
     harness.physics.dispose();
   });
 });

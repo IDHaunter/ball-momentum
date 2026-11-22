@@ -73,8 +73,8 @@ export class TerrainRenderer {
       this.draw(solid, this.currentLevel.materials?.[materialName], materialName);
     }
 
-    // Pattern images sit above the flat material fills but below outlines,
-    // spring markers and the movable-block direction marker.
+    // Pattern images sit above the flat material fills but below outlines
+    // and spring markers.
     for (const solid of this.currentLevel.solids) {
       if (this.removed.has(solid.id) || !solid.texture || (solid.type === 'box' && solid.movable)) continue;
       this.drawTexture(solid, this.currentLevel.id);

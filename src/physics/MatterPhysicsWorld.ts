@@ -246,7 +246,6 @@ interface MovableSpikeSensorRecord { object: MatterGameObjectLike; localCenter: 
 interface MovableBlockRecord {
   object: MatterGameObjectLike;
   spikeSensors: MovableSpikeSensorRecord[];
-  marker: MatterTextLike;
   textureOverlay: Phaser.GameObjects.Image | null;
   borderOverlay: Phaser.GameObjects.Graphics;
   textureKey: string | null;
@@ -406,8 +405,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     });
     rawBody.label = `MOVABLE:${definition.id}`;
 
-    // Keep the crate fill, configurable edge treatment, texture and ↔ marker
-    // as separate visuals so each can follow the Matter body's transform.
+    // Keep the crate fill, configurable edge treatment and texture as separate
+    // visuals so each can follow the Matter body's transform.
     const visual = (this.scene as unknown as MatterSceneLike).add
       .rectangle(centerX, centerY, definition.width, definition.height, 0x397f8d, 0.98)
       .setDepth(4);
@@ -443,14 +442,6 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     object.body.label = `MOVABLE:${definition.id}`;
     // Keep the crate in place until a sufficiently energetic side impact.
     object.setStatic(true);
-    const marker = (this.scene as unknown as MatterSceneLike).add
-      .text(centerX, centerY, '↔', {
-        fontFamily: 'Arial, sans-serif', fontSize: '24px', color: '#f4fbff',
-        fontStyle: 'bold', stroke: '#1b3540', strokeThickness: 3,
-      })
-      .setOrigin(0.5)
-      .setDepth(5);
-
     this.registerLevelObject(object, {
       kind: 'movable',
       id: definition.id,
@@ -475,7 +466,6 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.movableBlocks.set(definition.id, {
       object,
       spikeSensors,
-      marker,
       textureOverlay,
       borderOverlay,
       textureKey,
@@ -1056,7 +1046,6 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const [object] = this.levelObjects.splice(index, 1);
     this.metadata.delete(object.body);
     const movable = this.movableBlocks.get(id);
-    movable?.marker.destroy();
     movable?.textureOverlay?.destroy();
     movable?.borderOverlay.destroy();
     if (movable?.textureKey) {
@@ -1073,7 +1062,6 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       object.destroy();
     }
     for (const block of this.movableBlocks.values()) {
-      block.marker.destroy();
       block.textureOverlay?.destroy();
       block.borderOverlay.destroy();
       if (block.textureKey) {
@@ -2358,7 +2346,6 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         this.removeTerrainBody(id);
         continue;
       }
-      block.marker.setPosition(position.x, position.y).setRotation(block.object.body.angle);
       block.textureOverlay?.setPosition(position.x, position.y).setRotation(block.object.body.angle);
       block.borderOverlay.setPosition(position.x, position.y).setRotation(block.object.body.angle);
       const angle = block.object.body.angle;
