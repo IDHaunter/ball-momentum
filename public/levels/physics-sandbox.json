@@ -97,7 +97,7 @@
       "height": 50,
       "material": "wood",
       "movable": {
-        "mass": 4,
+        "mass": 0.5,
         "minimumImpactEnergy": 32000
       },
       "texture": {
@@ -506,9 +506,9 @@
       },
       "borders": {
         "top": "glass",
-        "right": "metal",
+        "right": "glass",
         "bottom": "none",
-        "left": "metal"
+        "left": "glass"
       }
     },
     {
@@ -568,10 +568,10 @@
         "seed": 94
       },
       "borders": {
-        "top": "pavers",
-        "right": "metal",
-        "bottom": "none",
-        "left": "metal"
+        "top": "stone",
+        "right": "stone",
+        "bottom": "stone",
+        "left": "stone"
       }
     },
     {
@@ -828,9 +828,9 @@
     {
       "id": "gallery-label-05",
       "type": "text",
-      "x": 5025,
+      "x": 5020,
       "y": 730,
-      "text": "TERRACOTTA BRICK EDGE",
+      "text": "TERRACOTTA BRICKS",
       "color": "#dcecf6",
       "depth": 4
     },
@@ -919,8 +919,8 @@
     {
       "id": "sandbox-spike-pit-hint",
       "type": "text",
-      "x": 6448,
-      "y": 800,
+      "x": 6320,
+      "y": 900,
       "text": "SPIKE PIT · DON'T LAND!",
       "color": "#ff9b87",
       "depth": 4
