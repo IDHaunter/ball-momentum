@@ -10,6 +10,7 @@ import { PoopPickupRenderer } from '../rendering/PoopPickupRenderer';
 import { BackgroundRenderer } from '../rendering/BackgroundRenderer';
 import { BreakableTerrainManager } from './BreakableTerrainManager';
 import type { BreakableSolidDefinition, PoopPickupDefinition } from './LevelTypes';
+import { getDemonSpawnPoints } from './DemonSpawnSelector';
 
 export class LevelBuilder {
   private readonly terrainRenderer: TerrainRenderer;
@@ -87,6 +88,25 @@ export class LevelBuilder {
         pulseIntervalSeconds: enemy.pulseIntervalSeconds,
         restitution: enemy.restitution ?? 0.18,
         friction: enemy.friction ?? 0.62,
+        killPlaneY: level.world.killPlaneY,
+      });
+    }
+    for (const demon of level.demonEnemies ?? []) {
+      const spawnPoints = getDemonSpawnPoints(level.solids, demon.spawnArea, demon.radius);
+      this.world.createDemonEnemy({
+        id: demon.id,
+        spawnArea: demon.spawnArea,
+        spawnPoints,
+        radius: demon.radius,
+        mass: demon.mass,
+        respawnIntervalSeconds: demon.respawnIntervalSeconds,
+        telegraphSeconds: demon.telegraphSeconds ?? 1,
+        attackDelaySeconds: demon.attackDelaySeconds ?? 0.5,
+        activeSeconds: demon.activeSeconds ?? 1.5,
+        attackRadius: demon.attackRadius,
+        lightningImpulse: demon.lightningImpulse,
+        restitution: demon.restitution ?? 0.12,
+        friction: demon.friction ?? 0.46,
         killPlaneY: level.world.killPlaneY,
       });
     }

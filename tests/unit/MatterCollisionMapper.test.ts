@@ -399,7 +399,8 @@ describe('MatterCollisionMapper raised spikes', () => {
   it.each([
     ['bird', 'nest-guardian', 'bird'],
     ['vomitEnemy', 'green-gremlin', 'vomitEnemy'],
-  ] as const)('maps %s spike contact to the correct enemy removal kind', (metadataKind: 'bird' | 'vomitEnemy', id: string, eventKind: 'bird' | 'vomitEnemy') => {
+    ['demon', 'purple-devil', 'demon'],
+  ] as const)('maps %s spike contact to the correct enemy removal kind', (metadataKind: 'bird' | 'vomitEnemy' | 'demon', id: string, eventKind: 'bird' | 'vomitEnemy' | 'demon') => {
     const enemy = body(140, 80);
     const spike = body(140, 100);
     const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
@@ -461,7 +462,8 @@ describe('MatterCollisionMapper impacts from other enemy characters', () => {
   it.each([
     ['bird', 'nest-guardian'],
     ['vomitEnemy', 'green-gremlin'],
-  ] as const)('emits a thresholdable player impact when colliding with %s', (kind: 'bird' | 'vomitEnemy', id: string) => {
+    ['demon', 'purple-devil'],
+  ] as const)('emits a thresholdable player impact when colliding with %s', (kind: 'bird' | 'vomitEnemy' | 'demon', id: string) => {
     const ball = body(100, 100);
     const enemy = body(130, 100);
     const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([

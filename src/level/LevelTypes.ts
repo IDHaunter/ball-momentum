@@ -107,6 +107,36 @@ export interface VomitEnemyDefinition {
   friction?: number;
 }
 
+/** Rectangular world region containing valid surfaces where a teleporting demon may materialize. */
+export interface DemonSpawnAreaDefinition {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/** Purple demon that periodically teleports onto a surface and zaps the player. */
+export interface DemonDefinition {
+  id: string;
+  spawnArea: DemonSpawnAreaDefinition;
+  radius: number;
+  mass: number;
+  /** Time between the end of one appearance and the next warning lightning. */
+  respawnIntervalSeconds: number;
+  /** Visible lightning warning before materialization. Defaults to one second. */
+  telegraphSeconds?: number;
+  /** Delay between materialization and the strike. Defaults to 0.5 seconds. */
+  attackDelaySeconds?: number;
+  /** Time remaining visible after appearing. Defaults to 1.5 seconds. */
+  activeSeconds?: number;
+  /** Player-centre distance required for the zap to connect. */
+  attackRadius: number;
+  /** Momentum impulse applied to the player during a successful zap. */
+  lightningImpulse: number;
+  restitution?: number;
+  friction?: number;
+}
+
 export interface BoxSolidDefinition {
   id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string;
   breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition; texture?: SurfaceTextureAssignment; borders?: BoxBorderStyles;
@@ -145,6 +175,7 @@ export interface LevelDefinition {
   bombs?: BombDefinition[];
   poopPickups?: PoopPickupDefinition[];
   vomitEnemies?: VomitEnemyDefinition[];
+  demonEnemies?: DemonDefinition[];
   materials?: Record<string, TerrainMaterialDefinition>;
   decorations?: DecorationDefinition[];
   camera?: { followOffsetX?: number; smoothing?: number; minX?: number; maxX?: number };

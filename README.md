@@ -284,3 +284,31 @@ The Physics Sandbox includes a slime-guarded ledge beside a pit after the textur
 The red patrol bots in the Physics Sandbox use the same 18 px radius as the default player smiley and are positioned so their lower edge rests on the patrol island. Their oversized eyes retain the manic pupils; the mouth follows its own lower-face track instead of orbiting with the eyes as the body rolls. The circular body outline is a restrained 1.1 px dark burgundy stroke rather than a thick bright pink rim.
 
 A substantial player impact (at least 260 px/s along the contact normal) now triggers a brief surprised expression: the eyes enlarge and the smile crossfades to an open O mouth for about 0.62 seconds. This applies to terrain, walls, springs, movable blocks, patrol bots, birds and green vomit enemies. Small contacts do not change the expression, and collision impacts no longer squash or stretch the player's body.
+
+
+## Teleporting purple demons
+
+Levels may define optional `demonEnemies`. A demon chooses deterministic pseudo-random candidate positions from upward-facing solid surfaces inside its `spawnArea`; box tops and upward-facing polygon slopes are supported. Surface edges marked `spikes` are never used as spawn locations. Candidate points are sampled with a radius margin so the circular body is fully supported by the selected surface. Keep the spawn region over static, intact platforms; movable and breakable solids are excluded because spawn positions are derived from level geometry when the level is built.
+
+```json
+{
+  "demonEnemies": [
+    {
+      "id": "purple-devil",
+      "spawnArea": { "minX": 6100, "minY": 700, "maxX": 6880, "maxY": 900 },
+      "radius": 18,
+      "mass": 1.35,
+      "respawnIntervalSeconds": 3.8,
+      "telegraphSeconds": 1.0,
+      "attackDelaySeconds": 0.5,
+      "activeSeconds": 1.5,
+      "attackRadius": 270,
+      "lightningImpulse": 235,
+      "restitution": 0.14,
+      "friction": 0.48
+    }
+  ]
+}
+```
+
+Before each appearance, jagged teleport lightning marks the selected location for `telegraphSeconds`. The demon then materializes as a dynamic Matter circle, waits `attackDelaySeconds`, and zaps the main ball once if the ball is within `attackRadius`. `lightningImpulse` controls the added player momentum; it is converted to a velocity change using the player's mass. The demon remains physical for `activeSeconds`, then vanishes and waits `respawnIntervalSeconds` before choosing another surface point. A physical hit by a character disrupts the teleport cycle and leaves the demon as a normal pushable body, so it can be knocked into pits or onto spikes. The enemy is also removed when it crosses `world.killPlaneY`. Its horns, bat wings, trident, expression, teleport arcs and zap are procedural Phaser graphics; they do not change the circular collision body.

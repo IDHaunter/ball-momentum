@@ -2,6 +2,7 @@ import { LevelSchema } from './LevelSchema';
 import type { LevelDefinition } from './LevelTypes';
 import { isConvexPolygon } from '../utils/GeometryUtils';
 import { ValidationErrors } from '../utils/ValidationErrors';
+import { getDemonSpawnPoints } from './DemonSpawnSelector';
 
 export class LevelValidator {
   validate(raw: unknown, sourceName = 'level'): LevelDefinition {
@@ -101,6 +102,18 @@ export class LevelValidator {
       if (enemy.x - enemy.radius < 0 || enemy.x + enemy.radius > level.world.width
         || enemy.y - enemy.radius < 0 || enemy.y + enemy.radius > level.world.height) {
         errors.push(`vomitEnemies.${enemy.id}: enemy circle must be inside world bounds`);
+      }
+    }
+
+    for (const demon of level.demonEnemies ?? []) {
+      addId(demon.id, `demonEnemies.${demon.id}`);
+      const area = demon.spawnArea;
+      if (area.minX < 0 || area.minY < 0 || area.maxX > level.world.width || area.maxY > level.world.height) {
+        errors.push(`demonEnemies.${demon.id}.spawnArea: region must be inside world bounds`);
+      }
+      const spawnPoints = getDemonSpawnPoints(level.solids, area, demon.radius);
+      if (spawnPoints.length === 0) {
+        errors.push(`demonEnemies.${demon.id}.spawnArea: no safe upward-facing solid surface is available for spawning`);
       }
     }
 

@@ -108,9 +108,9 @@
       },
       "borders": {
         "top": "wood",
-        "right": "metal",
+        "right": "wood",
         "bottom": "wood",
-        "left": "metal"
+        "left": "wood"
       }
     },
     {
@@ -933,6 +933,15 @@
       "text": "SPIKE WALL",
       "color": "#ff9b87",
       "depth": 4
+    },
+    {
+      "id": "sandbox-demon-hint",
+      "type": "text",
+      "x": 6440,
+      "y": 748,
+      "text": "PURPLE DEMON · LIGHTNING",
+      "color": "#dca8ff",
+      "depth": 4
     }
   ],
   "bots": [
@@ -1032,6 +1041,27 @@
       "pulseIntervalSeconds": 0.88,
       "restitution": 0.16,
       "friction": 0.58
+    }
+  ],
+  "demonEnemies": [
+    {
+      "id": "sandbox-purple-demon",
+      "spawnArea": {
+        "minX": 6100,
+        "minY": 700,
+        "maxX": 6880,
+        "maxY": 900
+      },
+      "radius": 18,
+      "mass": 1.35,
+      "respawnIntervalSeconds": 3.8,
+      "telegraphSeconds": 1.0,
+      "attackDelaySeconds": 0.5,
+      "activeSeconds": 1.5,
+      "attackRadius": 270,
+      "lightningImpulse": 235,
+      "restitution": 0.14,
+      "friction": 0.48
     }
   ]
 }

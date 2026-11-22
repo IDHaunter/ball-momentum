@@ -2,7 +2,7 @@ import { COLLISION_CATEGORIES } from './CollisionCategories';
 import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
-import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, SpikeEntityKind, SpikeSensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
+import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, DemonPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, SpikeEntityKind, SpikeSensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
@@ -18,6 +18,7 @@ import { VomitEnemyRenderer, type VomitRendererSceneLike } from '../rendering/Vo
 import { FIXED_STEP_SECONDS } from '../utils/TimeUtils';
 import { BOT_GRADIENT_TEXTURE_KEY, BOT_GRADIENT_TEXTURE_SIZE, drawBotGradient } from '../rendering/BotGradient';
 import { BOMB_GRADIENT_TEXTURE_KEY, BOMB_GRADIENT_TEXTURE_SIZE, drawBombGradient } from '../rendering/BombGradient';
+import { DemonRenderer, type DemonRendererSceneLike, type DemonVisualPhase } from '../rendering/DemonRenderer';
 
 interface MatterWorldLike {
   autoUpdate: boolean;
@@ -156,6 +157,30 @@ interface VomitEnemyRecord {
   killPlaneY: number;
 }
 
+interface DemonRecord {
+  object: MatterGameObjectLike;
+  renderer: DemonRenderer;
+  id: string;
+  radius: number;
+  mass: number;
+  spawnPoints: Vector2[];
+  spawnPoint: Vector2;
+  spawnIndex: number;
+  spawnCycle: number;
+  phase: DemonVisualPhase;
+  phaseRemainingMs: number;
+  respawnIntervalMs: number;
+  telegraphMs: number;
+  attackDelayMs: number;
+  activeMs: number;
+  attackRadius: number;
+  lightningImpulse: number;
+  attackRemainingMs: number;
+  attacked: boolean;
+  disrupted: boolean;
+  killPlaneY: number;
+}
+
 interface BombEyeVisual {
   sclera: MatterCircleVisualLike;
   pupil: MatterCircleVisualLike;
@@ -227,6 +252,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private readonly birds = new Map<string, BirdRecord>();
   private readonly bombs = new Map<string, BombRecord>();
   private readonly vomitEnemies = new Map<string, VomitEnemyRecord>();
+  private readonly demons = new Map<string, DemonRecord>();
   private readonly collisionStart = (event: CollisionEventLike) => this.handleCollision(event, 'start');
   private readonly collisionActive = (event: CollisionEventLike) => this.handleCollision(event, 'active');
   private readonly collisionEnd = (event: CollisionEventLike) => this.handleCollision(event, 'end');
@@ -248,10 +274,11 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   step(fixedStepMs: number): void {
     this.updateBirdsBeforeStep(fixedStepMs);
     this.updateVomitEnemiesBeforeStep(fixedStepMs);
+    this.updateDemonEnemiesBeforeStep(fixedStepMs);
     this.updateBotsBeforeStep();
     this.preStepVelocities.clear();
     for (const [body, meta] of this.metadata.entries()) {
-      if (meta.kind === 'ball' || meta.kind === 'bot' || meta.kind === 'bird' || meta.kind === 'movable' || meta.kind === 'bomb' || meta.kind === 'vomitEnemy') {
+      if (meta.kind === 'ball' || meta.kind === 'bot' || meta.kind === 'bird' || meta.kind === 'movable' || meta.kind === 'bomb' || meta.kind === 'vomitEnemy' || meta.kind === 'demon') {
         this.preStepVelocities.set(body, PhysicsAdapter.fromMatterVelocity(body.velocity));
       }
     }
@@ -268,6 +295,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.updateBotsAfterStep();
     this.updateBirdsAfterStep(fixedStepMs);
     this.updateVomitEnemiesAfterStep(fixedStepMs);
+    this.updateDemonEnemiesAfterStep(fixedStepMs);
     this.updateBombs(fixedStepMs);
   }
   setGravity(x: number, y: number, scale: number): void { this.world.setGravity(x, y, scale); }
@@ -282,7 +310,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       label: 'BALL', isStatic: false, restitution: options.restitution,
       friction: options.friction, frictionStatic: options.frictionStatic, frictionAir: options.frictionAir,
       mass: options.mass, inertia: options.fixedRotation ? Infinity : undefined,
-      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY },
+      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY },
     });
     rawBody.label = 'BALL';
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(position.x, position.y, 1, 1), rawBody, true);
@@ -304,7 +332,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       {
         label: definition.id, isStatic: true,
         friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY },
+        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY },
       },
     );
     rawBody.label = definition.id;
@@ -325,7 +353,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const rawBody = this.factory.fromVertices(center.x, center.y, [local], {
       label: definition.id, isStatic: true,
       friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY },
+      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY },
     }, true);
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(center.x, center.y, 1, 1), rawBody, true);
@@ -346,7 +374,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.MOVABLE,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.VOMIT_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
       },
     });
     rawBody.label = `MOVABLE:${definition.id}`;
@@ -443,7 +471,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BOT,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
       },
     });
     rawBody.label = `BOT:${definition.id}`;
@@ -564,7 +592,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BIRD,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
       },
     });
     rawBody.label = `BIRD:${definition.id}`;
@@ -609,7 +637,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       collisionFilter: {
         category: COLLISION_CATEGORIES.VOMIT_ENEMY,
         mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE
-          | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY,
+          | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
       },
     });
     rawBody.label = `VOMIT_ENEMY:${definition.id}`;
@@ -638,6 +666,62 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     });
   }
 
+  createDemonEnemy(definition: DemonPhysicsOptions): void {
+    if (definition.spawnPoints.length === 0) {
+      throw new Error(`Demon "${definition.id}" has no safe spawn surfaces in its configured spawn area`);
+    }
+    const spawnPoint = { ...definition.spawnPoints[0]! };
+    const rawBody = this.factory.circle(spawnPoint.x, spawnPoint.y, definition.radius, {
+      label: `DEMON:${definition.id}`,
+      isStatic: true,
+      mass: definition.mass,
+      friction: definition.friction,
+      frictionStatic: Math.min(1, definition.friction * 1.15),
+      frictionAir: 0.012,
+      restitution: definition.restitution,
+      collisionFilter: { category: COLLISION_CATEGORIES.DEMON_ENEMY, mask: 0 },
+    });
+    rawBody.label = `DEMON:${definition.id}`;
+    const renderer = new DemonRenderer(
+      this.scene as unknown as DemonRendererSceneLike,
+      definition.radius,
+      definition.id,
+      spawnPoint.x,
+      spawnPoint.y,
+    );
+    const object = this.factory.gameObject(renderer.container, rawBody, true);
+    object.body.label = `DEMON:${definition.id}`;
+    object.setStatic(true);
+    this.setDemonCollisionActive(object.body, false);
+    this.registerLevelObject(object, { kind: 'demon', id: definition.id, mass: definition.mass });
+
+    const telegraphMs = definition.telegraphSeconds * 1000;
+    this.demons.set(definition.id, {
+      object,
+      renderer,
+      id: definition.id,
+      radius: definition.radius,
+      mass: definition.mass,
+      spawnPoints: definition.spawnPoints.map((point) => ({ ...point })),
+      spawnPoint,
+      spawnIndex: 0,
+      spawnCycle: 0,
+      phase: 'telegraph',
+      phaseRemainingMs: telegraphMs,
+      respawnIntervalMs: definition.respawnIntervalSeconds * 1000,
+      telegraphMs,
+      attackDelayMs: definition.attackDelaySeconds * 1000,
+      activeMs: definition.activeSeconds * 1000,
+      attackRadius: definition.attackRadius,
+      lightningImpulse: definition.lightningImpulse,
+      attackRemainingMs: definition.attackDelaySeconds * 1000,
+      attacked: false,
+      disrupted: false,
+      killPlaneY: definition.killPlaneY,
+    });
+    renderer.update(0, spawnPoint, 0, 'telegraph');
+  }
+
   createBomb(definition: BombPhysicsOptions): void {
     const rawBody = this.factory.circle(definition.x, definition.y, definition.radius, {
       label: `BOMB:${definition.id}`,
@@ -649,7 +733,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BOMB,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
       },
     });
     rawBody.label = `BOMB:${definition.id}`;
@@ -778,7 +862,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: 0,
       collisionFilter: {
         category: COLLISION_CATEGORIES.TRIGGER,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
       },
     }, true);
     rawBody.label = `SPIKE:${definition.id}`;
@@ -825,6 +909,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     if (kind === 'bot') this.removeBot(id);
     else if (kind === 'bird') this.removeBird(id);
     else if (kind === 'vomitEnemy') this.removeVomitEnemy(id);
+    else if (kind === 'demon') this.removeDemonEnemy(id);
     this.spikeVictims.delete(`${kind}:${id}`);
   }
 
@@ -886,6 +971,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.birds.clear();
     for (const enemy of this.vomitEnemies.values()) enemy.renderer.dispose();
     this.vomitEnemies.clear();
+    for (const demon of this.demons.values()) demon.renderer.dispose();
+    this.demons.clear();
     for (const bomb of this.bombs.values()) this.destroyBombVisuals(bomb);
     this.bombs.clear();
     this.preStepVelocities.clear();
@@ -920,6 +1007,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private handleCollision(event: CollisionEventLike, phase: 'start' | 'active' | 'end'): void {
     for (const pair of event.pairs ?? []) {
       this.handleBirdCollision(pair, phase);
+      this.handleDemonCollision(pair, phase);
       this.handleBombCollision(pair, phase);
       this.handleBotCollision(pair, phase);
       const mapped = this.mapper.mapPair(pair, phase, this.preStepBallVelocity, this.preStepVelocities);
@@ -942,6 +1030,28 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         for (const listener of this.listeners) listener(item);
       }
     }
+  }
+
+  private handleDemonCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {
+    if (phase !== 'start') return;
+    const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
+    const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
+    const metaA = this.metadata.get(bodyA);
+    const metaB = this.metadata.get(bodyB);
+    if (!metaA || !metaB) return;
+    const demonMeta = metaA.kind === 'demon' ? metaA : metaB.kind === 'demon' ? metaB : null;
+    if (!demonMeta) return;
+    const otherMeta = metaA.kind === 'demon' ? metaB : metaA;
+    if (!['ball', 'bot', 'bird', 'vomitEnemy', 'movable', 'bomb'].includes(otherMeta.kind)) return;
+    const demon = this.demons.get(demonMeta.id);
+    if (!demon || demon.phase !== 'active') return;
+
+    // Once the player or another physical character rams the demon, it stops
+    // teleporting away. It remains a normal dynamic body so the player can
+    // finish the fight by knocking it into a pit or a spike sensor.
+    demon.disrupted = true;
+    demon.attacked = true;
+    demon.renderer.onKnockback();
   }
 
   private handleBirdCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {
@@ -1619,6 +1729,138 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     if (entry >= 0) this.levelObjects.splice(entry, 1);
     this.metadata.delete(enemy.object.body);
     enemy.object.destroy();
+  }
+
+  private updateDemonEnemiesBeforeStep(stepMs: number): void {
+    const ballBody = this.ballObject?.body;
+    const ballMass = ballBody ? this.metadata.get(ballBody)?.mass ?? 1 : 1;
+    for (const [id, demon] of [...this.demons.entries()]) {
+      const body = demon.object.body;
+      if (demon.phase === 'active' && body.position.y > demon.killPlaneY) {
+        this.removeDemonEnemy(id);
+        continue;
+      }
+
+      demon.phaseRemainingMs = Math.max(0, demon.phaseRemainingMs - stepMs);
+      if (demon.phase === 'telegraph') {
+        if (demon.phaseRemainingMs <= 0) {
+          demon.object.setPosition(demon.spawnPoint.x, demon.spawnPoint.y);
+          demon.object.setStatic(false);
+          this.setDemonCollisionActive(body, true);
+          demon.object.setVelocity(0, 0);
+          demon.object.setAngularVelocity(0);
+          demon.object.setAwake();
+          demon.phase = 'active';
+          demon.phaseRemainingMs = demon.activeMs;
+          demon.attackRemainingMs = demon.attackDelayMs;
+          demon.attacked = false;
+          demon.disrupted = false;
+          demon.renderer.onMaterialize(demon.spawnPoint);
+        }
+        continue;
+      }
+
+      if (demon.phase === 'active') {
+        if (!demon.disrupted && !demon.attacked) {
+          demon.attackRemainingMs = Math.max(0, demon.attackRemainingMs - stepMs);
+          if (demon.attackRemainingMs <= 0) {
+            demon.attacked = true;
+            if (ballBody && this.ballObject && demon.lightningImpulse > 0) {
+              const dx = ballBody.position.x - body.position.x;
+              const dy = ballBody.position.y - body.position.y;
+              const distance = Math.hypot(dx, dy);
+              if (distance <= demon.attackRadius && distance > 0.001) {
+                const direction = { x: dx / distance, y: dy / distance };
+                const current = PhysicsAdapter.fromMatterVelocity(ballBody.velocity);
+                const impulseDelta = demon.lightningImpulse / ballMass;
+                const next = {
+                  x: Math.max(-2200, Math.min(2200, current.x + direction.x * impulseDelta)),
+                  y: Math.max(-2200, Math.min(2200, current.y + direction.y * impulseDelta)),
+                };
+                const matterVelocity = PhysicsAdapter.toMatterVelocity(next);
+                this.ballObject.setVelocity(matterVelocity.x, matterVelocity.y);
+                this.ballObject.setAwake();
+                demon.renderer.onStrike(body.position, ballBody.position);
+              }
+            }
+          }
+        }
+
+        if (!demon.disrupted && demon.phaseRemainingMs <= 0) {
+          this.setDemonCollisionActive(body, false);
+          demon.object.setStatic(true);
+          demon.object.setVelocity(0, 0);
+          demon.object.setAngularVelocity(0);
+          demon.phase = 'vanishing';
+          demon.phaseRemainingMs = 260;
+        }
+        continue;
+      }
+
+      if (demon.phase === 'vanishing') {
+        if (demon.phaseRemainingMs <= 0) {
+          demon.phase = 'cooldown';
+          demon.phaseRemainingMs = demon.respawnIntervalMs;
+        }
+        continue;
+      }
+
+      if (demon.phase === 'cooldown' && demon.phaseRemainingMs <= 0) {
+        demon.spawnPoint = this.chooseDemonSpawnPoint(demon);
+        demon.object.setPosition(demon.spawnPoint.x, demon.spawnPoint.y);
+        demon.phase = 'telegraph';
+        demon.phaseRemainingMs = demon.telegraphMs;
+        demon.spawnCycle += 1;
+      }
+    }
+  }
+
+  private updateDemonEnemiesAfterStep(stepMs: number): void {
+    for (const [id, demon] of [...this.demons.entries()]) {
+      const body = demon.object.body;
+      if (demon.phase === 'active' && body.position.y > demon.killPlaneY) {
+        this.removeDemonEnemy(id);
+        continue;
+      }
+      const phasePosition = demon.phase === 'active' ? body.position : demon.spawnPoint;
+      const phaseRotation = demon.phase === 'active' ? body.angle : 0;
+      demon.renderer.update(stepMs, phasePosition, phaseRotation, demon.phase);
+    }
+  }
+
+  private chooseDemonSpawnPoint(demon: DemonRecord): Vector2 {
+    if (demon.spawnPoints.length <= 1) return { ...demon.spawnPoints[0]! };
+    // Stable pseudo-random selection varies across cycles but remains
+    // deterministic for a given level replay and enemy ID.
+    let hash = 2166136261;
+    for (let index = 0; index < demon.id.length; index += 1) hash = Math.imul(hash ^ demon.id.charCodeAt(index), 16777619);
+    const candidate = (Math.abs(hash >>> 0) + demon.spawnCycle * 2654435761) % demon.spawnPoints.length;
+    let index = candidate;
+    if (index === demon.spawnIndex) index = (index + 1) % demon.spawnPoints.length;
+    demon.spawnIndex = index;
+    return { ...demon.spawnPoints[index]! };
+  }
+
+  private setDemonCollisionActive(body: MatterBodyLike, active: boolean): void {
+    const filter = (body as MatterBodyLike & { collisionFilter?: { category: number; mask: number } }).collisionFilter;
+    if (filter) {
+      filter.category = COLLISION_CATEGORIES.DEMON_ENEMY;
+      filter.mask = active
+        ? COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE
+          | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY
+        : 0;
+    }
+  }
+
+  private removeDemonEnemy(id: string): void {
+    const demon = this.demons.get(id);
+    if (!demon) return;
+    this.demons.delete(id);
+    demon.renderer.dispose();
+    const entry = this.levelObjects.findIndex((object) => object.body === demon.object.body);
+    if (entry >= 0) this.levelObjects.splice(entry, 1);
+    this.metadata.delete(demon.object.body);
+    demon.object.destroy();
   }
 
   private updateBotsBeforeStep(): void {

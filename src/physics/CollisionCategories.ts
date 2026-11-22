@@ -7,4 +7,5 @@ export const COLLISION_CATEGORIES = {
   BOMB: 0x0020,
   BIRD: 0x0040,
   VOMIT_ENEMY: 0x0080,
+  DEMON_ENEMY: 0x0100,
 } as const;

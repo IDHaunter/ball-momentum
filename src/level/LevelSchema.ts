@@ -129,6 +129,26 @@ const vomitEnemySchema = z.object({
   friction: z.number().min(0).max(1).optional(),
 });
 
+const demonEnemySchema = z.object({
+  id: z.string().min(1),
+  spawnArea: z.object({
+    minX: z.number().finite(), minY: z.number().finite(),
+    maxX: z.number().finite(), maxY: z.number().finite(),
+  }).refine((area) => area.maxX > area.minX && area.maxY > area.minY, {
+    message: 'spawnArea max bounds must be greater than min bounds',
+  }),
+  radius: z.number().finite().min(10).max(60),
+  mass: z.number().finite().positive().max(1000),
+  respawnIntervalSeconds: z.number().finite().min(0.5).max(60),
+  telegraphSeconds: z.number().finite().min(0.2).max(5).optional(),
+  attackDelaySeconds: z.number().finite().min(0.1).max(5).optional(),
+  activeSeconds: z.number().finite().min(0.5).max(8).optional(),
+  attackRadius: z.number().finite().min(20).max(1400),
+  lightningImpulse: z.number().finite().min(0).max(6000),
+  restitution: z.number().min(0).max(1).optional(),
+  friction: z.number().min(0).max(1).optional(),
+});
+
 const bombSchema = z.object({
   id: z.string().min(1),
   x: z.number().finite(),
@@ -174,6 +194,7 @@ export const LevelSchema = z.object({
   bombs: z.array(bombSchema).max(24).optional(),
   poopPickups: z.array(poopPickupSchema).max(48).optional(),
   vomitEnemies: z.array(vomitEnemySchema).max(24).optional(),
+  demonEnemies: z.array(demonEnemySchema).max(24).optional(),
   materials: z.record(z.string(), materialSchema).optional(),
   decorations: z.array(decorationSchema).optional(),
   camera: z.object({

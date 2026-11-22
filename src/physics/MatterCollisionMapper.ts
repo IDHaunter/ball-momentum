@@ -10,7 +10,7 @@ export interface CollisionPairLike {
 export interface CollisionEventLike { pairs: CollisionPairLike[]; }
 
 export interface PhysicsBodyMetadata {
-  kind: 'ball' | 'terrain' | 'trigger' | 'spike' | 'movable' | 'bot' | 'bomb' | 'bird' | 'vomitEnemy';
+  kind: 'ball' | 'terrain' | 'trigger' | 'spike' | 'movable' | 'bot' | 'bomb' | 'bird' | 'vomitEnemy' | 'demon';
   id: string;
   mass?: number;
   minimumImpactEnergy?: number;
@@ -48,7 +48,8 @@ export class MatterCollisionMapper {
       const entityKind = entityMeta.kind === 'ball' ? 'player'
         : entityMeta.kind === 'bot' ? 'bot'
           : entityMeta.kind === 'bird' ? 'bird'
-            : entityMeta.kind === 'vomitEnemy' ? 'vomitEnemy' : null;
+            : entityMeta.kind === 'vomitEnemy' ? 'vomitEnemy'
+              : entityMeta.kind === 'demon' ? 'demon' : null;
       if (entityKind) {
         const entityBody = spikeIsA ? bodyB : bodyA;
         return [{
@@ -77,7 +78,7 @@ export class MatterCollisionMapper {
 
     // A new contact with any rolling/flying enemy can trigger the player's
     // surprised-face response. Use pre-solver velocities before resolution.
-    if (otherMeta.kind === 'bot' || otherMeta.kind === 'bird' || otherMeta.kind === 'vomitEnemy') {
+    if (otherMeta.kind === 'bot' || otherMeta.kind === 'bird' || otherMeta.kind === 'vomitEnemy' || otherMeta.kind === 'demon') {
       if (phase !== 'start') return [];
       const ballBody = ballIsA ? bodyA : bodyB;
       const enemyBody = ballIsA ? bodyB : bodyA;

@@ -63,6 +63,25 @@ export interface VomitEnemyPhysicsOptions {
   killPlaneY: number;
 }
 
+export interface DemonSpawnArea { minX: number; minY: number; maxX: number; maxY: number; }
+
+export interface DemonPhysicsOptions {
+  id: string;
+  spawnArea: DemonSpawnArea;
+  spawnPoints: Vector2[];
+  radius: number;
+  mass: number;
+  respawnIntervalSeconds: number;
+  telegraphSeconds: number;
+  attackDelaySeconds: number;
+  activeSeconds: number;
+  attackRadius: number;
+  lightningImpulse: number;
+  restitution: number;
+  friction: number;
+  killPlaneY: number;
+}
+
 export interface SpeedSpinBoostResult {
   speedBefore: number;
   speedAfter: number;
@@ -120,12 +139,12 @@ export interface SensorOptions {
   x: number; y: number; width: number; height: number;
 }
 
-export type SpikeEntityKind = 'player' | 'bot' | 'bird' | 'vomitEnemy';
+export type SpikeEntityKind = 'player' | 'bot' | 'bird' | 'vomitEnemy' | 'demon';
 
 export type PhysicsEvent =
   | { type: 'SPIKE_ENTITY_HIT'; spikeId: string; entityKind: SpikeEntityKind; entityId: string; position: Vector2 }
   | { type: 'BALL_BOT_IMPACT'; botId: string; normal: Vector2; contactPoint: Vector2; impactSpeed: number }
-  | { type: 'BALL_ENEMY_IMPACT'; enemyKind: 'bird' | 'vomitEnemy'; enemyId: string; normal: Vector2; contactPoint: Vector2; impactSpeed: number }
+  | { type: 'BALL_ENEMY_IMPACT'; enemyKind: 'bird' | 'vomitEnemy' | 'demon'; enemyId: string; normal: Vector2; contactPoint: Vector2; impactSpeed: number }
   | { type: 'BALL_TERRAIN_CONTACT_STARTED' | 'BALL_TERRAIN_CONTACT_ACTIVE'; terrainId: string; supportNormal: Vector2; impactSpeed: number }
   | { type: 'BALL_TERRAIN_CONTACT_ENDED'; terrainId: string }
   | { type: 'BALL_MOVABLE_IMPACT'; movableId: string; normal: Vector2; incomingVelocity: Vector2; normalImpactSpeed: number; impactEnergy: number; ballMass: number }
