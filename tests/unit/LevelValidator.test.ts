@@ -152,6 +152,31 @@ describe('LevelValidator', () => {
     expect(() => validator.validate(duplicate)).toThrow(/duplicate ID/);
   });
 
+  it('accepts a paired lever and moving platform with a configurable route', () => {
+    const level = {
+      ...validLevel,
+      platformSwitches: [{
+        id: 'rocket-bridge',
+        lever: { x: 420, y: 200, minimumImpactSpeed: 240, initialState: 'off' },
+        platform: { width: 160, surface: 'metal', speed: 140, points: [{ x: 500, y: 500 }, { x: 700, y: 500 }] },
+      }],
+    };
+    expect(validator.validate(level).platformSwitches?.[0]).toMatchObject({
+      id: 'rocket-bridge', lever: { minimumImpactSpeed: 240, initialState: 'off' },
+      platform: { width: 160, surface: 'metal', speed: 140 },
+    });
+  });
+
+  it('rejects platform routes that exceed world bounds and duplicate mechanism IDs', () => {
+    const base = {
+      id: 'rocket-bridge',
+      lever: { x: 420, y: 200, minimumImpactSpeed: 240 },
+      platform: { width: 160, surface: 'glass', speed: 140, points: [{ x: 500, y: 500 }, { x: 700, y: 500 }] },
+    };
+    expect(() => validator.validate({ ...validLevel, platformSwitches: [{ ...base, platform: { ...base.platform, points: [{ x: 500, y: 500 }, { x: 980, y: 500 }] } }] })).toThrow(/platform must stay inside world bounds/);
+    expect(() => validator.validate({ ...validLevel, platformSwitches: [base, base] })).toThrow(/duplicate ID/);
+  });
+
   it('accepts breakable glass with a positive energy threshold', () => {
     const level = {
       ...validLevel,

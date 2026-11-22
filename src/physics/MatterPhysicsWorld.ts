@@ -2,7 +2,7 @@ import { COLLISION_CATEGORIES } from './CollisionCategories';
 import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
-import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, DemonPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, SpikeEntityKind, SpikeSensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
+import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, DemonPhysicsOptions, PlatformSwitchPhysicsOptions, MovableBoxOptions, PatrolGeometry, PhysicsEvent, SensorOptions, SpikeEntityKind, SpikeSensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
@@ -19,6 +19,8 @@ import { FIXED_STEP_SECONDS } from '../utils/TimeUtils';
 import { BOT_GRADIENT_TEXTURE_KEY, BOT_GRADIENT_TEXTURE_SIZE, drawBotGradient } from '../rendering/BotGradient';
 import { BOMB_GRADIENT_TEXTURE_KEY, BOMB_GRADIENT_TEXTURE_SIZE, drawBombGradient } from '../rendering/BombGradient';
 import { DemonRenderer, type DemonRendererSceneLike, type DemonVisualPhase } from '../rendering/DemonRenderer';
+import { PlatformSwitchRenderer } from '../rendering/PlatformSwitchRenderer';
+import { getPlatformSwitchTargetState, getPlatformWaypointVelocity } from './PlatformSwitchMechanism';
 
 const DEMON_SPAWN_RETRY_MS = 250;
 const DEMON_ATTACK_RETRY_MS = 120;
@@ -186,6 +188,21 @@ interface DemonRecord {
   killPlaneY: number;
 }
 
+interface PlatformSwitchRecord {
+  id: string;
+  leverObject: MatterGameObjectLike;
+  platformObject: MatterGameObjectLike;
+  renderer: PlatformSwitchRenderer;
+  leverX: number;
+  leverY: number;
+  minimumImpactSpeed: number;
+  enabled: boolean;
+  cooldownMs: number;
+  points: Vector2[];
+  targetIndex: number;
+  speed: number;
+}
+
 interface BombEyeVisual {
   sclera: MatterCircleVisualLike;
   pupil: MatterCircleVisualLike;
@@ -258,6 +275,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private readonly bombs = new Map<string, BombRecord>();
   private readonly vomitEnemies = new Map<string, VomitEnemyRecord>();
   private readonly demons = new Map<string, DemonRecord>();
+  private readonly platformSwitches = new Map<string, PlatformSwitchRecord>();
   private readonly collisionStart = (event: CollisionEventLike) => this.handleCollision(event, 'start');
   private readonly collisionActive = (event: CollisionEventLike) => this.handleCollision(event, 'active');
   private readonly collisionEnd = (event: CollisionEventLike) => this.handleCollision(event, 'end');
@@ -280,6 +298,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.updateBirdsBeforeStep(fixedStepMs);
     this.updateVomitEnemiesBeforeStep(fixedStepMs);
     this.updateDemonEnemiesBeforeStep(fixedStepMs);
+    this.updatePlatformSwitchesBeforeStep(fixedStepMs);
     this.updateBotsBeforeStep();
     this.preStepVelocities.clear();
     for (const [body, meta] of this.metadata.entries()) {
@@ -301,6 +320,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.updateBirdsAfterStep(fixedStepMs);
     this.updateVomitEnemiesAfterStep(fixedStepMs);
     this.updateDemonEnemiesAfterStep(fixedStepMs);
+    this.updatePlatformSwitchesAfterStep(fixedStepMs);
     this.updateBombs(fixedStepMs);
   }
   setGravity(x: number, y: number, scale: number): void { this.world.setGravity(x, y, scale); }
@@ -736,6 +756,88 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     });
   }
 
+  createPlatformSwitch(definition: PlatformSwitchPhysicsOptions): void {
+    const firstPoint = definition.platformPoints[0];
+    if (!firstPoint || definition.platformPoints.length < 2) {
+      throw new Error(`Platform switch "${definition.id}" requires at least two path points`);
+    }
+
+    const platformHeight = 28;
+    const platformRawBody = this.factory.rectangle(firstPoint.x, firstPoint.y, definition.platformWidth, platformHeight, {
+      label: `MOVING_PLATFORM:${definition.id}`,
+      isStatic: false,
+      ignoreGravity: true,
+      mass: 5000,
+      inertia: Infinity,
+      friction: 0.92,
+      frictionStatic: 0.98,
+      frictionAir: 0,
+      restitution: 0.015,
+      collisionFilter: {
+        category: COLLISION_CATEGORIES.MOVABLE,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT
+          | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY
+          | COLLISION_CATEGORIES.DEMON_ENEMY,
+      },
+    });
+    const platformObject = this.factory.gameObject(
+      (this.scene as unknown as MatterSceneLike).add.zone(firstPoint.x, firstPoint.y, 1, 1),
+      platformRawBody,
+      true,
+    );
+    platformObject.body.label = `MOVING_PLATFORM:${definition.id}`;
+    this.registerLevelObject(platformObject, { kind: 'terrain', id: `${definition.id}:platform`, dynamic: true });
+
+    const initialAngle = definition.initiallyEnabled ? 0.5 : -0.5;
+    const leverLength = 38;
+    const leverCenter = {
+      x: definition.leverX + Math.sin(initialAngle) * leverLength / 2,
+      y: definition.leverY - Math.cos(initialAngle) * leverLength / 2,
+    };
+    const leverRawBody = this.factory.rectangle(leverCenter.x, leverCenter.y, 11, leverLength, {
+      label: `PLATFORM_LEVER:${definition.id}`,
+      isStatic: true,
+      // The rod detects a strong hit but does not become an invisible wall;
+      // the ball keeps its momentum and can continue towards the platform.
+      isSensor: true,
+      friction: 0.45,
+      restitution: 0.12,
+      collisionFilter: { category: COLLISION_CATEGORIES.TRIGGER, mask: COLLISION_CATEGORIES.BALL },
+    });
+    const leverObject = this.factory.gameObject(
+      (this.scene as unknown as MatterSceneLike).add.zone(leverCenter.x, leverCenter.y, 1, 1),
+      leverRawBody,
+      true,
+    );
+    leverObject.body.label = `PLATFORM_LEVER:${definition.id}`;
+    leverObject.setRotation?.(initialAngle);
+    this.registerLevelObject(leverObject, { kind: 'lever', id: definition.id });
+
+    const renderer = new PlatformSwitchRenderer(
+      this.scene as Phaser.Scene,
+      definition.id,
+      { x: definition.leverX, y: definition.leverY },
+      definition.platformWidth,
+      definition.platformSurface,
+      definition.initiallyEnabled,
+    );
+    this.platformSwitches.set(definition.id, {
+      id: definition.id,
+      leverObject,
+      platformObject,
+      renderer,
+      leverX: definition.leverX,
+      leverY: definition.leverY,
+      minimumImpactSpeed: definition.minimumImpactSpeed,
+      enabled: definition.initiallyEnabled,
+      cooldownMs: 0,
+      points: definition.platformPoints.map((point) => ({ ...point })),
+      targetIndex: 1,
+      speed: definition.platformSpeed,
+    });
+    this.positionLever(definition.id, initialAngle);
+  }
+
   createBomb(definition: BombPhysicsOptions): void {
     const rawBody = this.factory.circle(definition.x, definition.y, definition.radius, {
       label: `BOMB:${definition.id}`,
@@ -989,6 +1091,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.demons.clear();
     for (const bomb of this.bombs.values()) this.destroyBombVisuals(bomb);
     this.bombs.clear();
+    for (const mechanism of this.platformSwitches.values()) mechanism.renderer.dispose();
+    this.platformSwitches.clear();
     this.preStepVelocities.clear();
     this.levelObjects.length = 0;
     this.activeTriggers.clear();
@@ -1020,6 +1124,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
 
   private handleCollision(event: CollisionEventLike, phase: 'start' | 'active' | 'end'): void {
     for (const pair of event.pairs ?? []) {
+      this.handlePlatformSwitchCollision(pair, phase);
       this.handleBirdCollision(pair, phase);
       this.handleDemonCollision(pair, phase);
       this.handleBombCollision(pair, phase);
@@ -1043,6 +1148,84 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         }
         for (const listener of this.listeners) listener(item);
       }
+    }
+  }
+
+  private handlePlatformSwitchCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {
+    if (phase !== 'start') return;
+    const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
+    const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
+    const metaA = this.metadata.get(bodyA);
+    const metaB = this.metadata.get(bodyB);
+    if (!metaA || !metaB) return;
+    const leverIsA = metaA.kind === 'lever';
+    const leverMeta = leverIsA ? metaA : metaB.kind === 'lever' ? metaB : null;
+    const ballMeta = leverIsA ? metaB : metaA;
+    if (!leverMeta || ballMeta.kind !== 'ball') return;
+
+    const switchRecord = this.platformSwitches.get(leverMeta.id);
+    if (!switchRecord || switchRecord.cooldownMs > 0) return;
+    const ballBody = leverIsA ? bodyB : bodyA;
+    const velocity = this.preStepVelocities.get(ballBody)
+      ?? PhysicsAdapter.fromMatterVelocity(ballBody.velocity);
+    // A rightward impact clicks the lever to ON; a leftward impact clicks it
+    // to OFF. Vertical brushes and weak taps do not change the mechanism.
+    const nextEnabled = getPlatformSwitchTargetState(velocity.x, switchRecord.minimumImpactSpeed);
+    if (nextEnabled === null) return;
+    if (nextEnabled === switchRecord.enabled) return;
+    switchRecord.enabled = nextEnabled;
+    switchRecord.cooldownMs = 420;
+    this.positionLever(switchRecord.id, nextEnabled ? 0.5 : -0.5);
+    switchRecord.renderer.setEnabled(nextEnabled);
+    switchRecord.renderer.onImpact();
+  }
+
+  private positionLever(id: string, angle: number): void {
+    const mechanism = this.platformSwitches.get(id);
+    if (!mechanism) return;
+    const halfLength = 19;
+    mechanism.leverObject.setPosition(
+      mechanism.leverX + Math.sin(angle) * halfLength,
+      mechanism.leverY - Math.cos(angle) * halfLength,
+    );
+    mechanism.leverObject.setRotation?.(angle);
+  }
+
+  private updatePlatformSwitchesBeforeStep(fixedStepMs: number): void {
+    const seconds = fixedStepMs / 1000;
+    for (const mechanism of this.platformSwitches.values()) {
+      mechanism.cooldownMs = Math.max(0, mechanism.cooldownMs - fixedStepMs);
+      let velocity: Vector2 = { x: 0, y: 0 };
+      if (mechanism.enabled) {
+        const position = mechanism.platformObject.body.position;
+        let travel = getPlatformWaypointVelocity(
+          position,
+          mechanism.points[mechanism.targetIndex]!,
+          mechanism.speed,
+          seconds,
+        );
+        if (travel.reachesTarget && Math.hypot(travel.velocity.x, travel.velocity.y) < 0.001) {
+          mechanism.targetIndex = (mechanism.targetIndex + 1) % mechanism.points.length;
+          travel = getPlatformWaypointVelocity(
+            position,
+            mechanism.points[mechanism.targetIndex]!,
+            mechanism.speed,
+            seconds,
+          );
+        }
+        velocity = travel.velocity;
+        if (travel.reachesTarget) mechanism.targetIndex = (mechanism.targetIndex + 1) % mechanism.points.length;
+      }
+      const matterVelocity = PhysicsAdapter.toMatterVelocity(velocity);
+      mechanism.platformObject.setVelocity(matterVelocity.x, matterVelocity.y);
+      mechanism.platformObject.setAwake();
+    }
+  }
+
+  private updatePlatformSwitchesAfterStep(fixedStepMs: number): void {
+    for (const mechanism of this.platformSwitches.values()) {
+      mechanism.renderer.update(fixedStepMs, mechanism.platformObject.body.position);
+      if (!mechanism.enabled) mechanism.platformObject.setVelocity(0, 0);
     }
   }
 

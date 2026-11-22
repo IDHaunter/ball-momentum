@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "physics-sandbox",
   "title": "Physics Sandbox",
-  "description": "A safe course for testing momentum, slopes, and repeated jumps.",
+  "description": "A safe course for testing momentum, slopes, enemy collisions, and interactive machinery.",
   "world": {
-    "width": 7300,
+    "width": 8800,
     "height": 1500,
     "killPlaneY": 1420,
     "backgroundColor": "#18212f"
@@ -652,16 +652,53 @@
         "bottom": "none",
         "left": "spikes"
       }
+    },
+    {
+      "id": "sandbox-switch-approach-deck",
+      "type": "box",
+      "x": 7300,
+      "y": 880,
+      "width": 480,
+      "height": 520,
+      "material": "normal",
+      "texture": "concrete-grain",
+      "borders": {
+        "top": "grass",
+        "right": "stone",
+        "bottom": "none",
+        "left": "none"
+      }
+    },
+    {
+      "id": "sandbox-switch-landing-deck",
+      "type": "box",
+      "x": 8290,
+      "y": 930,
+      "width": 510,
+      "height": 470,
+      "material": "stone",
+      "texture": {
+        "pattern": "stone-fragments",
+        "density": 0.9,
+        "opacity": 0.55,
+        "seed": 211
+      },
+      "borders": {
+        "top": "stone",
+        "right": "none",
+        "bottom": "none",
+        "left": "stone"
+      }
     }
   ],
   "triggers": [
     {
       "id": "sandbox-goal",
       "type": "goal",
-      "x": 7160,
-      "y": 650,
-      "width": 100,
-      "height": 230
+      "x": 8610,
+      "y": 770,
+      "width": 110,
+      "height": 210
     }
   ],
   "materials": {
@@ -705,7 +742,7 @@
     "followOffsetX": 0.38,
     "smoothing": 0.1,
     "minX": 0,
-    "maxX": 7300
+    "maxX": 8800
   },
   "decorations": [
     {
@@ -942,6 +979,43 @@
       "text": "PURPLE DEMON · LIGHTNING",
       "color": "#dca8ff",
       "depth": 4
+    },
+    {
+      "id": "sandbox-switch-pit-backdrop",
+      "type": "rectangle",
+      "x": 8035,
+      "y": 1170,
+      "width": 510,
+      "height": 510,
+      "color": "#0e1724",
+      "depth": -40
+    },
+    {
+      "id": "sandbox-switch-hint",
+      "type": "text",
+      "x": 7330,
+      "y": 800,
+      "text": "HIT RIGHT: ON  ·  HIT LEFT: OFF",
+      "color": "#f5d276",
+      "depth": 4
+    },
+    {
+      "id": "sandbox-switch-platform-hint",
+      "type": "text",
+      "x": 7860,
+      "y": 918,
+      "text": "ROCKET PLATFORM · WAIT FOR IT",
+      "color": "#9edcf4",
+      "depth": 4
+    },
+    {
+      "id": "sandbox-switch-finish-hint",
+      "type": "text",
+      "x": 8400,
+      "y": 860,
+      "text": "FINAL LANDING",
+      "color": "#b8e6a2",
+      "depth": 4
     }
   ],
   "bots": [
@@ -1062,6 +1136,32 @@
       "lightningImpulse": 235,
       "restitution": 0.14,
       "friction": 0.48
+    }
+  ],
+  "platformSwitches": [
+    {
+      "id": "sandbox-rocket-bridge-switch",
+      "lever": {
+        "x": 7670,
+        "y": 880,
+        "minimumImpactSpeed": 245,
+        "initialState": "off"
+      },
+      "platform": {
+        "width": 170,
+        "surface": "metal",
+        "speed": 110,
+        "points": [
+          {
+            "x": 7900,
+            "y": 990
+          },
+          {
+            "x": 8205,
+            "y": 990
+          }
+        ]
+      }
     }
   ]
 }

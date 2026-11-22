@@ -139,6 +139,29 @@ export interface DemonDefinition {
   friction?: number;
 }
 
+export type MovingPlatformSurface = 'stone' | 'glass' | 'metal' | 'grass';
+
+/** A paired mechanism: the lever is the only control for its moving platform. */
+export interface PlatformSwitchDefinition {
+  id: string;
+  lever: {
+    /** Hinge position; y is the top surface the lever is mounted on. */
+    x: number;
+    y: number;
+    /** Required horizontal ball speed in px/s to move the lever. */
+    minimumImpactSpeed: number;
+    initialState?: 'on' | 'off';
+  };
+  platform: {
+    width: number;
+    surface: MovingPlatformSurface;
+    /** Constant travel speed along the waypoint path, in px/s. */
+    speed: number;
+    /** Platform centre positions. The platform loops through these points. */
+    points: { x: number; y: number }[];
+  };
+}
+
 export interface BoxSolidDefinition {
   id: string; type: 'box'; x: number; y: number; width: number; height: number; material?: string;
   breakable?: BreakableDefinition; springSurfaces?: BoxSpringSurfaceDefinition[]; movable?: MovableDefinition; texture?: SurfaceTextureAssignment; borders?: BoxBorderStyles;
@@ -178,6 +201,7 @@ export interface LevelDefinition {
   poopPickups?: PoopPickupDefinition[];
   vomitEnemies?: VomitEnemyDefinition[];
   demonEnemies?: DemonDefinition[];
+  platformSwitches?: PlatformSwitchDefinition[];
   materials?: Record<string, TerrainMaterialDefinition>;
   decorations?: DecorationDefinition[];
   camera?: { followOffsetX?: number; smoothing?: number; minX?: number; maxX?: number };

@@ -150,6 +150,22 @@ const demonEnemySchema = z.object({
   friction: z.number().min(0).max(1).optional(),
 });
 
+const platformSwitchSchema = z.object({
+  id: z.string().min(1),
+  lever: z.object({
+    x: z.number().finite(),
+    y: z.number().finite(),
+    minimumImpactSpeed: z.number().finite().min(20).max(2000),
+    initialState: z.enum(['on', 'off']).optional(),
+  }),
+  platform: z.object({
+    width: z.number().finite().min(80).max(500),
+    surface: z.enum(['stone', 'glass', 'metal', 'grass']),
+    speed: z.number().finite().min(10).max(1500),
+    points: z.array(z.object({ x: z.number().finite(), y: z.number().finite() })).min(2).max(32),
+  }),
+});
+
 const bombSchema = z.object({
   id: z.string().min(1),
   x: z.number().finite(),
@@ -196,6 +212,7 @@ export const LevelSchema = z.object({
   poopPickups: z.array(poopPickupSchema).max(48).optional(),
   vomitEnemies: z.array(vomitEnemySchema).max(24).optional(),
   demonEnemies: z.array(demonEnemySchema).max(24).optional(),
+  platformSwitches: z.array(platformSwitchSchema).max(24).optional(),
   materials: z.record(z.string(), materialSchema).optional(),
   decorations: z.array(decorationSchema).optional(),
   camera: z.object({

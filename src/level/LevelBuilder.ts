@@ -111,6 +111,19 @@ export class LevelBuilder {
         killPlaneY: level.world.killPlaneY,
       });
     }
+    for (const mechanism of level.platformSwitches ?? []) {
+      this.world.createPlatformSwitch({
+        id: mechanism.id,
+        leverX: mechanism.lever.x,
+        leverY: mechanism.lever.y,
+        minimumImpactSpeed: mechanism.lever.minimumImpactSpeed,
+        initiallyEnabled: mechanism.lever.initialState === 'on',
+        platformWidth: mechanism.platform.width,
+        platformSurface: mechanism.platform.surface,
+        platformSpeed: mechanism.platform.speed,
+        platformPoints: mechanism.platform.points,
+      });
+    }
     for (const bomb of level.bombs ?? []) {
       this.world.createBomb({
         id: bomb.id,

@@ -117,6 +117,25 @@ export class LevelValidator {
       }
     }
 
+    for (const mechanism of level.platformSwitches ?? []) {
+      addId(mechanism.id, `platformSwitches.${mechanism.id}`);
+      const { x, y } = mechanism.lever;
+      if (x < 20 || x > level.world.width - 20 || y < 42 || y > level.world.height - 20) {
+        errors.push(`platformSwitches.${mechanism.id}.lever: mounting point must be inside world bounds`);
+      }
+      for (const [index, point] of mechanism.platform.points.entries()) {
+        if (point.x - mechanism.platform.width / 2 < 0
+          || point.x + mechanism.platform.width / 2 > level.world.width
+          || point.y - 20 < 0 || point.y + 38 > level.world.height) {
+          errors.push(`platformSwitches.${mechanism.id}.platform.points.${index}: platform must stay inside world bounds`);
+        }
+        const previous = mechanism.platform.points[index - 1];
+        if (previous && Math.hypot(point.x - previous.x, point.y - previous.y) < 1) {
+          errors.push(`platformSwitches.${mechanism.id}.platform.points.${index}: consecutive route points must be distinct`);
+        }
+      }
+    }
+
     for (const bot of level.bots ?? []) {
       addId(bot.id, `bots.${bot.id}`);
       if (bot.x - bot.radius < 0 || bot.x + bot.radius > level.world.width

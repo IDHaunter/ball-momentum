@@ -65,6 +65,39 @@ Example level definition:
 
 Levels can define timed bombs in a top-level `bombs` array. Bombs are activated by the player ball or autonomous bots, can be pushed during their countdown, and apply a quadratic radial blast to dynamic objects and breakable glass. See `TIME_BOMB_FEATURE.md` for the JSON fields and physics model.
 
+## Paired lever switches and moving platforms
+
+Levels can define a `platformSwitches` array. Each entry is one paired mechanism: it always creates both a physical lever and its moving platform, so neither can be configured independently. A sufficiently fast rightward ball impact switches the lever ON and starts the platform; a sufficiently fast leftward impact switches it OFF and stops the platform at its current position. Weak impacts are ignored. The lever shows a green/red state lamp and tilts to match its state.
+
+The platform follows its `points` array at a constant configured speed, loops back to the first point, and can be stopped anywhere along the route. Its chassis and animated rocket exhaust stay consistent; `surface` changes only the top treatment (`stone`, `glass`, `metal`, or `grass`). Example:
+
+```json
+{
+  "platformSwitches": [
+    {
+      "id": "rocket-bridge",
+      "lever": {
+        "x": 7550,
+        "y": 760,
+        "minimumImpactSpeed": 245,
+        "initialState": "off"
+      },
+      "platform": {
+        "width": 170,
+        "surface": "metal",
+        "speed": 155,
+        "points": [
+          { "x": 7900, "y": 880 },
+          { "x": 8205, "y": 880 }
+        ]
+      }
+    }
+  ]
+}
+```
+
+`minimumImpactSpeed` is measured in px/s from the ball's horizontal velocity. `speed` is the platform travel speed in px/s. Each path point is the centre of the platform, and the platform height is fixed by the renderer/physics implementation.
+
 ## Editing levels
 
 Edit JSON files in `public/levels/`. `level-01.json` is the tutorial course and `physics-sandbox.json` is the movement sandbox. The browser validates each file before building collision bodies. Reload the game after changing a level.

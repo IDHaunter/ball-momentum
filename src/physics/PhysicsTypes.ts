@@ -84,6 +84,18 @@ export interface DemonPhysicsOptions {
   killPlaneY: number;
 }
 
+export interface PlatformSwitchPhysicsOptions {
+  id: string;
+  leverX: number;
+  leverY: number;
+  minimumImpactSpeed: number;
+  initiallyEnabled: boolean;
+  platformWidth: number;
+  platformSurface: 'stone' | 'glass' | 'metal' | 'grass';
+  platformSpeed: number;
+  platformPoints: Vector2[];
+}
+
 export interface SpeedSpinBoostResult {
   speedBefore: number;
   speedAfter: number;
