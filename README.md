@@ -283,7 +283,7 @@ A substantial player impact (at least 260 px/s along the contact normal) now tri
 
 ## Teleporting purple demons
 
-Levels may define optional `demonEnemies`. A demon chooses deterministic pseudo-random candidate positions from upward-facing solid surfaces inside its `spawnArea`; box tops and upward-facing polygon slopes are supported. Surface edges marked `spikes` are never used as spawn locations. Candidate points are sampled with a radius margin so the circular body is fully supported by the selected surface. Keep the spawn region over static, intact platforms; movable and breakable solids are excluded because spawn positions are derived from level geometry when the level is built.
+Levels may define optional `demonEnemies`. A demon selects the nearest safe candidate relative to the player from upward-facing solid surfaces inside its `spawnArea`. Box tops and upward-facing polygon slopes are supported; subsequent choices avoid the previous location when possible. Surface edges marked `spikes` are never used as spawn locations. Candidate points are sampled with a radius margin so the circular body is fully supported by the selected surface. Keep the spawn region over static, intact platforms; movable and breakable solids are excluded because spawn positions are derived from level geometry when the level is built.
 
 ```json
 {
@@ -296,7 +296,7 @@ Levels may define optional `demonEnemies`. A demon chooses deterministic pseudo-
       "respawnIntervalSeconds": 3.8,
       "telegraphSeconds": 1.0,
       "attackDelaySeconds": 0.5,
-      "activeSeconds": 1.5,
+      "activeSeconds": 4.0,
       "attackRadius": 270,
       "lightningImpulse": 235,
       "restitution": 0.14,
@@ -306,4 +306,4 @@ Levels may define optional `demonEnemies`. A demon chooses deterministic pseudo-
 }
 ```
 
-Before each appearance, jagged teleport lightning marks the selected location for `telegraphSeconds`. The demon then materializes as a dynamic Matter circle, waits `attackDelaySeconds`, and zaps the main ball once if the ball is within `attackRadius`. `lightningImpulse` controls the added player momentum; it is converted to a velocity change using the player's mass. The demon remains physical for `activeSeconds`, then vanishes and waits `respawnIntervalSeconds` before choosing another surface point. A physical hit by a character disrupts the teleport cycle and leaves the demon as a normal pushable body, so it can be knocked into pits or onto spikes. The enemy is also removed when it crosses `world.killPlaneY`. Its horns, bat wings, trident, expression, teleport arcs and zap are procedural Phaser graphics; they do not change the circular collision body.
+Before each appearance, jagged teleport lightning marks the selected location for `telegraphSeconds`. The location is checked against the player's current position: the demon will not materialize within the combined body radii plus a small safety margin. If every configured point is occupied, it waits and retries until the player moves away; if the player rolls into the marked point during the warning, the marker relocates and the full warning period starts again. The demon then materializes as a dynamic Matter circle, waits `attackDelaySeconds`, and keeps the zap armed until the main ball enters `attackRadius`; it then zaps the ball exactly once. `lightningImpulse` controls the added player momentum; it is converted to a velocity change using the player's mass. The strike still produces a deterministic knockback when the ball and demon centers coincide, rather than silently dropping the impulse. Unless physically disrupted, the demon remains visible and physical for `activeSeconds` (4 seconds by default), then vanishes and waits `respawnIntervalSeconds` before choosing another surface point. A meaningful physical impact by a character disrupts the teleport cycle and leaves the demon as a normal pushable body, so it can be knocked into pits or onto spikes; the pending zap remains armed during the active window and is not cancelled by the ram. The enemy is also removed when it crosses `world.killPlaneY`. Its horns, bat wings, trident, expression, teleport arcs and zap are procedural Phaser graphics; they do not change the circular collision body.

@@ -1057,7 +1057,7 @@
       "respawnIntervalSeconds": 3.8,
       "telegraphSeconds": 1.0,
       "attackDelaySeconds": 0.5,
-      "activeSeconds": 1.5,
+      "activeSeconds": 4.0,
       "attackRadius": 270,
       "lightningImpulse": 235,
       "restitution": 0.14,

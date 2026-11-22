@@ -20,6 +20,10 @@ import { BOT_GRADIENT_TEXTURE_KEY, BOT_GRADIENT_TEXTURE_SIZE, drawBotGradient } 
 import { BOMB_GRADIENT_TEXTURE_KEY, BOMB_GRADIENT_TEXTURE_SIZE, drawBombGradient } from '../rendering/BombGradient';
 import { DemonRenderer, type DemonRendererSceneLike, type DemonVisualPhase } from '../rendering/DemonRenderer';
 
+const DEMON_SPAWN_RETRY_MS = 250;
+const DEMON_ATTACK_RETRY_MS = 120;
+const DEMON_RAM_IMPACT_SPEED = 140;
+
 interface MatterWorldLike {
   autoUpdate: boolean;
   engine: { timing: { timeScale: number } };
@@ -167,6 +171,7 @@ interface DemonRecord {
   spawnPoint: Vector2;
   spawnIndex: number;
   spawnCycle: number;
+  initialSpawnSelectionPending: boolean;
   phase: DemonVisualPhase;
   phaseRemainingMs: number;
   respawnIntervalMs: number;
@@ -706,6 +711,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       spawnPoint,
       spawnIndex: 0,
       spawnCycle: 0,
+      initialSpawnSelectionPending: true,
       phase: 'telegraph',
       phaseRemainingMs: telegraphMs,
       respawnIntervalMs: definition.respawnIntervalSeconds * 1000,
@@ -719,7 +725,6 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       disrupted: false,
       killPlaneY: definition.killPlaneY,
     });
-    renderer.update(0, spawnPoint, 0, 'telegraph');
   }
 
   createBomb(definition: BombPhysicsOptions): void {
@@ -1046,11 +1051,29 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const demon = this.demons.get(demonMeta.id);
     if (!demon || demon.phase !== 'active') return;
 
-    // Once the player or another physical character rams the demon, it stops
-    // teleporting away. It remains a normal dynamic body so the player can
-    // finish the fight by knocking it into a pit or a spike sensor.
+    const demonBody = metaA.kind === 'demon' ? bodyA : bodyB;
+    const otherBody = metaA.kind === 'demon' ? bodyB : bodyA;
+    if (otherMeta.kind === 'ball') {
+      const ballVelocity = this.preStepVelocities.get(otherBody)
+        ?? PhysicsAdapter.fromMatterVelocity(otherBody.velocity);
+      const demonVelocity = this.preStepVelocities.get(demonBody)
+        ?? PhysicsAdapter.fromMatterVelocity(demonBody.velocity);
+      const relativeSpeed = Math.hypot(
+        ballVelocity.x - demonVelocity.x,
+        ballVelocity.y - demonVelocity.y,
+      );
+
+      // Touching/overlapping at the instant of materialization is not a ram.
+      // Keep the scheduled lightning attack armed unless the player actually
+      // hits the demon with a meaningful amount of speed.
+      if (relativeSpeed < DEMON_RAM_IMPACT_SPEED) return;
+    }
+
+    // A real impact by the player or another physical character interrupts the
+    // teleport cycle. The demon remains a normal pushable body from this point.
     demon.disrupted = true;
-    demon.attacked = true;
+    // A physical ram interrupts the teleport cycle, but it must not consume
+    // the pending zap. The demon can still discharge once while it is nearby.
     demon.renderer.onKnockback();
   }
 
@@ -1743,6 +1766,43 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
 
       demon.phaseRemainingMs = Math.max(0, demon.phaseRemainingMs - stepMs);
       if (demon.phase === 'telegraph') {
+        // Level construction creates the demon before the player body. On the
+        // first simulation step, select the closest safe point to the player
+        // instead of blindly using the leftmost point in the spawn list.
+        if (ballBody && demon.initialSpawnSelectionPending) {
+          demon.initialSpawnSelectionPending = false;
+          const nearestSafePoint = this.chooseDemonSpawnPoint(demon, ballBody, false);
+          if (!nearestSafePoint) {
+            demon.phase = 'cooldown';
+            demon.phaseRemainingMs = DEMON_SPAWN_RETRY_MS;
+            continue;
+          }
+          if (nearestSafePoint.x !== demon.spawnPoint.x || nearestSafePoint.y !== demon.spawnPoint.y) {
+            demon.spawnPoint = nearestSafePoint;
+            demon.object.setPosition(nearestSafePoint.x, nearestSafePoint.y);
+            demon.phaseRemainingMs = demon.telegraphMs;
+            continue;
+          }
+        }
+
+        // The player body is created after level geometry. Re-check the
+        // telegraph location every step so it can never materialize directly
+        // on top of a player who rolled into the marked spot during the warning.
+        if (ballBody && !this.isDemonSpawnPointSafe(demon, demon.spawnPoint, ballBody)) {
+          const alternative = this.chooseDemonSpawnPoint(demon, ballBody, true);
+          if (!alternative) {
+            demon.phase = 'cooldown';
+            demon.phaseRemainingMs = DEMON_SPAWN_RETRY_MS;
+            continue;
+          }
+          demon.spawnPoint = alternative;
+          demon.object.setPosition(alternative.x, alternative.y);
+          // Give the new location a complete warning period rather than
+          // materializing immediately after moving the teleport marker.
+          demon.phaseRemainingMs = demon.telegraphMs;
+          continue;
+        }
+
         if (demon.phaseRemainingMs <= 0) {
           demon.object.setPosition(demon.spawnPoint.x, demon.spawnPoint.y);
           demon.object.setStatic(false);
@@ -1761,38 +1821,67 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       }
 
       if (demon.phase === 'active') {
-        if (!demon.disrupted && !demon.attacked) {
+        // Keep the zap armed until the player is actually inside its radius.
+        // This also allows a short approach after materialization instead of
+        // consuming the only attack while the player is still out of range.
+        if (!demon.attacked && demon.phaseRemainingMs > 0) {
           demon.attackRemainingMs = Math.max(0, demon.attackRemainingMs - stepMs);
           if (demon.attackRemainingMs <= 0) {
-            demon.attacked = true;
-            if (ballBody && this.ballObject && demon.lightningImpulse > 0) {
+            if (ballBody && this.ballObject) {
               const dx = ballBody.position.x - body.position.x;
               const dy = ballBody.position.y - body.position.y;
               const distance = Math.hypot(dx, dy);
-              if (distance <= demon.attackRadius && distance > 0.001) {
-                const direction = { x: dx / distance, y: dy / distance };
-                const current = PhysicsAdapter.fromMatterVelocity(ballBody.velocity);
-                const impulseDelta = demon.lightningImpulse / ballMass;
-                const next = {
-                  x: Math.max(-2200, Math.min(2200, current.x + direction.x * impulseDelta)),
-                  y: Math.max(-2200, Math.min(2200, current.y + direction.y * impulseDelta)),
-                };
-                const matterVelocity = PhysicsAdapter.toMatterVelocity(next);
-                this.ballObject.setVelocity(matterVelocity.x, matterVelocity.y);
-                this.ballObject.setAwake();
-                demon.renderer.onStrike(body.position, ballBody.position);
+              if (distance <= demon.attackRadius) {
+                const direction = distance > 0.001
+                  ? { x: dx / distance, y: dy / distance }
+                  : this.getDemonOverlapZapDirection(demon);
+
+                if (demon.lightningImpulse > 0) {
+                  const current = PhysicsAdapter.fromMatterVelocity(ballBody.velocity);
+                  const impulseDelta = demon.lightningImpulse / ballMass;
+                  const next = {
+                    x: Math.max(-2200, Math.min(2200, current.x + direction.x * impulseDelta)),
+                    y: Math.max(-2200, Math.min(2200, current.y + direction.y * impulseDelta)),
+                  };
+                  const matterVelocity = PhysicsAdapter.toMatterVelocity(next);
+                  this.ballObject.setVelocity(matterVelocity.x, matterVelocity.y);
+                  this.ballObject.setAwake();
+                }
+
+                // If both centers coincide, start the visible bolt at the edge
+                // of the demon rather than drawing a zero-length spark.
+                const strikeSource = distance < demon.radius * 0.9
+                  ? {
+                    x: body.position.x - direction.x * demon.radius * 1.15,
+                    y: body.position.y - direction.y * demon.radius * 1.15,
+                  }
+                  : body.position;
+                demon.renderer.onStrike(strikeSource, ballBody.position);
+                demon.attacked = true;
+              } else {
+                // Recheck frequently while the demon is materialized. The zap
+                // still fires only once, on the first in-range check.
+                demon.attackRemainingMs = DEMON_ATTACK_RETRY_MS;
               }
+            } else {
+              demon.attackRemainingMs = DEMON_ATTACK_RETRY_MS;
             }
           }
         }
 
-        if (!demon.disrupted && demon.phaseRemainingMs <= 0) {
-          this.setDemonCollisionActive(body, false);
-          demon.object.setStatic(true);
-          demon.object.setVelocity(0, 0);
-          demon.object.setAngularVelocity(0);
-          demon.phase = 'vanishing';
-          demon.phaseRemainingMs = 260;
+        if (demon.phaseRemainingMs <= 0) {
+          if (!demon.disrupted) {
+            this.setDemonCollisionActive(body, false);
+            demon.object.setStatic(true);
+            demon.object.setVelocity(0, 0);
+            demon.object.setAngularVelocity(0);
+            demon.phase = 'vanishing';
+            demon.phaseRemainingMs = 260;
+          } else {
+            // A rammed demon remains a physical body, but its attack window is
+            // still bounded by activeMs and cannot fire indefinitely.
+            demon.attacked = true;
+          }
         }
         continue;
       }
@@ -1806,7 +1895,15 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       }
 
       if (demon.phase === 'cooldown' && demon.phaseRemainingMs <= 0) {
-        demon.spawnPoint = this.chooseDemonSpawnPoint(demon);
+        const nextPoint = this.chooseDemonSpawnPoint(demon, ballBody, true);
+        if (!nextPoint) {
+          // Do not spawn into the player. Retry once the player has left the
+          // configured area instead of repeatedly teleporting under the ball.
+          demon.phaseRemainingMs = DEMON_SPAWN_RETRY_MS;
+          continue;
+        }
+        demon.spawnPoint = nextPoint;
+        demon.initialSpawnSelectionPending = false;
         demon.object.setPosition(demon.spawnPoint.x, demon.spawnPoint.y);
         demon.phase = 'telegraph';
         demon.phaseRemainingMs = demon.telegraphMs;
@@ -1828,17 +1925,65 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     }
   }
 
-  private chooseDemonSpawnPoint(demon: DemonRecord): Vector2 {
-    if (demon.spawnPoints.length <= 1) return { ...demon.spawnPoints[0]! };
+  private isDemonSpawnPointSafe(demon: DemonRecord, point: Vector2, ballBody: MatterBodyLike): boolean {
+    const ballRadius = Math.max(10, ballBody.circleRadius ?? 18);
+    const minimumDistance = demon.radius + ballRadius + Math.max(14, demon.radius * 0.8);
+    return Math.hypot(point.x - ballBody.position.x, point.y - ballBody.position.y) >= minimumDistance;
+  }
+
+  private chooseDemonSpawnPoint(
+    demon: DemonRecord,
+    ballBody: MatterBodyLike | undefined,
+    avoidCurrent: boolean,
+  ): Vector2 | null {
+    const safePoints = demon.spawnPoints
+      .map((point, index) => ({ point, index }))
+      .filter(({ point }) => !ballBody || this.isDemonSpawnPointSafe(demon, point, ballBody));
+    if (safePoints.length === 0) return null;
+
+    const alternatives = avoidCurrent
+      ? safePoints.filter(({ point }) => point.x !== demon.spawnPoint.x || point.y !== demon.spawnPoint.y)
+      : safePoints;
+    const candidates = alternatives.length > 0 ? alternatives : safePoints;
+
+    if (ballBody) {
+      // Prefer the closest safe location so the demon remains relevant to the
+      // encounter while retaining a non-overlapping buffer around the player.
+      candidates.sort((a, b) => {
+        const distanceA = Math.hypot(a.point.x - ballBody.position.x, a.point.y - ballBody.position.y);
+        const distanceB = Math.hypot(b.point.x - ballBody.position.x, b.point.y - ballBody.position.y);
+        return distanceA - distanceB || a.point.x - b.point.x || a.point.y - b.point.y;
+      });
+      const selected = candidates[0]!;
+      demon.spawnIndex = selected.index;
+      return { ...selected.point };
+    }
+
+    if (candidates.length === 1) {
+      const selected = candidates[0]!;
+      demon.spawnIndex = selected.index;
+      return { ...selected.point };
+    }
+
     // Stable pseudo-random selection varies across cycles but remains
     // deterministic for a given level replay and enemy ID.
     let hash = 2166136261;
     for (let index = 0; index < demon.id.length; index += 1) hash = Math.imul(hash ^ demon.id.charCodeAt(index), 16777619);
-    const candidate = (Math.abs(hash >>> 0) + demon.spawnCycle * 2654435761) % demon.spawnPoints.length;
-    let index = candidate;
-    if (index === demon.spawnIndex) index = (index + 1) % demon.spawnPoints.length;
-    demon.spawnIndex = index;
-    return { ...demon.spawnPoints[index]! };
+    const candidate = (Math.abs(hash >>> 0) + demon.spawnCycle * 2654435761) % candidates.length;
+    let selected = candidates[candidate]!;
+    if (selected.index === demon.spawnIndex) selected = candidates[(candidate + 1) % candidates.length]!;
+    demon.spawnIndex = selected.index;
+    return { ...selected.point };
+  }
+
+  private getDemonOverlapZapDirection(demon: DemonRecord): Vector2 {
+    let hash = 2166136261;
+    const seed = `${demon.id}:${demon.spawnCycle}`;
+    for (let index = 0; index < seed.length; index += 1) {
+      hash = Math.imul(hash ^ seed.charCodeAt(index), 16777619);
+    }
+    const horizontal = (hash & 1) === 0 ? -0.8 : 0.8;
+    return { x: horizontal, y: -0.6 };
   }
 
   private setDemonCollisionActive(body: MatterBodyLike, active: boolean): void {

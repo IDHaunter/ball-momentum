@@ -102,7 +102,7 @@ export class LevelBuilder {
         respawnIntervalSeconds: demon.respawnIntervalSeconds,
         telegraphSeconds: demon.telegraphSeconds ?? 1,
         attackDelaySeconds: demon.attackDelaySeconds ?? 0.5,
-        activeSeconds: demon.activeSeconds ?? 1.5,
+        activeSeconds: demon.activeSeconds ?? 4.0,
         attackRadius: demon.attackRadius,
         lightningImpulse: demon.lightningImpulse,
         restitution: demon.restitution ?? 0.12,

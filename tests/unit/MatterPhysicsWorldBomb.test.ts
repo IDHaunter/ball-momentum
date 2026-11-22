@@ -177,7 +177,7 @@ describe('MatterPhysicsWorld bombs', () => {
     expect(harness.visuals[0]).toMatchObject({
       fillColor: 0x15171d,
       strokeWidth: Math.max(1.1, bombOptions.radius * 0.06),
-      strokeColor: 0x171b22,
+      strokeColor: 0x2e3238,
       strokeAlpha: 0.9,
     });
     // The outline is deliberately low-contrast: only slightly lighter than

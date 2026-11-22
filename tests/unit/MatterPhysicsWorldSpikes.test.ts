@@ -81,7 +81,7 @@ describe('MatterPhysicsWorld raised spike sensors', () => {
     expect(spike.isSensor).toBe(true);
     expect(spike.collisionFilter?.category).toBe(COLLISION_CATEGORIES.TRIGGER);
     expect(spike.collisionFilter?.mask).toBe(
-      COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY,
+      COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
     );
 
     const pair = { bodyA: ball, bodyB: spike, collision: { normal: { x: 0, y: -1 } } };

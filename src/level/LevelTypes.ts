@@ -127,7 +127,7 @@ export interface DemonDefinition {
   telegraphSeconds?: number;
   /** Delay between materialization and the strike. Defaults to 0.5 seconds. */
   attackDelaySeconds?: number;
-  /** Time remaining visible after appearing. Defaults to 1.5 seconds. */
+  /** Time remaining visible after appearing. Defaults to 4 seconds. */
   activeSeconds?: number;
   /** Player-centre distance required for the zap to connect. */
   attackRadius: number;

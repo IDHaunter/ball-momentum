@@ -129,22 +129,142 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     expect(demon.collisionFilter?.mask).toBeGreaterThan(0);
     expect(demon.collisionFilter!.mask & COLLISION_CATEGORIES.BALL).toBeTruthy();
     expect(demon.collisionFilter!.mask & COLLISION_CATEGORIES.TRIGGER).toBeTruthy();
+    expect(harness.graphics[0]?.commands).toContain('fillEllipse');
     harness.world.dispose();
   });
 
   it('strikes the player once after the configured delay only when it is inside attackRadius', () => {
     const harness = createHarness();
     harness.world.createBall({ x: 150, y: 100 }, ballOptions);
-    harness.world.createDemonEnemy(demonDefinition);
+    harness.world.createDemonEnemy({
+      ...demonDefinition,
+      // The first point is safe but slightly farther from the player.
+      spawnPoints: [{ x: 70, y: 100 }, { x: 220, y: 100 }, { x: 300, y: 100 }],
+    });
+    const demon = bodyFor(harness, 'DEMON:purple-devil');
     const ball = bodyFor(harness, 'BALL');
 
-    harness.world.step(1000); // pre-spawn lightning, then materialization
+    harness.world.step(16); // choose the nearest safe point for the initial warning
+    expect(demon.position).toEqual({ x: 220, y: 100 });
+    harness.world.step(1000); // complete the warning and materialize
     expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBe(0);
     harness.world.step(500); // first zap
-    expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(220, 4);
+    expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(-220, 4);
     expect(ball.setVelocityCalls).toBe(1);
+    expect(harness.graphics[2]?.commands).toContain('strokePath');
     harness.world.step(500);
-    expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(220, 4);
+    expect(PhysicsAdapter.fromMatterVelocity(ball.velocity).x).toBeCloseTo(-220, 4);
+    harness.world.dispose();
+  });
+
+  it('moves a live warning and restarts the full telegraph when the player approaches it', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 45, y: 100 }, ballOptions);
+    harness.world.createDemonEnemy(demonDefinition);
+    const demon = bodyFor(harness, 'DEMON:purple-devil');
+
+    harness.world.step(100);
+    expect(demon.position).toEqual({ x: 100, y: 100 });
+
+    const ball = bodyFor(harness, 'BALL');
+    ball.position.x = 100;
+    harness.world.step(16);
+    expect(demon.position).toEqual({ x: 220, y: 100 });
+    expect(demon.isStatic).toBe(true);
+
+    harness.world.step(999);
+    expect(demon.isStatic).toBe(true);
+    harness.world.step(1);
+    expect(demon.isStatic).toBe(false);
+    harness.world.dispose();
+  });
+
+  it('defers materialization while the player occupies every available spawn point', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 150, y: 100 }, ballOptions);
+    harness.world.createDemonEnemy({ ...demonDefinition, spawnPoints: [{ x: 150, y: 100 }] });
+    const demon = bodyFor(harness, 'DEMON:purple-devil');
+
+    harness.world.step(1000);
+    expect(demon.isStatic).toBe(true);
+    expect(demon.collisionFilter?.mask).toBe(0);
+
+    // Once the player leaves, the demon starts a fresh telegraph at that point.
+    const ball = bodyFor(harness, 'BALL');
+    ball.position.x = 300;
+    harness.world.step(250);
+    expect(demon.isStatic).toBe(true);
+    harness.world.step(1000);
+    expect(demon.isStatic).toBe(false);
+    harness.world.dispose();
+  });
+
+  it('keeps the zap armed outside attackRadius and strikes once the player enters it', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 500, y: 100 }, ballOptions);
+    harness.world.createDemonEnemy({
+      ...demonDefinition,
+      spawnPoints: [{ x: 220, y: 100 }],
+      attackRadius: 100,
+      activeSeconds: 4,
+    });
+    const demon = bodyFor(harness, 'DEMON:purple-devil');
+    const ball = bodyFor(harness, 'BALL');
+
+    harness.world.step(1000); // materialize
+    harness.world.step(500); // first attack check: still outside range
+    expect(ball.setVelocityCalls).toBe(0);
+    expect(demon.isStatic).toBe(false);
+
+    ball.position.x = 300; // enter the 100 px attack radius
+    harness.world.step(120);
+    expect(ball.setVelocityCalls).toBe(1);
+    expect(Math.hypot(
+      PhysicsAdapter.fromMatterVelocity(ball.velocity).x,
+      PhysicsAdapter.fromMatterVelocity(ball.velocity).y,
+    )).toBeCloseTo(220, 4);
+    expect(harness.graphics[2]?.commands).toContain('strokePath');
+
+    harness.world.step(500);
+    expect(ball.setVelocityCalls).toBe(1);
+    harness.world.dispose();
+  });
+
+  it('remains materialized for the configured active window', () => {
+    const harness = createHarness();
+    harness.world.createDemonEnemy({ ...demonDefinition, activeSeconds: 4 });
+    const demon = bodyFor(harness, 'DEMON:purple-devil');
+
+    harness.world.step(1000);
+    expect(demon.isStatic).toBe(false);
+    harness.world.step(3000);
+    expect(demon.isStatic).toBe(false);
+    harness.world.step(999);
+    expect(demon.isStatic).toBe(false);
+    harness.world.step(1);
+    expect(demon.isStatic).toBe(true);
+    harness.world.dispose();
+  });
+
+  it('still zaps a player exactly at its center using a deterministic fallback direction', () => {
+    const harness = createHarness();
+    harness.world.createDemonEnemy({ ...demonDefinition, spawnPoints: [{ x: 150, y: 100 }] });
+    const demon = bodyFor(harness, 'DEMON:purple-devil');
+    harness.world.step(1000);
+    expect(demon.isStatic).toBe(false);
+
+    harness.world.createBall({ x: 150, y: 100 }, ballOptions);
+    const ball = bodyFor(harness, 'BALL');
+    harness.handlers.get('collisionstart')?.({ pairs: [{
+      bodyA: ball,
+      bodyB: demon,
+      collision: { normal: { x: -1, y: 0 }, supports: [] },
+    }] });
+
+    harness.world.step(500);
+    const velocity = PhysicsAdapter.fromMatterVelocity(ball.velocity);
+    expect(ball.setVelocityCalls).toBe(1);
+    expect(Math.hypot(velocity.x, velocity.y)).toBeCloseTo(220, 4);
     harness.world.dispose();
   });
 
@@ -162,7 +282,7 @@ describe('MatterPhysicsWorld teleporting demon', () => {
 
   it('teleports away after its active window if it has not been physically challenged', () => {
     const harness = createHarness();
-    harness.world.createDemonEnemy(demonDefinition);
+    harness.world.createDemonEnemy({ ...demonDefinition, activeSeconds: 1.5 });
     const demon = bodyFor(harness, 'DEMON:purple-devil');
     harness.world.step(1000);
     expect(demon.isStatic).toBe(false);
@@ -209,11 +329,16 @@ describe('MatterPhysicsWorld teleporting demon', () => {
     harness.world.createDemonEnemy(demonDefinition);
     const demon = bodyFor(harness, 'DEMON:purple-devil');
     const ball = bodyFor(harness, 'BALL');
-    harness.world.step(1000);
+    harness.world.step(16); // choose a point clear of the stationary player
+    harness.world.step(1000); // materialize
+    ball.velocity.x = PhysicsAdapter.toMatterVelocity({ x: 300, y: 0 }).x;
     harness.handlers.get('collisionstart')?.({ pairs: [{
       bodyA: ball, bodyB: demon, collision: { normal: { x: -1, y: 0 }, supports: [] },
     }] });
-    harness.world.step(2000);
+    harness.world.step(500); // the ram does not consume the scheduled zap
+    expect(ball.setVelocityCalls).toBe(1);
+    expect(harness.graphics[2]?.commands).toContain('strokePath');
+    harness.world.step(1500);
     expect(demon.isStatic).toBe(false);
     expect(demon.destroyed).toBe(false);
     demon.position.y = demonDefinition.killPlaneY + 1;
