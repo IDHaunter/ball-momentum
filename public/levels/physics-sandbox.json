@@ -700,7 +700,7 @@
         ],
         [
           9010,
-          760
+          560
         ],
         [
           9010,
@@ -741,12 +741,12 @@
       "id": "sandbox-rock-launch-shelf",
       "type": "box",
       "x": 9010,
-      "y": 760,
+      "y": 560,
       "width": 150,
       "height": 640,
       "material": "stone",
       "texture": {
-        "pattern": "stone-strata",
+        "pattern": "stone-fragments",
         "density": 0.95,
         "opacity": 0.52,
         "seed": 319
@@ -764,7 +764,7 @@
       "vertices": [
         [
           9160,
-          760
+          560
         ],
         [
           9780,
@@ -813,7 +813,12 @@
       "width": 1020,
       "height": 480,
       "material": "normal",
-      "texture": "concrete-grain",
+      "texture": {
+        "pattern": "stone-fragments",
+        "density": 1.0,
+        "opacity": 0.55,
+        "seed": 323
+      },
       "borders": {
         "top": "pavers",
         "right": "stone",
@@ -824,13 +829,13 @@
     {
       "id": "sandbox-rolling-rock-glass-wall",
       "type": "box",
-      "x": 10080,
+      "x": 9900,
       "y": 760,
       "width": 44,
       "height": 160,
       "material": "glass",
       "breakable": {
-        "thresholdEnergy": 420000,
+        "thresholdEnergy": 180000,
         "velocityRetention": 0.72
       },
       "texture": "glass-facets",
@@ -1172,7 +1177,7 @@
       "id": "sandbox-rolling-stone-hint",
       "type": "text",
       "x": 9040,
-      "y": 675,
+      "y": 455,
       "text": "ROLL THE STONE",
       "color": "#c7d4df",
       "depth": 4
@@ -1180,7 +1185,7 @@
     {
       "id": "sandbox-rolling-glass-hint",
       "type": "text",
-      "x": 10060,
+      "x": 9900,
       "y": 710,
       "text": "GLASS BREAKER",
       "color": "#a8f0ff",
@@ -1338,11 +1343,11 @@
     {
       "id": "sandbox-rolling-stone",
       "x": 9122,
-      "y": 722,
+      "y": 522,
       "radius": 38,
-      "mass": 7.5,
+      "mass": 10,
       "appearance": "stone",
-      "friction": 0.56,
+      "friction": 0.05,
       "restitution": 0.08
     }
   ]
