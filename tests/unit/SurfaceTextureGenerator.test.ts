@@ -48,7 +48,7 @@ describe('SurfaceTextureGenerator', () => {
     }
   });
 
-  it('renders ice as scattered snow mounds and translucent ice chips', () => {
+  it('renders ice as sparse translucent crystal planes and broad cloudy veins, not dense snow speckles', () => {
     const harness = createTextureHarness();
     createSurfaceTextureCanvas(
       harness.scene,
@@ -60,10 +60,13 @@ describe('SurfaceTextureGenerator', () => {
       42,
     );
 
-    expect(harness.calls).toContain('quadraticCurveTo');
-    expect(harness.calls).toContain('ellipse');
-    expect(harness.calls).toContain('arc');
+    expect(harness.calls.filter((call) => call === 'addColorStop').length).toBeGreaterThan(1);
+    expect(harness.calls).toContain('bezierCurveTo');
+    expect(harness.calls).toContain('lineTo');
     expect(harness.calls).toContain('stroke');
+    expect(harness.calls).not.toContain('ellipse');
+    expect(harness.calls).not.toContain('arc');
+    expect(harness.calls.filter((call) => call === 'stroke').length).toBeLessThan(20);
   });
 
   it('restores the original soft triangular glass panes without drawn seam strokes', () => {

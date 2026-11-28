@@ -43,7 +43,7 @@ The texture is drawn procedurally to a cached CanvasTexture and clipped to the e
 |---|---|---|
 | `stone-fragments` | stone, normal | Loose scatter of small irregular pebbles, mineral flecks and shallow fractures |
 | `stone-strata` | stone, normal | Uneven sediment layers |
-| `ice-strata` | ice | Small soft snow drifts mixed with translucent ice chips |
+| `ice-strata` | ice | Sparse translucent crystal planes, broad cloudy ice veins and a few larger shards |
 | `pavers` | normal, stone | Neat staggered concrete pavers in restrained warm, cool and mineral-grey tones; the matching `pavers` edge uses one larger, gently irregular top course and compact regular side/bottom blocks |
 | `metal-sheen` | metal, normal | Smooth continuous metal with broad soft reflections and restrained glints |
 | `brick-masonry` | brick, stone | Warm terracotta bricks in staggered courses with visible mortar |
@@ -62,7 +62,7 @@ Stone-style upper edges (`borders.top: "stone"` on boxes or a stone-styled polyg
 
 ## Ice top-edge coating
 
-Ice-style upper edges (`borders.top: "ice"` on boxes or an ice-styled polygon edge with an upward-facing outward normal) receive an additional playful crust of rounded blue-white ice chunks, small faceted crystals and occasional snowflake sparkles. Like the stone coating, it is a deterministic decorative overlay only: the original edge remains the sole rolling/contact plane, and the Matter body, geometry, friction, restitution and ball movement are unchanged. Existing face textures such as `ice-strata` remain unchanged. Side and bottom ice borders keep their existing smooth icy rim and glint treatment.
+Ice-style upper edges (`borders.top: "ice"` on boxes or an ice-styled polygon edge with an upward-facing outward normal) receive an additional playful crust of rounded blue-white ice chunks, small faceted crystals and occasional snowflake sparkles. Like the stone coating, it is a deterministic decorative overlay only: the original edge remains the sole rolling/contact plane, and the Matter body, geometry, friction, restitution and ball movement are unchanged. The `ice-strata` face texture uses broad translucent ice veins and sparse larger crystalline planes instead of dense snow flecks. Vertical and bottom ice borders use a slim, low-opacity glass-like rim with a few diffuse reflections and no diagonal scratch marks; the expressive ice-and-snow coating remains exclusive to upper edges.
 
 The end of `physics-sandbox` contains a labelled ten-sample display row covering every current gallery pattern: stone fragments, stone strata, snow drifts and ice chips, concrete paving blocks, polished metal, brick masonry, glass facets, concrete grain, warm wood grain, and sand specks. The goal trigger is placed after the gallery so players can inspect every sample before finishing the level. The brick and wood samples use their own material base colours, while the concrete paver and metal samples use the neutral material so their appearance remains independent of physical material tuning.
 

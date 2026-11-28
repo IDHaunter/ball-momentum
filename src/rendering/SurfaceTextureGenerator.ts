@@ -174,58 +174,128 @@ function drawStoneStrata(ctx: CanvasRenderingContext2D, width: number, height: n
 }
 
 function drawIceStrata(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number, random: () => number): void {
-  // Snow is a soft, uneven blanket; translucent ice chips sit partly embedded in it.
-  ctx.fillStyle = 'rgba(218,240,248,0.16)';
+  // The face should read like translucent frozen glass: broad cloudy layers,
+  // a handful of larger crystals and a few soft fracture lines. The separate
+  // upper-edge coating is intentionally handled by SurfaceBorderRenderer and
+  // remains unchanged.
+  const wash = ctx.createLinearGradient(0, 0, width, height);
+  wash.addColorStop(0, 'rgba(230,248,253,0.12)');
+  wash.addColorStop(0.48, 'rgba(126,194,221,0.055)');
+  wash.addColorStop(1, 'rgba(219,244,251,0.13)');
+  ctx.fillStyle = wash;
   ctx.fillRect(0, 0, width, height);
-  const step = Math.max(17, spacing * 0.48);
-  for (let y = -step; y < height + step; y += step) {
-    for (let x = -step; x < width + step; x += step) {
-      const cx = x + step * (0.35 + random() * 0.3);
-      const cy = y + step * (0.35 + random() * 0.3);
-      const moundW = step * (0.28 + random() * 0.28);
-      const moundH = step * (0.11 + random() * 0.12);
-      // Soft layered drift silhouette.
+
+  // Wide, slowly changing bands resemble cloudy ice strata rather than snow
+  // dust. They deliberately have no sharp repeated diagonal hatch marks.
+  const bandCount = Math.max(2, Math.ceil(height / 82));
+  for (let band = 0; band < bandCount; band += 1) {
+    const baseY = ((band + 0.45) / bandCount) * height + (random() - 0.5) * 18;
+    const drift = (random() - 0.5) * Math.min(24, height * 0.16);
+    ctx.beginPath();
+    ctx.moveTo(-width * 0.08, baseY + drift * 0.25);
+    ctx.bezierCurveTo(
+      width * 0.2, baseY - drift - 10,
+      width * 0.42, baseY + drift + 12,
+      width * 0.62, baseY + drift * 0.35,
+    );
+    ctx.bezierCurveTo(
+      width * 0.78, baseY - drift * 0.55,
+      width * 0.9, baseY + drift * 0.4,
+      width * 1.08, baseY - drift * 0.12,
+    );
+    ctx.strokeStyle = random() > 0.5 ? 'rgba(218,244,251,0.19)' : 'rgba(111,184,211,0.12)';
+    ctx.lineWidth = Math.max(7, Math.min(17, height * (0.075 + random() * 0.035)));
+    ctx.stroke();
+
+    // One understated highlight follows the same broad flow, like light caught
+    // inside a clear ice layer rather than a drawn outline.
+    ctx.beginPath();
+    ctx.moveTo(-width * 0.04, baseY - 1.5);
+    ctx.bezierCurveTo(width * 0.28, baseY - 8 + drift * 0.22, width * 0.68, baseY + 6 - drift * 0.18, width * 1.04, baseY - 2);
+    ctx.strokeStyle = 'rgba(244,253,255,0.2)';
+    ctx.lineWidth = 1.15 + random() * 0.65;
+    ctx.stroke();
+  }
+
+  // Larger, sparse crystalline planes. Each crystal is a broad irregular shard
+  // with one translucent inner facet and a single soft rim highlight.
+  const density = 52 / Math.max(1, spacing);
+  const crystalStep = Math.max(68, 108 / Math.sqrt(density));
+  const columns = Math.max(1, Math.ceil(width / crystalStep));
+  const rows = Math.max(1, Math.ceil(height / crystalStep));
+  const crystalColours = [
+    'rgba(115,190,219,0.19)',
+    'rgba(174,222,237,0.2)',
+    'rgba(216,242,249,0.23)',
+    'rgba(100,174,208,0.14)',
+  ];
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      if (random() < 0.18) continue;
+      const cx = (column + 0.28 + random() * 0.44) * width / columns;
+      const cy = (row + 0.28 + random() * 0.44) * height / rows;
+      const radiusX = Math.min(34, width / columns * (0.25 + random() * 0.1));
+      const radiusY = Math.min(25, height / rows * (0.24 + random() * 0.12));
+      const sides = 5 + Math.floor(random() * 3);
+      const rotation = (random() - 0.5) * 0.42;
+      const points: Array<{ x: number; y: number }> = [];
+
+      for (let point = 0; point < sides; point += 1) {
+        const angle = rotation + point * Math.PI * 2 / sides;
+        const radius = 0.7 + random() * 0.3;
+        points.push({
+          x: cx + Math.cos(angle) * radiusX * radius,
+          y: cy + Math.sin(angle) * radiusY * radius,
+        });
+      }
+
       ctx.beginPath();
-      ctx.ellipse(cx, cy, moundW, moundH, (random() - 0.5) * 0.18, Math.PI, Math.PI * 2);
-      ctx.lineTo(cx + moundW, cy + moundH * 0.55);
-      ctx.quadraticCurveTo(cx, cy + moundH * 1.15, cx - moundW, cy + moundH * 0.55);
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let point = 1; point < points.length; point += 1) ctx.lineTo(points[point].x, points[point].y);
       ctx.closePath();
-      ctx.fillStyle = random() > 0.5 ? 'rgba(250,254,255,0.74)' : 'rgba(202,231,243,0.62)';
+      ctx.fillStyle = crystalColours[Math.floor(random() * crystalColours.length)];
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(226,247,252,0.22)';
+      ctx.lineWidth = 1.05;
       ctx.stroke();
 
-      if (random() > 0.44) {
-        const iceX = cx + (random() - 0.5) * step * 0.72;
-        const iceY = cy - step * (0.08 + random() * 0.12);
-        const r = step * (0.09 + random() * 0.1);
+      // A single triangular facet adds depth while avoiding a web of tiny seams.
+      const facetIndex = Math.floor(random() * points.length);
+      const nextIndex = (facetIndex + 1) % points.length;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(points[facetIndex].x, points[facetIndex].y);
+      ctx.lineTo(points[nextIndex].x, points[nextIndex].y);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(239,251,254,0.17)';
+      ctx.fill();
+
+      if (random() > 0.58) {
+        const highlightX = (cx + points[facetIndex].x) * 0.5;
+        const highlightY = (cy + points[facetIndex].y) * 0.5;
         ctx.beginPath();
-        ctx.moveTo(iceX - r, iceY + r * 0.35);
-        ctx.lineTo(iceX - r * 0.48, iceY - r);
-        ctx.lineTo(iceX + r * 0.35, iceY - r * 0.82);
-        ctx.lineTo(iceX + r, iceY + r * 0.45);
-        ctx.lineTo(iceX + r * 0.15, iceY + r * 0.82);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(111,194,224,0.42)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(240,253,255,0.82)';
+        ctx.moveTo(highlightX - 3, highlightY + 1.5);
+        ctx.lineTo(highlightX + 2.5, highlightY - 2);
+        ctx.strokeStyle = 'rgba(250,255,255,0.32)';
         ctx.lineWidth = 1.1;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(iceX - r * 0.35, iceY + r * 0.22);
-        ctx.lineTo(iceX - r * 0.08, iceY - r * 0.62);
-        ctx.strokeStyle = 'rgba(255,255,255,0.78)';
         ctx.stroke();
       }
     }
   }
-  // Fine snow dust keeps gaps natural rather than forming a repeated tile grid.
-  const flakes = Math.min(1800, Math.round(width * height / (step * step) * 8));
-  for (let i = 0; i < flakes; i += 1) {
-    const x = random() * width, y = random() * height;
-    ctx.fillStyle = 'rgba(255,255,255,0.58)';
-    ctx.beginPath(); ctx.arc(x, y, 0.5 + random() * 1.25, 0, Math.PI * 2); ctx.fill();
+
+  // Very occasional soft glints replace the former carpet of tiny white dots.
+  const glintCount = Math.max(1, Math.round(width * height / 14500));
+  for (let index = 0; index < glintCount; index += 1) {
+    const x = random() * width;
+    const y = random() * height;
+    const length = 5 + random() * 4;
+    ctx.beginPath();
+    ctx.moveTo(x - length, y + length * 0.18);
+    ctx.lineTo(x + length, y - length * 0.18);
+    ctx.strokeStyle = 'rgba(245,253,255,0.28)';
+    ctx.lineWidth = 1.05;
+    ctx.stroke();
   }
 }
 

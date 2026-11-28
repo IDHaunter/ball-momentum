@@ -217,20 +217,42 @@ export function drawSurfaceBorder(
       break;
     }
     case 'ice': {
-      stroke(9, 0x28627c, 0.98);
-      stroke(6, 0x79d5ed, 1);
-      stroke(1.7, 0xe1fbff, 1, -1.6);
-      const glints = Math.max(2, Math.floor(length / 42));
-      for (let index = 1; index < glints; index += 1) {
-        const t = index / glints;
-        const x = a.x + dx * t;
-        const y = a.y + dy * t;
-        graphics.lineStyle(1.6, 0xf4ffff, 0.98);
-        graphics.lineBetween(x - tangent.x * 3 - normal.x * 2, y - tangent.y * 3 - normal.y * 2, x + tangent.x * 3 + normal.x * 2, y + tangent.y * 3 + normal.y * 2);
-      }
       if (normal.y < -0.35) {
-        // An ice-and-snow crust sits outside the flat collision edge only.
+        // Preserve the established expressive snow-and-ice crust on top edges.
+        stroke(9, 0x28627c, 0.98);
+        stroke(6, 0x79d5ed, 1);
+        stroke(1.7, 0xe1fbff, 1, -1.6);
+        const glints = Math.max(2, Math.floor(length / 42));
+        for (let index = 1; index < glints; index += 1) {
+          const t = index / glints;
+          const x = a.x + dx * t;
+          const y = a.y + dy * t;
+          graphics.lineStyle(1.6, 0xf4ffff, 0.98);
+          graphics.lineBetween(x - tangent.x * 3 - normal.x * 2, y - tangent.y * 3 - normal.y * 2, x + tangent.x * 3 + normal.x * 2, y + tangent.y * 3 + normal.y * 2);
+        }
+        // This top coating is deliberately unchanged by the side-face redesign.
         drawIceCrystalCoating(graphics, edge, length, tangent, normal);
+      } else {
+        // Vertical and bottom edges now share the quiet translucent finish of
+        // glass: a thin blue-grey rim and a few diffuse reflections, with no
+        // heavy cyan bands or repeated diagonal highlight scratches.
+        stroke(7.2, 0x294b5a, 0.23);
+        stroke(4.4, 0x8bc4d5, 0.24);
+        stroke(1.05, 0xe3f7fa, 0.22, -1.25);
+        stroke(1, 0x345766, 0.13, 1.35);
+
+        const random = createEdgeRandom(edge);
+        const reflections = Math.max(1, Math.floor(length / 118));
+        for (let index = 0; index < reflections; index += 1) {
+          const t = (index + 0.38 + random() * 0.24) / reflections;
+          const centerX = a.x + dx * t + normal.x * -0.8;
+          const centerY = a.y + dy * t + normal.y * -0.8;
+          const reflectionWidth = 8 + random() * 3.5;
+          graphics.fillStyle(0x9acbd9, 0.12);
+          graphics.fillEllipse(centerX, centerY, reflectionWidth, 2.5);
+          graphics.fillStyle(0xe5f7fb, 0.17);
+          graphics.fillEllipse(centerX - tangent.x * 0.4, centerY - tangent.y * 0.4, reflectionWidth * 0.4, 1.05);
+        }
       }
       break;
     }

@@ -26,7 +26,7 @@ export const SURFACE_TEXTURE_CATALOG: Record<SurfaceTexturePattern, SurfaceTextu
   },
   'ice-strata': {
     label: 'Snow drifts & ice chips',
-    description: 'Soft miniature snow mounds scattered between translucent blue-white ice chunks.',
+    description: 'Sparse translucent blue-white crystal planes, broad cloudy ice veins and a few larger crystalline shards.',
     suggestedMaterials: ['ice'],
     defaultDensity: 1.15,
     defaultOpacity: 0.88,

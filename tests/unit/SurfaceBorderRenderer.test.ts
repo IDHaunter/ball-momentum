@@ -228,8 +228,12 @@ describe('SurfaceBorderRenderer', () => {
 
     const side = new FakeGraphics();
     drawBoxBorders(side, 0, 0, 170, 42, { top: 'none', right: 'ice', bottom: 'none', left: 'none' });
-    expect(side.ellipses).toHaveLength(0);
-    expect(side.lines.some((line) => line.color === 0xf4ffff)).toBe(true);
+    expect(side.lines).toHaveLength(4);
+    expect(side.lines.map((line) => line.width)).toEqual([7.2, 4.4, 1.05, 1]);
+    expect(side.lines.every((line) => line.alpha <= 0.24)).toBe(true);
+    expect(side.lines.some((line) => line.color === 0xf4ffff || line.width > 8)).toBe(false);
+    expect(side.ellipses).toHaveLength(2);
+    expect(side.ellipses.every((ellipse) => ellipse.fill && ellipse.alpha < 0.2 && ellipse.width < 14)).toBe(true);
   });
 
   it('keeps the ice coating deterministic on sloped upward-facing polygon edges', () => {
