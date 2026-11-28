@@ -141,6 +141,15 @@ const poopPickupSchema = z.object({
   spinBoostPercent: z.number().finite().min(0).max(300),
 });
 
+const partyPopperSchema = z.object({
+  id: z.string().min(1),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  radius: z.number().finite().min(10).max(48),
+  upwardLaunchSpeed: z.number().finite().positive().max(2200),
+  forwardBoost: z.number().finite().min(0).max(1600),
+});
+
 const vomitEnemySchema = z.object({
   id: z.string().min(1),
   x: z.number().finite(),
@@ -256,6 +265,7 @@ export const LevelSchema = z.object({
   statues: z.array(statueSchema).max(24).optional(),
   rollingObjects: z.array(rollingObjectSchema).max(24).optional(),
   poopPickups: z.array(poopPickupSchema).max(48).optional(),
+  partyPoppers: z.array(partyPopperSchema).max(48).optional(),
   vomitEnemies: z.array(vomitEnemySchema).max(24).optional(),
   demonEnemies: z.array(demonEnemySchema).max(24).optional(),
   platformSwitches: z.array(platformSwitchSchema).max(24).optional(),

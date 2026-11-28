@@ -7,9 +7,11 @@ import { PoopPickupFactory } from './PoopPickupFactory';
 import { TerrainRenderer } from '../rendering/TerrainRenderer';
 import { TriggerRenderer } from '../rendering/TriggerRenderer';
 import { PoopPickupRenderer } from '../rendering/PoopPickupRenderer';
+import { PartyPopperRenderer } from '../rendering/PartyPopperRenderer';
 import { BackgroundRenderer } from '../rendering/BackgroundRenderer';
 import { BreakableTerrainManager } from './BreakableTerrainManager';
-import type { BreakableSolidDefinition, PoopPickupDefinition } from './LevelTypes';
+import type { BreakableSolidDefinition, PoopPickupDefinition, PartyPopperDefinition } from './LevelTypes';
+import { PartyPopperFactory } from './PartyPopperFactory';
 import { getDemonSpawnPoints } from './DemonSpawnSelector';
 import { LibertyStatueRenderer } from '../rendering/LibertyStatueRenderer';
 
@@ -17,11 +19,13 @@ export class LevelBuilder {
   private readonly terrainRenderer: TerrainRenderer;
   private readonly triggerRenderer: TriggerRenderer;
   private readonly poopPickupRenderer: PoopPickupRenderer;
+  private readonly partyPopperRenderer: PartyPopperRenderer;
   private readonly backgroundRenderer: BackgroundRenderer;
   private readonly statueRenderer: LibertyStatueRenderer;
   private readonly terrainFactory: TerrainFactory;
   private readonly triggerFactory: TriggerFactory;
   private readonly poopPickupFactory: PoopPickupFactory;
+  private readonly partyPopperFactory: PartyPopperFactory;
   private decorations: Phaser.GameObjects.GameObject[] = [];
   private breakables = new BreakableTerrainManager([]);
 
@@ -29,11 +33,13 @@ export class LevelBuilder {
     this.terrainRenderer = new TerrainRenderer(scene);
     this.triggerRenderer = new TriggerRenderer(scene);
     this.poopPickupRenderer = new PoopPickupRenderer(scene);
+    this.partyPopperRenderer = new PartyPopperRenderer(scene);
     this.backgroundRenderer = new BackgroundRenderer(scene);
     this.statueRenderer = new LibertyStatueRenderer(scene);
     this.terrainFactory = new TerrainFactory(world, this.terrainRenderer);
     this.triggerFactory = new TriggerFactory(world, this.triggerRenderer);
     this.poopPickupFactory = new PoopPickupFactory(world, this.poopPickupRenderer);
+    this.partyPopperFactory = new PartyPopperFactory(world, this.partyPopperRenderer);
   }
 
   build(level: LevelDefinition): void {
@@ -43,6 +49,7 @@ export class LevelBuilder {
     this.terrainFactory.build(level);
     this.triggerFactory.build(level);
     this.poopPickupFactory.build(level.poopPickups ?? []);
+    this.partyPopperFactory.build(level.partyPoppers ?? []);
     for (const statue of level.statues ?? []) {
       this.world.createStatue({ id: statue.id, x: statue.x, y: statue.y });
       this.statueRenderer.create(statue.id, statue.x, statue.y);
@@ -191,8 +198,13 @@ export class LevelBuilder {
     return this.poopPickupFactory.collect(id);
   }
 
+  collectPartyPopper(id: string): PartyPopperDefinition | null {
+    return this.partyPopperFactory.collect(id);
+  }
+
   setReducedMotion(enabled: boolean): void {
     this.poopPickupRenderer.setReducedMotion(enabled);
+    this.partyPopperRenderer.setReducedMotion(enabled);
     this.triggerRenderer.setReducedMotion(enabled);
     this.statueRenderer.setReducedMotion(enabled);
   }
@@ -241,6 +253,7 @@ export class LevelBuilder {
     this.terrainRenderer.clear();
     this.triggerRenderer.render([]);
     this.poopPickupFactory.clear();
+    this.partyPopperFactory.clear();
     for (const item of this.decorations) item.destroy();
     this.decorations = [];
     this.breakables.reset();
@@ -252,6 +265,7 @@ export class LevelBuilder {
     this.triggerRenderer.destroy();
     this.statueRenderer.destroy();
     this.poopPickupRenderer.destroy();
+    this.partyPopperRenderer.destroy();
     this.backgroundRenderer.destroy();
   }
 }

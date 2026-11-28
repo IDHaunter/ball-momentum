@@ -110,6 +110,34 @@ describe('LevelValidator', () => {
     expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, id: 'floor' }] })).toThrow(/duplicate ID/);
   });
 
+  it('accepts party poppers with configurable upward launch and forward boost', () => {
+    const level = {
+      ...validLevel,
+      partyPoppers: [{
+        id: 'party-popper-a', x: 420, y: 180, radius: 19,
+        upwardLaunchSpeed: 700, forwardBoost: 240,
+      }],
+    };
+    expect(validator.validate(level).partyPoppers?.[0]).toMatchObject({
+      id: 'party-popper-a', upwardLaunchSpeed: 700, forwardBoost: 240,
+    });
+  });
+
+  it('rejects party poppers with invalid launch values, out-of-bounds positions or duplicate IDs', () => {
+    const basePopper = {
+      id: 'party-popper-a', x: 420, y: 180, radius: 19,
+      upwardLaunchSpeed: 700, forwardBoost: 240,
+    };
+    expect(() => validator.validate({ ...validLevel, partyPoppers: [{ ...basePopper, upwardLaunchSpeed: 0 }] }))
+      .toThrow(/upwardLaunchSpeed/);
+    expect(() => validator.validate({ ...validLevel, partyPoppers: [{ ...basePopper, forwardBoost: -1 }] }))
+      .toThrow(/forwardBoost/);
+    expect(() => validator.validate({ ...validLevel, partyPoppers: [{ ...basePopper, x: 5 }] }))
+      .toThrow(/pickup circle must be inside world bounds/);
+    expect(() => validator.validate({ ...validLevel, partyPoppers: [{ ...basePopper, id: 'floor' }] }))
+      .toThrow(/duplicate ID/);
+  });
+
   it('accepts a pushable vomit enemy with configurable detection and pulse timing', () => {
     const level = {
       ...validLevel,

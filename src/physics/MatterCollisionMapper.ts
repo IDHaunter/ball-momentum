@@ -14,7 +14,7 @@ export interface PhysicsBodyMetadata {
   id: string;
   mass?: number;
   minimumImpactEnergy?: number;
-  triggerType?: 'hazard' | 'checkpoint' | 'goal' | 'poop';
+  triggerType?: 'hazard' | 'checkpoint' | 'goal' | 'poop' | 'partyPopper';
   spikeParentId?: string;
   breakable?: boolean;
   breakableThresholdEnergy?: number;

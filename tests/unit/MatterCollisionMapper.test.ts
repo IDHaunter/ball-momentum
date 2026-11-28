@@ -321,6 +321,25 @@ describe('MatterCollisionMapper collectible sensors', () => {
   });
 });
 
+describe('MatterCollisionMapper party popper sensors', () => {
+  it('emits a one-shot player trigger event when the ball touches a party popper', () => {
+    const ball = body(100, 100);
+    const popper = body(120, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball' }],
+      [popper, { kind: 'trigger', id: 'party-popper-a', triggerType: 'partyPopper' }],
+    ]));
+    const pair: CollisionPairLike = {
+      bodyA: ball, bodyB: popper, collision: { normal: { x: 1, y: 0 } },
+    };
+
+    expect(mapper.mapPair(pair, 'start')).toEqual([{
+      type: 'BALL_ENTERED_TRIGGER', triggerId: 'party-popper-a', triggerType: 'partyPopper',
+    }]);
+    expect(mapper.mapPair(pair, 'active')).toEqual([]);
+  });
+});
+
 describe('MatterCollisionMapper movable blocks', () => {
   function createMapper(ball: MatterBodyLike, block: MatterBodyLike) {
     return new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([

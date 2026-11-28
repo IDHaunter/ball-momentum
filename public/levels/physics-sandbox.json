@@ -1398,5 +1398,15 @@
         "maxX": 7280
       }
     }
+  ],
+  "partyPoppers": [
+    {
+      "id": "sandbox-party-popper-a",
+      "x": 790,
+      "y": 681,
+      "radius": 19,
+      "upwardLaunchSpeed": 700,
+      "forwardBoost": 240
+    }
   ]
 }

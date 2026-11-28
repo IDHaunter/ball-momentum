@@ -128,6 +128,18 @@ export interface PoopPickupDefinition {
   spinBoostPercent: number;
 }
 
+/** One-shot party popper that launches the player upward and forward on contact. */
+export interface PartyPopperDefinition {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  /** Minimum upward launch speed in px/s; the popper always sends the ball upward. */
+  upwardLaunchSpeed: number;
+  /** Additional horizontal speed in px/s, applied in the ball's current travel direction. */
+  forwardBoost: number;
+}
+
 /** Pushable green character that repeatedly vomits impulses at the player inside its detection radius. */
 export interface VomitEnemyDefinition {
   id: string;
@@ -239,6 +251,7 @@ export interface LevelDefinition {
   statues?: StatueDefinition[];
   rollingObjects?: RollingObjectDefinition[];
   poopPickups?: PoopPickupDefinition[];
+  partyPoppers?: PartyPopperDefinition[];
   vomitEnemies?: VomitEnemyDefinition[];
   demonEnemies?: DemonDefinition[];
   platformSwitches?: PlatformSwitchDefinition[];

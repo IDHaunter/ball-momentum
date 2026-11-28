@@ -113,6 +113,14 @@ export class LevelValidator {
       }
     }
 
+    for (const popper of level.partyPoppers ?? []) {
+      addId(popper.id, `partyPoppers.${popper.id}`);
+      if (popper.x - popper.radius < 0 || popper.x + popper.radius > level.world.width
+        || popper.y - popper.radius < 0 || popper.y + popper.radius > level.world.height) {
+        errors.push(`partyPoppers.${popper.id}: pickup circle must be inside world bounds`);
+      }
+    }
+
     for (const enemy of level.vomitEnemies ?? []) {
       addId(enemy.id, `vomitEnemies.${enemy.id}`);
       if (enemy.x - enemy.radius < 0 || enemy.x + enemy.radius > level.world.width

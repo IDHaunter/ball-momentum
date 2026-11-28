@@ -11,6 +11,7 @@ export interface GameEventMap {
   boostChanged: { available: boolean; used: boolean };
   statuesChanged: { completed: number; total: number; remaining: number; complete: boolean };
   goalBlocked: { completed: number; total: number; remaining: number; complete: boolean };
+  partyPopperTriggered: { id: string; direction: -1 | 1; speedBefore: number; speedAfter: number };
   pickupCollected: {
     id: string;
     type: 'poop';

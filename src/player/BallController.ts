@@ -23,6 +23,7 @@ export class BallController {
   private readonly wallBounceContacts = new Set<string>();
   private prePhysicsVelocity: { x: number; y: number } | null = null;
   private landingBouncesRemaining = 0;
+  private lastHorizontalDirection: -1 | 1 = 1;
   private readonly unsubscribePhysicsEvents: () => void;
 
   constructor(
@@ -171,6 +172,54 @@ export class BallController {
       speedAfter: Math.hypot(velocity.x, velocity.y),
       spinBefore,
       spinAfter,
+    };
+  }
+
+  /** Launches the ball upward and adds forward speed without applying extra spin. */
+  applyPartyPopperImpulse(upwardLaunchSpeed: number, forwardBoost: number): {
+    direction: -1 | 1;
+    speedBefore: number;
+    speedAfter: number;
+  } {
+    const snapshot = this.body.getSnapshot();
+    const speedBefore = Math.hypot(snapshot.velocity.x, snapshot.velocity.y);
+    const direction: -1 | 1 = Math.abs(snapshot.velocity.x) > 5
+      ? (snapshot.velocity.x > 0 ? 1 : -1)
+      : this.lastHorizontalDirection;
+    this.lastHorizontalDirection = direction;
+    this.pendingWallImpact = null;
+    this.pendingSpringImpact = null;
+    const velocity = {
+      x: clamp(
+        snapshot.velocity.x + direction * Math.max(0, forwardBoost),
+        -this.config.limits.maxHorizontalSpeed,
+        this.config.limits.maxHorizontalSpeed,
+      ),
+      y: clamp(
+        Math.min(snapshot.velocity.y, -Math.max(0, upwardLaunchSpeed)),
+        -this.config.limits.maxUpwardSpeed,
+        this.config.limits.maxDownwardSpeed,
+      ),
+    };
+    this.body.setVelocity(velocity);
+    this.body.setAwake();
+
+    // Treat this as a real takeoff so ground contacts and air-boost state do
+    // not remain latched from the frame in which the popper was collected.
+    this.contacts.clear();
+    this.lastGrounded = false;
+    this.state.grounded = false;
+    this.state.lastGroundedAtMs = -Infinity;
+    this.jump.reset();
+    this.state.takeoffAtMs = this.clock.nowMs;
+    this.state.airBoostAvailable = true;
+    this.state.airBoostUsed = false;
+    this.landingBouncesRemaining = this.config.landingBounce.maxBounces;
+
+    return {
+      direction,
+      speedBefore,
+      speedAfter: Math.hypot(velocity.x, velocity.y),
     };
   }
 
@@ -351,6 +400,7 @@ export class BallController {
     );
     const airMultiplier = this.state.grounded ? 1 : this.config.horizontalControl.airControlMultiplier;
     const direction = action.type === 'MOVE_RIGHT' ? 1 : -1;
+    this.lastHorizontalDirection = direction;
     const current = this.body.getSnapshot().velocity;
     const nextX = clamp(
       current.x + direction * amount * airMultiplier,

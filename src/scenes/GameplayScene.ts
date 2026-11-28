@@ -451,6 +451,22 @@ export class GameplayScene extends Phaser.Scene {
         });
         continue;
       }
+      if (event.triggerType === 'partyPopper') {
+        if (!this.ball || !this.levelBuilder) continue;
+        const popper = this.levelBuilder.collectPartyPopper(event.triggerId);
+        if (!popper) continue;
+        const launch = this.ball.applyPartyPopperImpulse(popper.upwardLaunchSpeed, popper.forwardBoost);
+        this.ballVisual?.launch();
+        this.effects.partyPopperBurst(popper.x, popper.y + popper.radius * 0.35, popper.radius);
+        this.emitBoostState();
+        this.gameRegistry.events.emit('partyPopperTriggered', {
+          id: popper.id,
+          direction: launch.direction,
+          speedBefore: launch.speedBefore,
+          speedAfter: launch.speedAfter,
+        });
+        continue;
+      }
       if (event.triggerType === 'hazard') this.die(`hazard:${event.triggerId}`);
       else if (event.triggerType === 'checkpoint' && this.checkpoint && this.level) {
         const trigger = this.level.triggers.find((item) => item.id === event.triggerId);

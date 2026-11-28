@@ -70,6 +70,51 @@ describe('BallController', () => {
     ball.dispose();
   });
 
+  it('launches upward and boosts horizontally in the current travel direction without adding spin', () => {
+    const world = new FakeWorld();
+    const clock = new GameClock();
+    const config = createPhysicsConfig();
+    const ball = new BallController(world, config, clock, { x: 20, y: 20 });
+    ball.currentBody.setVelocity({ x: 180, y: 260 });
+    ball.currentBody.setAngularVelocity(0.12);
+    ball.state.grounded = true;
+
+    const result = ball.applyPartyPopperImpulse(700, 240);
+
+    expect(result.direction).toBe(1);
+    expect(ball.snapshot.velocity).toEqual({ x: 420, y: -700 });
+    expect(ball.snapshot.angularVelocity).toBe(0.12);
+    expect(ball.state.grounded).toBe(false);
+    expect(ball.state.airBoostAvailable).toBe(true);
+    expect(ball.state.takeoffAtMs).toBe(clock.nowMs);
+    ball.dispose();
+  });
+
+  it('boosts to the left when the ball is travelling left and always redirects a fall upward', () => {
+    const world = new FakeWorld();
+    const ball = new BallController(world, createPhysicsConfig(), new GameClock(), { x: 20, y: 20 });
+    ball.currentBody.setVelocity({ x: -130, y: 420 });
+
+    const result = ball.applyPartyPopperImpulse(560, 300);
+
+    expect(result.direction).toBe(-1);
+    expect(ball.snapshot.velocity).toEqual({ x: -430, y: -560 });
+    ball.dispose();
+  });
+
+  it('uses the last horizontal input when the ball has almost no horizontal speed', () => {
+    const world = new FakeWorld();
+    const ball = new BallController(world, createPhysicsConfig(), new GameClock(), { x: 20, y: 20 });
+    ball.stepBeforePhysics([action('MOVE_LEFT', 0.6)]);
+    ball.currentBody.setVelocity({ x: 0, y: 0 });
+
+    const result = ball.applyPartyPopperImpulse(500, 180);
+
+    expect(result.direction).toBe(-1);
+    expect(ball.snapshot.velocity).toEqual({ x: -180, y: -500 });
+    ball.dispose();
+  });
+
   it('increases both linear speed and axial spin by the configured percentages', () => {
     const world = new FakeWorld();
     const config = createPhysicsConfig();

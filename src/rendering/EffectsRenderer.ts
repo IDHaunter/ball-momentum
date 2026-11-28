@@ -225,6 +225,85 @@ export class EffectsRenderer {
     }
   }
 
+  partyPopperBurst(x: number, y: number, radius: number): void {
+    if (this.reducedMotion) return;
+
+    const colors = [0xff4f78, 0xffd34f, 0x55d6e8, 0x8b70f2, 0x71d68b, 0xff8a45];
+    const flash = this.trackEffect(this.scene.add.circle(x, y, Math.max(5, radius * 0.28), 0xfff3b0, 0.9)
+      .setDepth(16).setScale(0.35));
+    this.scene.tweens.add({
+      targets: flash,
+      scale: 2.8,
+      alpha: 0,
+      duration: 180,
+      ease: 'Quad.easeOut',
+      onComplete: () => this.finishEffect(flash),
+    });
+
+    const ring = this.trackEffect(this.scene.add.circle(x, y, Math.max(4, radius * 0.2), 0xffffff, 0)
+      .setStrokeStyle(2.2, 0xffdf82, 0.95)
+      .setDepth(15));
+    this.scene.tweens.add({
+      targets: ring,
+      scale: 3.6,
+      alpha: 0,
+      duration: 300,
+      ease: 'Quad.easeOut',
+      onComplete: () => this.finishEffect(ring),
+    });
+
+    // Curled, zig-zag paper ribbons fan upward and outward from the cone.
+    for (let index = 0; index < 20; index += 1) {
+      const color = colors[index % colors.length];
+      const ribbon = this.trackEffect(this.scene.add.graphics().setPosition(x, y).setDepth(17));
+      const ribbonWidth = 2 + Math.random() * 1.8;
+      const length = 7 + Math.random() * 8;
+      ribbon.lineStyle(ribbonWidth, color, 1);
+      ribbon.beginPath();
+      ribbon.moveTo(-length * 0.5, 0);
+      ribbon.lineTo(-length * 0.16, -length * 0.42);
+      ribbon.lineTo(length * 0.18, length * 0.16);
+      ribbon.lineTo(length * 0.5, -length * 0.22);
+      ribbon.strokePath();
+
+      const angle = -Math.PI + Math.random() * Math.PI;
+      const distance = radius * (1.2 + Math.random() * 2.7);
+      this.scene.tweens.add({
+        targets: ribbon,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance + 8 + Math.random() * 22,
+        angle: (Math.random() - 0.5) * 650,
+        scaleX: 0.55 + Math.random() * 0.55,
+        scaleY: 0.65 + Math.random() * 0.8,
+        alpha: 0,
+        duration: 440 + Math.random() * 320,
+        ease: 'Cubic.easeOut',
+        onComplete: () => this.finishEffect(ribbon),
+      });
+    }
+
+    // Small square and triangular paper pieces make the burst feel denser.
+    for (let index = 0; index < 13; index += 1) {
+      const color = colors[(index * 2 + 1) % colors.length];
+      const piece = this.trackEffect(this.scene.add.rectangle(
+        x, y, 2.5 + Math.random() * 3.5, 4 + Math.random() * 5, color, 1,
+      ).setDepth(18));
+      const angle = -Math.PI + Math.random() * Math.PI;
+      const distance = radius * (1.1 + Math.random() * 2.4);
+      this.scene.tweens.add({
+        targets: piece,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance + 14 + Math.random() * 24,
+        angle: (Math.random() - 0.5) * 900,
+        alpha: 0,
+        scale: 0.35,
+        duration: 390 + Math.random() * 300,
+        ease: 'Cubic.easeOut',
+        onComplete: () => this.finishEffect(piece),
+      });
+    }
+  }
+
   poopBoost(x: number, y: number, radius: number, speedBoostPercent: number, spinBoostPercent: number): void {
     if (this.reducedMotion) return;
 

@@ -88,6 +88,27 @@ Levels can define passive dynamic round bodies in a top-level `rollingObjects` a
 
 Levels can define timed bombs in a top-level `bombs` array. Bombs are activated by the player ball or autonomous bots, can be pushed during their countdown, and apply a quadratic radial blast to dynamic objects and breakable glass. See `TIME_BOMB_FEATURE.md` for the JSON fields and physics model.
 
+## Party poppers
+
+Levels can place small one-shot party poppers in a top-level `partyPoppers` array. Touching one immediately launches the player upward and adds horizontal speed in the current travel direction. Unlike the poop boost, the popper does not multiply spin; unlike a bomb, it does not apply a radial physics blast. Its visual burst sends colorful paper ribbons and confetti across the screen.
+
+```json
+{
+  "partyPoppers": [
+    {
+      "id": "party-popper-a",
+      "x": 790,
+      "y": 681,
+      "radius": 19,
+      "upwardLaunchSpeed": 700,
+      "forwardBoost": 240
+    }
+  ]
+}
+```
+
+`x`/`y` and `radius` use the same placement convention as poop pickups. `upwardLaunchSpeed` is the minimum upward player speed in px/s; the popper always sends the ball upward, including if it was falling. `forwardBoost` is an additional horizontal speed in px/s, applied to the right or left according to the ball's current movement direction (or its last horizontal input when nearly stationary). Both values are configurable per instance.
+
 ## Paired lever switches and moving platforms
 
 Levels can define a `platformSwitches` array. Each entry is one paired mechanism: it always creates both a physical lever and its moving platform, so neither can be configured independently. The lever shaft is a solid collider, so the ball rebounds from it instead of passing through a sensor. A sufficiently fast rightward impact from the left switches the lever ON and starts the platform; a sufficiently fast leftward impact from the right switches it OFF and stops the platform at its current position. Direction is read from the ball velocity immediately before collision resolution. Weak and mostly vertical impacts are ignored. The lever shows a green/red state lamp and tilts to match its state; its physical and visual rod length can be configured with `lever.height` (24–100 px, default 48).
@@ -353,7 +374,7 @@ The Physics Sandbox includes a slime-guarded ledge beside a pit after the textur
 
 ## Radioactive hunter enemies
 
-Levels may define optional `radiationEnemies` entries. A radioactive hunter is a dynamic circular enemy that patrols its platform, reverses at its configured `patrolRange`, at an unsupported edge, or when it collides with terrain or another solid body. When the main ball enters `detectionRadius`, the enemy activates: the radiation symbol flashes, its core pulses, and a countdown appears in the center. Leaving the radius does not disarm it. When `fuseSeconds` expires, it detonates using the same quadratic radial energy falloff as a time bomb and can break nearby breakable terrain.
+Levels may define optional `radiationEnemies` entries. A radioactive hunter is a dynamic circular enemy that patrols its platform, reverses at its configured `patrolRange`, at an unsupported edge, or when it collides with terrain or another solid body. When the main ball enters `detectionRadius`, the enemy activates: the radiation symbol flashes, its core pulses, and a countdown appears in the center. Two animated snail-like eyestalks protrude from its top; their flexible stems sway, their pupils independently scan around, and they blink occasionally. The eyes remain upright even while the body rolls. Leaving the radius does not disarm it. When `fuseSeconds` expires, it detonates using the same quadratic radial energy falloff as a time bomb and can break nearby breakable terrain.
 
 Each detonation spawns exactly six triangular fragments. They first scatter at `fragmentLaunchSpeed` (with a small random ±18% speed variation) across the half-space facing away from the surface the enemy was last touching. Their spawn positions are offset beyond the enemy's silhouette, so a grounded enemy does not create fragments inside the floor. After `fragmentArmingDelaySeconds`, each fragment simply points directly at the player's current position and travels at `fragmentSpeed`. There is no path planning or steering intelligence beyond this direct homing rule. A fragment that reaches the ball adds `fragmentHitImpulse / ballMass` to its velocity. Fragments disappear when they hit terrain or a movable body, when they hit the player, or when `fragmentLifetimeSeconds` expires. A short orange/yellow exhaust makes the shards read visually as tiny rockets. The enemy and fragment bodies are removed when the level is unloaded.
 

@@ -48,6 +48,10 @@ export class RadiationEnemyRenderer {
   private readonly container: RadiationContainerLike;
   private readonly aura: RadiationGraphicsLike;
   private readonly symbol: RadiationGraphicsLike;
+  private readonly eyeStalkContainer: RadiationContainerLike;
+  private readonly eyeStalks: RadiationGraphicsLike;
+  private readonly eyesContainer: RadiationContainerLike;
+  private readonly eyes: RadiationGraphicsLike;
   private readonly countdown: RadiationTextLike;
   private elapsedMs = 0;
   private lastDisplayedSecond = -1;
@@ -63,6 +67,16 @@ export class RadiationEnemyRenderer {
     this.symbol = scene.add.graphics();
     this.container.add(this.aura);
     this.container.add(this.symbol);
+
+    // Keep the eyestalks and eyeballs upright while the radioactive body rolls.
+    // The stalks sit behind the shell so they look rooted inside the ball.
+    this.eyeStalkContainer = scene.add.container(x, y).setDepth(8);
+    this.eyeStalks = scene.add.graphics();
+    this.eyeStalkContainer.add(this.eyeStalks);
+    this.eyesContainer = scene.add.container(x, y).setDepth(10);
+    this.eyes = scene.add.graphics();
+    this.eyesContainer.add(this.eyes);
+
     this.countdown = scene.add.text(x, y, '', {
       fontFamily: 'Arial, sans-serif',
       fontSize: `${Math.max(9, radius * 0.58)}px`,
@@ -72,12 +86,16 @@ export class RadiationEnemyRenderer {
       strokeThickness: Math.max(1.4, radius * 0.09),
     }).setOrigin(0.5).setDepth(16).setVisible(false);
     this.drawSymbol(false, 0);
+    this.drawEyes();
   }
 
   update(deltaMs: number, position: Vector2, rotation: number, activated: boolean, remainingMs: number): void {
     this.elapsedMs += Math.max(0, Math.min(80, deltaMs));
     this.container.setPosition(position.x, position.y).setRotation(rotation);
+    this.eyeStalkContainer.setPosition(position.x, position.y).setRotation(0);
+    this.eyesContainer.setPosition(position.x, position.y).setRotation(0);
     this.drawSymbol(activated, remainingMs);
+    this.drawEyes();
     this.countdown.setVisible(activated).setPosition(position.x, position.y);
     if (!activated) {
       this.lastDisplayedSecond = -1;
@@ -97,7 +115,82 @@ export class RadiationEnemyRenderer {
 
   dispose(): void {
     this.container.destroy();
+    this.eyeStalkContainer.destroy();
+    this.eyesContainer.destroy();
     this.countdown.destroy();
+  }
+
+  /** Draw two flexible, independently scanning snail-like eyestalks. */
+  private drawEyes(): void {
+    const r = this.radius;
+    const time = this.elapsedMs;
+    const eyeRadius = r * 0.22;
+    const eyeWidth = eyeRadius * 2.15;
+    const eyeHeight = eyeRadius * 1.94;
+    const stalkAnchors = [-0.34, 0.34] as const;
+
+    this.eyeStalks.clear();
+    this.eyes.clear();
+
+    stalkAnchors.forEach((anchor, index) => {
+      const phase = index * 1.65;
+      const sway = Math.sin(time * 0.00155 + phase) * r * 0.105
+        + Math.sin(time * 0.00072 + phase * 1.7) * r * 0.035;
+      const bob = Math.sin(time * 0.0019 + phase + 0.6) * r * 0.025;
+      const rootX = anchor * r;
+      const rootY = -r * 0.76;
+      const eyeX = rootX + sway;
+      const eyeY = -r * 1.47 + bob;
+      const stalkEndX = eyeX;
+      const stalkEndY = eyeY + eyeRadius * 0.68;
+      const bendX = rootX + sway * 0.42 + Math.sin(time * 0.0012 + phase) * r * 0.025;
+      const bendY = -r * 1.08 + bob * 0.45;
+
+      const drawStalk = (): void => {
+        this.eyeStalks.beginPath()
+          .moveTo(rootX, rootY)
+          .lineTo(bendX, bendY)
+          .lineTo(stalkEndX, stalkEndY);
+      };
+
+      // Dark outline plus a radioactive-lime inner stroke gives each stalk
+      // a soft, rubbery cartoon look without needing a sprite asset.
+      this.eyeStalks.lineStyle(Math.max(1.7, r * 0.12), 0x59420a, 1);
+      drawStalk();
+      this.eyeStalks.strokePath();
+      this.eyeStalks.lineStyle(Math.max(1.0, r * 0.067), 0xb9c936, 1);
+      drawStalk();
+      this.eyeStalks.strokePath();
+      this.eyeStalks.fillStyle(0xd4df46, 1).fillEllipse(rootX, rootY, r * 0.17, r * 0.17);
+      this.eyeStalks.lineStyle(Math.max(0.7, r * 0.035), 0x59420a, 0.9)
+        .strokeEllipse(rootX, rootY, r * 0.17, r * 0.17);
+
+      // Each eye has its own scanning rhythm, with occasional quick blinks.
+      const lookX = Math.max(-1, Math.min(1,
+        Math.sin(time * 0.00118 + phase + 0.7) * 0.76
+          + Math.sin(time * 0.00049 + phase * 2.1) * 0.19));
+      const lookY = Math.sin(time * 0.00091 + phase * 1.4) * 0.44;
+      const blinkPhase = (time + index * 1730) % 4320;
+      const blink = blinkPhase < 180 ? Math.sin((blinkPhase / 180) * Math.PI) : 0;
+      const openness = 1 - blink * 0.88;
+      const pupilX = eyeX + lookX * r * 0.072;
+      const pupilY = eyeY + lookY * r * 0.052;
+
+      // A subtle green iris ring makes the moving dark pupils easy to read.
+      this.eyes.fillStyle(0x302a13, 1).fillEllipse(eyeX, eyeY, eyeWidth * 1.12, eyeHeight * openness * 1.12);
+      this.eyes.fillStyle(0xfffdf0, 1).fillEllipse(eyeX, eyeY, eyeWidth, eyeHeight * openness);
+      this.eyes.lineStyle(Math.max(0.8, r * 0.035), 0x59420a, 1)
+        .strokeEllipse(eyeX, eyeY, eyeWidth, eyeHeight * openness);
+
+      if (openness > 0.34) {
+        const irisDiameter = r * 0.205;
+        const irisHeight = irisDiameter * openness;
+        this.eyes.fillStyle(0x8b9b27, 1).fillEllipse(pupilX, pupilY, irisDiameter * 1.2, irisHeight * 1.2);
+        this.eyes.fillStyle(0x17190e, 1).fillEllipse(pupilX, pupilY, irisDiameter * 0.72, irisHeight * 0.82);
+        this.eyes.fillStyle(0xffffff, 0.96)
+          .fillEllipse(pupilX - r * 0.027, pupilY - r * 0.034, r * 0.052, r * 0.052 * openness);
+      }
+    });
   }
 
   private drawSymbol(activated: boolean, remainingMs: number): void {

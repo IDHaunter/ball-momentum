@@ -179,7 +179,7 @@ export interface MovableBoxOptions {
 }
 
 export interface SensorOptions {
-  id: string; type: 'hazard' | 'checkpoint' | 'goal' | 'poop';
+  id: string; type: 'hazard' | 'checkpoint' | 'goal' | 'poop' | 'partyPopper';
   x: number; y: number; width: number; height: number;
 }
 
@@ -200,6 +200,6 @@ export type PhysicsEvent =
   | { type: 'RADIATION_ENEMY_EXPLODED'; enemyId: string; position: Vector2; radius: number; explosionEnergy: number; breakableIds: string[] }
   | { type: 'RADIATION_FRAGMENT_EXPLODED'; fragmentId: string; position: Vector2 }
   | { type: 'STATUE_ACTIVATED'; statueId: string }
-  | { type: 'BALL_ENTERED_TRIGGER'; triggerId: string; triggerType: 'hazard' | 'checkpoint' | 'goal' | 'poop' }
+  | { type: 'BALL_ENTERED_TRIGGER'; triggerId: string; triggerType: 'hazard' | 'checkpoint' | 'goal' | 'poop' | 'partyPopper' }
   | { type: 'BOT_ENTERED_TRIGGER'; botId: string; triggerId: string; triggerType: 'poop' }
   | { type: 'BALL_EXITED_TRIGGER'; triggerId: string };
