@@ -49,12 +49,16 @@ function getFilledPaths(
 }
 
 function getThumbIcon(calls: GraphicsCall[]): Array<{ x: number; y: number }> | undefined {
-  return getFilledPaths(calls, 0).find((path) => {
-    if (path.length !== 20) return false;
+  const matchingPaths = getFilledPaths(calls, 0).filter((path) => {
+    // The compact horizontal hand is sampled from thirteen cubic curves into a 53-point silhouette.
+    if (path.length !== 53) return false;
     const width = Math.max(...path.map((point) => point.x)) - Math.min(...path.map((point) => point.x));
     const height = Math.max(...path.map((point) => point.y)) - Math.min(...path.map((point) => point.y));
-    return width >= 21 && width <= 23 && height >= 53 && height <= 55;
+    const centerX = (Math.max(...path.map((point) => point.x)) + Math.min(...path.map((point) => point.x))) / 2;
+    return width >= 35 && width <= 40 && height >= 31 && height <= 36 && centerX > 440;
   });
+  // The main, highlighted hand is drawn after its subtle shadow copy.
+  return matchingPaths.at(-1);
 }
 
 describe('LibertyStatueRenderer', () => {
@@ -83,7 +87,8 @@ describe('LibertyStatueRenderer', () => {
     const allPoints = [...bodyPaths.flat(), ...flamePaths.flat()];
     const visualWidth = Math.max(...allPoints.map((point) => point.x)) - Math.min(...allPoints.map((point) => point.x));
     const visualHeight = Math.max(...allPoints.map((point) => point.y)) - Math.min(...allPoints.map((point) => point.y));
-    expect(visualWidth).toBeLessThan(90);
+    // The clearer horizontal reaction widens the silhouette slightly, while keeping it compact.
+    expect(visualWidth).toBeLessThan(115);
     expect(visualHeight).toBeLessThan(200);
     expect(Math.min(...allPoints.map((point) => point.y))).toBeLessThan(710);
     expect(harness.calls.some((call) => call.objectId === 0
@@ -96,16 +101,26 @@ describe('LibertyStatueRenderer', () => {
     renderer.destroy();
   });
 
-  it('shows a clear thumbs-down before activation and rotates the same silhouette into thumbs-up', () => {
+  it('shows a recognisable thumbs-down and vertically mirrors the same hand into thumbs-up', () => {
     const harness = createHarness();
     const renderer = new LibertyStatueRenderer(harness.scene);
     renderer.create('statue-a', 400, 900);
 
     const dislikeIcon = getThumbIcon(harness.calls);
     expect(dislikeIcon).toBeDefined();
+    const handLeft = Math.min(...dislikeIcon!.map((point) => point.x));
+    const handRight = Math.max(...dislikeIcon!.map((point) => point.x));
+    const handTop = Math.min(...dislikeIcon!.map((point) => point.y));
+    const handBottom = Math.max(...dislikeIcon!.map((point) => point.y));
+    // The wrist is on the left beside the octopus head; the fist extends out horizontally.
+    expect(handRight - handLeft).toBeGreaterThan(handBottom - handTop);
+    expect(handRight - handLeft).toBeLessThan(40);
+    // Its cuff starts just outside the head contour, not above or below the fist.
+    expect(handLeft).toBeGreaterThan(426);
+    expect(handLeft).toBeLessThan(430);
     const iconCenterY = 900 - 119;
     // The thumb tip is the lowest vertex before activation.
-    expect(Math.max(...dislikeIcon!.map((point) => point.y))).toBeGreaterThan(iconCenterY + 23);
+    expect(Math.max(...dislikeIcon!.map((point) => point.y))).toBeGreaterThan(iconCenterY + 21.5);
 
     renderer.activate('statue-a');
     renderer.update(720);
@@ -114,7 +129,13 @@ describe('LibertyStatueRenderer', () => {
     const likeIcon = getThumbIcon(bodyCalls.slice(lastDrawStart));
     expect(likeIcon).toBeDefined();
     // The exact same thumb tip now becomes the highest vertex.
-    expect(Math.min(...likeIcon!.map((point) => point.y))).toBeLessThan(iconCenterY - 23);
+    expect(Math.min(...likeIcon!.map((point) => point.y))).toBeLessThan(iconCenterY - 21.5);
+    expect(likeIcon).toHaveLength(dislikeIcon!.length);
+    likeIcon!.forEach((point, index) => {
+      // A mirror flip preserves every X coordinate and reflects Y around the hand's centerline.
+      expect(point.x).toBeCloseTo(dislikeIcon![index].x, 6);
+      expect(point.y + dislikeIcon![index].y).toBeCloseTo(iconCenterY * 2, 6);
+    });
     renderer.destroy();
   });
 
@@ -125,11 +146,52 @@ describe('LibertyStatueRenderer', () => {
 
     const bodyDrawsBefore = harness.calls.filter((call) => call.objectId === 0 && call.name === 'clear').length;
     const flameDrawsBefore = harness.calls.filter((call) => call.objectId === 1 && call.name === 'clear').length;
+    const faceDrawsBefore = harness.calls.filter((call) => call.objectId === 2 && call.name === 'clear').length;
     renderer.update(160);
     expect(harness.calls.filter((call) => call.objectId === 0 && call.name === 'clear'))
       .toHaveLength(bodyDrawsBefore);
     expect(harness.calls.filter((call) => call.objectId === 1 && call.name === 'clear'))
       .toHaveLength(flameDrawsBefore + 1);
+    expect(harness.calls.filter((call) => call.objectId === 2 && call.name === 'clear'))
+      .toHaveLength(faceDrawsBefore + 1);
+    renderer.destroy();
+  });
+
+
+  it('animates the pupils, blinks periodically and keeps the happy mouth as a two-tooth smile without blush', () => {
+    const harness = createHarness();
+    const renderer = new LibertyStatueRenderer(harness.scene);
+    renderer.create('statue-a', 400, 900);
+
+    const faceCallsBefore = harness.calls.filter((call) => call.objectId === 2);
+    expect(faceCallsBefore.filter((call) => call.name === 'fillStyle').map((call) => call.args[0]))
+      .not.toContain(0xf08a76);
+    const initialPupils = faceCallsBefore
+      .filter((call) => call.name === 'fillCircle' && call.args[2] === 2.65)
+      .map((call) => call.args.slice(0, 2));
+    expect(initialPupils).toHaveLength(2);
+
+    renderer.update(420);
+    const movingPupils = harness.calls
+      .filter((call) => call.objectId === 2 && call.name === 'fillCircle' && call.args[2] === 2.65)
+      .slice(-2)
+      .map((call) => call.args.slice(0, 2));
+    expect(movingPupils).toHaveLength(2);
+    expect(movingPupils).not.toEqual(initialPupils);
+
+    renderer.update(2155); // elapsed 2575 ms: midpoint of the periodic blink.
+    const blinkEyes = harness.calls.filter((call) => call.objectId === 2
+      && call.name === 'fillEllipse' && call.args[2] === 12.6);
+    expect(blinkEyes.slice(-2).every((call) => Number(call.args[3]) < 2)).toBe(true);
+
+    renderer.activate('statue-a');
+    renderer.update(720);
+    const happyFaceStyles = harness.calls
+      .filter((call) => call.objectId === 2 && call.name === 'fillStyle')
+      .map((call) => call.args[0]);
+    expect(happyFaceStyles).toContain(0xfff0cf); // two small front teeth
+    expect(happyFaceStyles).toContain(0x493d50); // dark crescent smile
+    expect(happyFaceStyles).not.toContain(0xf08a76); // no cheek blush
     renderer.destroy();
   });
 
@@ -149,7 +211,7 @@ describe('LibertyStatueRenderer', () => {
     const thumbIcon = getThumbIcon(bodyCalls.slice(lastDrawStart));
     expect(thumbIcon).toBeDefined();
     const iconCenterY = 900 - 119;
-    expect(Math.min(...thumbIcon!.map((point) => point.y))).toBeLessThan(iconCenterY - 23);
+    expect(Math.min(...thumbIcon!.map((point) => point.y))).toBeLessThan(iconCenterY - 21.5);
     renderer.destroy();
   });
 });

@@ -6,6 +6,7 @@ interface StatueVisual {
   y: number;
   graphics: Phaser.GameObjects.Graphics;
   flameGraphics: Phaser.GameObjects.Graphics;
+  faceGraphics: Phaser.GameObjects.Graphics;
   activated: boolean;
   animationMs: number;
   elapsedMs: number;
@@ -36,7 +37,7 @@ const FLAME_HOT = 0xfff8bd;
 const STONE = 0x9a9587;
 const STONE_LIGHT = 0xc3bba6;
 const STONE_DARK = 0x6d7069;
-const BLUSH = 0xf08a76;
+const GESTURE_SCALE = 0.82;
 const VISUAL_HORIZONTAL_SCALE = 0.75;
 
 function drawLine(
@@ -77,13 +78,28 @@ function drawPolygon(
   graphics.strokePath();
 }
 
-function rotatePoint(point: Point, angle: number): Point {
-  const cosine = Math.cos(angle);
-  const sine = Math.sin(angle);
-  return {
-    x: point.x * cosine - point.y * sine,
-    y: point.x * sine + point.y * cosine,
-  };
+interface CubicSegment {
+  controlA: Point;
+  controlB: Point;
+  end: Point;
+}
+
+function sampleCubicPath(start: Point, segments: CubicSegment[], steps = 4): Point[] {
+  const points = [start];
+  let segmentStart = start;
+  for (const segment of segments) {
+    for (let index = 1; index <= steps; index += 1) {
+      points.push(cubicBezier(
+        segmentStart,
+        segment.controlA,
+        segment.controlB,
+        segment.end,
+        index / steps,
+      ));
+    }
+    segmentStart = segment.end;
+  }
+  return points;
 }
 
 function horizontallyScaledGraphics(
@@ -173,12 +189,14 @@ export class LibertyStatueRenderer {
     this.remove(id);
     const graphics = this.scene.add.graphics().setDepth(6.2);
     const flameGraphics = this.scene.add.graphics().setDepth(6.25);
+    const faceGraphics = this.scene.add.graphics().setDepth(6.23);
     const visual: StatueVisual = {
       id,
       x,
       y: baseY,
       graphics,
       flameGraphics,
+      faceGraphics,
       activated: false,
       animationMs: 0,
       elapsedMs: 0,
@@ -186,6 +204,7 @@ export class LibertyStatueRenderer {
     this.statues.set(id, visual);
     this.draw(visual, 0);
     this.drawTorchFlameLayer(visual, visual.elapsedMs);
+    this.drawFaceLayer(visual, 0);
   }
 
   activate(id: string): boolean {
@@ -193,7 +212,10 @@ export class LibertyStatueRenderer {
     if (!statue || statue.activated) return false;
     statue.activated = true;
     statue.animationMs = this.reducedMotion ? ANIMATION_DURATION_MS : 0;
-    if (this.reducedMotion) this.draw(statue, 1);
+    if (this.reducedMotion) {
+      this.draw(statue, 1);
+      this.drawFaceLayer(statue, 1);
+    }
     return true;
   }
 
@@ -204,6 +226,7 @@ export class LibertyStatueRenderer {
       if (!statue.activated) continue;
       statue.animationMs = ANIMATION_DURATION_MS;
       this.draw(statue, 1);
+      this.drawFaceLayer(statue, 1);
     }
   }
 
@@ -219,7 +242,11 @@ export class LibertyStatueRenderer {
         // Draw the terminal 1.0 frame too; otherwise an exact 720 ms step would stop one frame early.
         this.draw(statue, eased);
       }
-      // Only the small flame layer is redrawn continuously; the rest of the mascot stays static.
+      const linearProgress = statue.animationMs / ANIMATION_DURATION_MS;
+      const faceProgress = 1 - (1 - linearProgress) * (1 - linearProgress);
+      // Eyes animate on a separate lightweight layer; the octopus body remains untouched.
+      this.drawFaceLayer(statue, faceProgress);
+      // Only the small flame layer is redrawn continuously besides the animated face.
       this.drawTorchFlameLayer(statue, statue.elapsedMs);
     }
   }
@@ -229,6 +256,7 @@ export class LibertyStatueRenderer {
     if (!statue) return;
     statue.graphics.destroy();
     statue.flameGraphics.destroy();
+    statue.faceGraphics.destroy();
     this.statues.delete(id);
   }
 
@@ -236,6 +264,7 @@ export class LibertyStatueRenderer {
     for (const statue of this.statues.values()) {
       statue.graphics.destroy();
       statue.flameGraphics.destroy();
+      statue.faceGraphics.destroy();
     }
     this.statues.clear();
   }
@@ -255,7 +284,7 @@ export class LibertyStatueRenderer {
     this.drawTentacleSkirt(compactGraphics, x, y);
     this.drawTorchArm(compactGraphics, x, y);
     this.drawGestureArm(compactGraphics, x, y, progress);
-    this.drawHeadAndCrown(graphics, x, y, progress);
+    this.drawHeadAndCrown(graphics, x, y);
   }
 
   private drawPedestal(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
@@ -461,59 +490,103 @@ export class LibertyStatueRenderer {
   }
 
   private drawGestureArm(g: Phaser.GameObjects.Graphics, x: number, y: number, progress: number): void {
-    // The second tentacle is deliberately tiny: the oversized thumb icon is the actual gesture.
+    // The wrist grows directly from the side of the head. The cuff sits at the head-side
+    // end of a horizontally extended fist, like a familiar social-app thumbs reaction.
     drawRibbon(
       g,
-      { x: x + 15, y: y - 108 },
-      { x: x + 25, y: y - 111 },
-      { x: x + 29, y: y - 117 },
-      { x: x + 33, y: y - 119 },
-      6.3,
-      4.2,
+      { x: x + 15, y: y - 119 },
+      { x: x + 23, y: y - 121 },
+      { x: x + 31, y: y - 120 },
+      { x: x + 37, y: y - 119 },
+      6.8,
+      7.4,
       PATINA_MID,
       PATINA_LIGHT,
     );
-    this.drawThumbIcon(g, { x: x + 42, y: y - 119 }, progress);
+    this.drawThumbIcon(g, { x: x + 66, y: y - 119 }, progress);
   }
 
   private drawThumbIcon(g: Phaser.GameObjects.Graphics, center: Point, progress: number): void {
-    // A single, bold silhouette: no detailed fingers or palm, just the instantly readable thumb symbol.
-    const rotation = Math.PI * (1 - progress);
-    const silhouette: Point[] = [
-      { x: -7, y: 22 },
-      { x: 7, y: 22 },
-      { x: 7, y: 10 },
-      { x: 10, y: 7 },
-      { x: 13, y: 2 },
-      { x: 12, y: -3 },
-      { x: 8, y: -7 },
-      { x: 2, y: -8 },
-      { x: -1, y: -6 },
-      { x: -2, y: -12 },
-      { x: -3, y: -25 },
-      { x: -5, y: -31 },
-      { x: -10, y: -32 },
-      { x: -14, y: -29 },
-      { x: -14, y: -18 },
-      { x: -16, y: -12 },
-      { x: -16, y: -2 },
-      { x: -14, y: 10 },
-      { x: -10, y: 19 },
-      { x: -7, y: 22 },
-    ];
-    const transformed = silhouette.map((point) => rotatePoint(point, rotation))
-      .map((point) => ({ x: point.x + center.x, y: point.y + center.y }));
-    drawPolygon(g, transformed, GOLD_LIGHT, OUTLINE, 2.7);
+    // A side-facing, Facebook-style thumbs-up: wrist enters from the left, the fist
+    // extends horizontally to the right, and only the thumb points vertically.
+    // DISLIKE is a vertical mirror of the same silhouette; no rotation is involved.
+    const flipY = -Math.cos(Math.PI * Math.max(0, Math.min(1, progress)));
+    const transform = (point: Point): Point => ({
+      x: center.x + point.x * GESTURE_SCALE,
+      y: center.y + point.y * GESTURE_SCALE * flipY,
+    });
 
-    // One restrained highlight keeps the icon sculpted without making it look like a glove.
-    const highlight = [
-      { x: -12, y: -20 }, { x: -11, y: -27 }, { x: -7, y: -29 },
-    ].map((point) => rotatePoint(point, rotation))
-      .map((point) => ({ x: point.x + center.x, y: point.y + center.y }));
-    drawLine(g, highlight, GOLD, 1.6, 0.98);
+    const outline = sampleCubicPath(
+      { x: -35, y: -8 },
+      [
+        // Straight wrist entering from the head-side cuff.
+        { controlA: { x: -30, y: -8 }, controlB: { x: -23, y: -8 }, end: { x: -18, y: -8 } },
+        { controlA: { x: -15, y: -8 }, controlB: { x: -13, y: -9 }, end: { x: -11, y: -12 } },
+        // Thumb rises clearly from the upper edge of the palm.
+        { controlA: { x: -10, y: -15 }, controlB: { x: -11, y: -20 }, end: { x: -7, y: -24 } },
+        { controlA: { x: -4, y: -28 }, controlB: { x: 2, y: -28 }, end: { x: 5, y: -24 } },
+        { controlA: { x: 7, y: -21 }, controlB: { x: 6, y: -17 }, end: { x: 5, y: -14 } },
+        { controlA: { x: 4, y: -12 }, controlB: { x: 4, y: -11 }, end: { x: 7, y: -11 } },
+        // Palm and folded fingers face outwards, away from the octopus head.
+        { controlA: { x: 12, y: -12 }, controlB: { x: 17, y: -12 }, end: { x: 21, y: -9 } },
+        { controlA: { x: 25, y: -7 }, controlB: { x: 25, y: -3 }, end: { x: 22, y: 0 } },
+        { controlA: { x: 25, y: 2 }, controlB: { x: 24, y: 6 }, end: { x: 20, y: 8 } },
+        { controlA: { x: 19, y: 12 }, controlB: { x: 15, y: 13 }, end: { x: 11, y: 12 } },
+        { controlA: { x: 6, y: 12 }, controlB: { x: 1, y: 10 }, end: { x: -5, y: 9 } },
+        { controlA: { x: -10, y: 8 }, controlB: { x: -14, y: 8 }, end: { x: -18, y: 8 } },
+        { controlA: { x: -24, y: 8 }, controlB: { x: -30, y: 8 }, end: { x: -35, y: 8 } },
+      ],
+      4,
+    );
+    const transformedOutline = outline.map(transform);
+
+    // The shaded edge and strong outline keep the reaction readable at gameplay scale.
+    drawPolygon(
+      g,
+      transformedOutline.map((point) => ({ x: point.x + 1.2, y: point.y + 1.5 })),
+      PATINA_DARK,
+      OUTLINE,
+      3.2,
+    );
+    drawPolygon(g, transformedOutline, PATINA, OUTLINE, 3.0);
+
+    // A vertical cuff band sits at the left/wrist end, visibly attached to the head-side arm.
+    const cuff = [
+      { x: -36, y: -9 }, { x: -27, y: -9 },
+      { x: -27, y: 9 }, { x: -36, y: 9 },
+    ].map(transform);
+    drawPolygon(g, cuff, GOLD, OUTLINE, 1.5);
+    drawLine(g, [
+      transform({ x: -34, y: -7 }),
+      transform({ x: -34, y: 7 }),
+    ], GOLD_LIGHT, 1.15, 0.98);
+    for (const rivetY of [-5, 5]) {
+      const rivet = transform({ x: -29.5, y: rivetY });
+      g.fillStyle(GOLD_LIGHT, 1).fillCircle(rivet.x, rivet.y, 1.05);
+    }
+
+    // Three shallow creases at the outer edge suggest the folded fingers of a closed fist.
+    const knuckles = [
+      [{ x: 17, y: -7 }, { x: 20, y: -6 }, { x: 21, y: -4 }],
+      [{ x: 18, y: -1 }, { x: 21, y: 0 }, { x: 21, y: 2 }],
+      [{ x: 16, y: 6 }, { x: 19, y: 7 }, { x: 19, y: 9 }],
+    ];
+    knuckles.forEach((crease) => drawLine(g, crease.map(transform), PATINA_DEEP, 1.3, 0.84));
+
+    // A thumb highlight follows the nail-side curve; the mirror animation flips it with the thumb.
+    drawLine(g, [
+      transform({ x: -7, y: -23 }),
+      transform({ x: -3, y: -25 }),
+      transform({ x: 1, y: -24 }),
+    ], PATINA_LIGHT, 2.0, 0.96);
+    drawLine(g, [
+      transform({ x: 7, y: -8 }),
+      transform({ x: 12, y: -8 }),
+      transform({ x: 16, y: -7 }),
+    ], PATINA_LIGHT, 1.3, 0.72);
   }
 
-  private drawHeadAndCrown(g: Phaser.GameObjects.Graphics, x: number, y: number, progress: number): void {
+  private drawHeadAndCrown(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
     const headX = x;
     const headY = y - 119;
 
@@ -567,65 +640,102 @@ export class LibertyStatueRenderer {
       { x: headX + 19, y: headY - 10 },
     ], GOLD_LIGHT, 1.25, 0.95);
 
+  }
+
+  /** Redraws only the face so eye movement never forces the body or tentacles to repaint. */
+  private drawFaceLayer(statue: StatueVisual, progress: number): void {
+    const g = statue.faceGraphics;
+    const headX = statue.x;
+    const headY = statue.y - 119;
     const happy = progress >= 0.48;
+    const elapsed = statue.elapsedMs;
+    g.clear();
+
+    // The pupils gently look around; a periodic blink makes the round mascot feel alive.
+    const lookX = Math.sin(elapsed * 0.00125) * 1.05;
+    const lookY = Math.sin(elapsed * 0.0017 + 0.6) * 0.55;
+    const blinkPhase = elapsed % 3900;
+    const blink = blinkPhase >= 2500 && blinkPhase <= 2650
+      ? 1 - Math.abs(blinkPhase - 2575) / 75
+      : 0;
+    const eyeHeight = 1.3 + 11.4 * (1 - Math.max(0, Math.min(1, blink)));
+
+    for (const side of [-1, 1]) {
+      const eyeX = headX + side * 9;
+      const eyeY = headY - (happy ? 3 : 2);
+      g.fillStyle(0xf2e5bf, 1).fillEllipse(eyeX, eyeY, 12.6, eyeHeight);
+      g.lineStyle(1.25, OUTLINE, 1).strokeEllipse(eyeX, eyeY, 12.6, eyeHeight);
+      if (blink < 0.88) {
+        const pupilX = eyeX + side * 0.25 + lookX;
+        const pupilY = eyeY + 0.8 + lookY;
+        g.fillStyle(PATINA_DEEP, 1).fillCircle(pupilX, pupilY, 2.65);
+        g.fillStyle(0xffffff, 1).fillCircle(pupilX - 0.95, pupilY - 1.05, 0.95);
+      } else {
+        // A thin curved lid remains visible during the blink instead of a disappearing eye.
+        drawLine(g, [
+          { x: eyeX - 5.2, y: eyeY },
+          { x: eyeX, y: eyeY + 0.5 },
+          { x: eyeX + 5.2, y: eyeY },
+        ], PATINA_DEEP, 1.35, 1);
+      }
+    }
+
     if (!happy) {
-      // Sad face: drooping eyelids, pupils looking down, a tear and a clear frown.
-      for (const side of [-1, 1]) {
-        const eyeX = headX + side * 9;
-        g.fillStyle(0xf2e5bf, 1).fillCircle(eyeX, headY - 2, 6.3);
-        g.lineStyle(1.3, OUTLINE, 1).strokeCircle(eyeX, headY - 2, 6.3);
-        g.fillStyle(PATINA_DEEP, 1).fillCircle(eyeX + side * 0.7, headY + 1, 2.5);
-      }
-      drawLine(g, [
-        { x: headX - 16, y: headY - 11 }, { x: headX - 10, y: headY - 14 },
-        { x: headX - 4, y: headY - 11 },
-      ], PATINA_DEEP, 2.2, 1);
-      drawLine(g, [
-        { x: headX + 4, y: headY - 11 }, { x: headX + 10, y: headY - 14 },
-        { x: headX + 16, y: headY - 11 },
-      ], PATINA_DEEP, 2.2, 1);
-      drawPolygon(g, [
-        { x: headX + 17, y: headY + 4 }, { x: headX + 20, y: headY + 10 },
-        { x: headX + 17, y: headY + 15 }, { x: headX + 14, y: headY + 10 },
-      ], 0x9bc8d0, 0x4c8790, 0.85);
-      drawLine(g, [
-        { x: headX - 7, y: headY + 15 }, { x: headX - 4, y: headY + 11 },
-        { x: headX, y: headY + 9 }, { x: headX + 4, y: headY + 11 },
-        { x: headX + 7, y: headY + 15 },
-      ], PATINA_DEEP, 2.5, 1);
-    } else {
-      // Happy face: bright round eyes and an exaggerated open smile.
-      for (const side of [-1, 1]) {
-        const eyeX = headX + side * 9;
-        g.fillStyle(0xffedb7, 1).fillCircle(eyeX, headY - 3, 6.5);
-        g.lineStyle(1.25, OUTLINE, 1).strokeCircle(eyeX, headY - 3, 6.5);
-        g.fillStyle(OUTLINE, 1).fillCircle(eyeX, headY - 2, 2.8);
-        g.fillStyle(0xffffff, 1).fillCircle(eyeX - 1.1, headY - 4, 1.25);
-      }
+      // Sad brows angle down toward the centre; the mouth is a simple closed frown.
       drawLine(g, [
         { x: headX - 16, y: headY - 12 }, { x: headX - 10, y: headY - 15 },
         { x: headX - 4, y: headY - 12 },
-      ], PATINA_DEEP, 1.8, 1);
+      ], PATINA_DEEP, 2.2, 1);
       drawLine(g, [
         { x: headX + 4, y: headY - 12 }, { x: headX + 10, y: headY - 15 },
         { x: headX + 16, y: headY - 12 },
-      ], PATINA_DEEP, 1.8, 1);
-      drawPolygon(g, [
-        { x: headX - 8, y: headY + 8 }, { x: headX - 4, y: headY + 7 },
-        { x: headX, y: headY + 8 }, { x: headX + 4, y: headY + 7 },
-        { x: headX + 8, y: headY + 8 }, { x: headX + 6, y: headY + 17 },
-        { x: headX, y: headY + 20 }, { x: headX - 6, y: headY + 17 },
-      ], PUNK_HAIR, OUTLINE, 1.5);
-      drawLine(g, [
-        { x: headX - 5, y: headY + 9 }, { x: headX, y: headY + 10 },
-        { x: headX + 5, y: headY + 9 },
-      ], GOLD_LIGHT, 1.25, 0.95);
-      g.fillStyle(BLUSH, 0.9).fillCircle(headX - 17, headY + 9, 2.2);
-      g.fillStyle(BLUSH, 0.9).fillCircle(headX + 17, headY + 9, 2.2);
+      ], PATINA_DEEP, 2.2, 1);
+      const frown: Point[] = [];
+      for (let index = 0; index <= 8; index += 1) {
+        const t = index / 8;
+        frown.push(cubicBezier(
+          { x: headX - 7, y: headY + 14 },
+          { x: headX - 4, y: headY + 9 },
+          { x: headX + 4, y: headY + 9 },
+          { x: headX + 7, y: headY + 14 },
+          t,
+        ));
+      }
+      drawLine(g, frown, PATINA_DEEP, 2.5, 1);
+      return;
     }
 
-    // A tiny hoop earring makes the round head feel like a cheeky character.
-    g.lineStyle(1.4, GOLD_DARK, 1).strokeCircle(headX + 23, headY + 5, 3.2);
-    g.fillStyle(GOLD_LIGHT, 1).fillCircle(headX + 25, headY + 8, 1.1);
+    // Happy brows are softer, and the mouth is a closed crescent smile with two teeth.
+    drawLine(g, [
+      { x: headX - 16, y: headY - 13 }, { x: headX - 10, y: headY - 15 },
+      { x: headX - 4, y: headY - 13 },
+    ], PATINA_DEEP, 1.65, 0.95);
+    drawLine(g, [
+      { x: headX + 4, y: headY - 13 }, { x: headX + 10, y: headY - 15 },
+      { x: headX + 16, y: headY - 13 },
+    ], PATINA_DEEP, 1.65, 0.95);
+
+    const smile = sampleCubicPath(
+      { x: headX - 8, y: headY + 8 },
+      [
+        { controlA: { x: headX - 5, y: headY + 13 }, controlB: { x: headX + 5, y: headY + 13 }, end: { x: headX + 8, y: headY + 8 } },
+        { controlA: { x: headX + 7, y: headY + 14 }, controlB: { x: headX + 4, y: headY + 18 }, end: { x: headX, y: headY + 18 } },
+        { controlA: { x: headX - 4, y: headY + 18 }, controlB: { x: headX - 7, y: headY + 14 }, end: { x: headX - 8, y: headY + 8 } },
+      ],
+      4,
+    );
+    drawPolygon(g, smile, PUNK_HAIR, OUTLINE, 1.5);
+    drawPolygon(g, [
+      { x: headX - 5.1, y: headY + 9.0 },
+      { x: headX - 0.65, y: headY + 9.8 },
+      { x: headX - 0.85, y: headY + 13.0 },
+      { x: headX - 4.2, y: headY + 12.5 },
+    ], 0xfff0cf, OUTLINE, 0.7);
+    drawPolygon(g, [
+      { x: headX + 0.65, y: headY + 9.8 },
+      { x: headX + 5.1, y: headY + 9.0 },
+      { x: headX + 4.2, y: headY + 12.5 },
+      { x: headX + 0.85, y: headY + 13.0 },
+    ], 0xfff0cf, OUTLINE, 0.7);
   }
 }
