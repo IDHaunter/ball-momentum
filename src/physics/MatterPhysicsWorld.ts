@@ -890,8 +890,9 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   }
 
   createStatue(definition: StatuePhysicsOptions): void {
-    const width = 156;
-    const height = 198;
+    // The octopus mascot is intentionally about 1.5x smaller than the former statue.
+    const width = 104;
+    const height = 132;
     const centerY = definition.y - height / 2 - 1;
     const rawBody = this.factory.rectangle(definition.x, centerY, width, height, {
       label: `STATUE:${definition.id}`,

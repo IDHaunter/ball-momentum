@@ -5,7 +5,7 @@ import type { MatterBodyLike, MatterGameObjectLike } from '../../src/physics/Mat
 import type { CollisionEventLike } from '../../src/physics/MatterCollisionMapper';
 import type { PhysicsEvent, Vector2 } from '../../src/physics/PhysicsTypes';
 
-type TestBody = MatterBodyLike & { isStatic?: boolean; destroyed?: boolean; options?: Record<string, unknown> };
+type TestBody = MatterBodyLike & { isStatic?: boolean; destroyed?: boolean; options?: Record<string, unknown>; width?: number; height?: number };
 type TestVisual = {
   kind: 'circle' | 'rectangle'; x: number; y: number; fillColor: number; alpha: number;
   scaleX: number; scaleY: number; rotation: number; visible: boolean; destroyed: boolean;
@@ -40,10 +40,10 @@ function createHarness() {
       destroy() { state.destroyed = true; },
     };
   };
-  const makeBody = (x: number, y: number, label: string, options: Record<string, unknown> = {}): TestBody => {
+  const makeBody = (x: number, y: number, label: string, options: Record<string, unknown> = {}, width?: number, height?: number): TestBody => {
     const body: TestBody = {
       position: { x, y }, velocity: { x: 0, y: 0 }, angle: 0, angularVelocity: 0,
-      label, isStatic: Boolean(options.isStatic), destroyed: false, options,
+      label, isStatic: Boolean(options.isStatic), destroyed: false, options, width, height,
     };
     bodies.push(body);
     return body;
@@ -114,8 +114,8 @@ function createHarness() {
         circle(x: number, y: number, _radius: number, options: Record<string, unknown>) {
           return makeBody(x, y, String(options.label ?? ''), options);
         },
-        rectangle(x: number, y: number, _width: number, _height: number, options: Record<string, unknown>) {
-          return makeBody(x, y, String(options.label ?? ''), options);
+        rectangle(x: number, y: number, width: number, height: number, options: Record<string, unknown>) {
+          return makeBody(x, y, String(options.label ?? ''), options, width, height);
         },
         fromVertices(x: number, y: number, _vertices: Vector2[][], options: Record<string, unknown>) {
           return makeBody(x, y, String(options.label ?? ''), options);
@@ -164,6 +164,8 @@ describe('MatterPhysicsWorld bombs and statues', () => {
     const statue = harness.bodies.find((body) => body.label === 'STATUE:liberty-statue')!;
     const ball = harness.bodies.find((body) => body.label === 'BALL')!;
     expect(statue.isStatic).toBe(true);
+    expect(statue.width).toBe(104);
+    expect(statue.height).toBe(132);
     expect(statue.options?.restitution).toBe(0.64);
     const filter = statue.options?.collisionFilter as { category: number; mask: number };
     expect(filter.category).toBe(0x0002);

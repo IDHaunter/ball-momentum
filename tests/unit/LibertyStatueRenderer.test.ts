@@ -15,36 +15,14 @@ function createHarness() {
       return graphics;
     },
   });
-  const texts: Array<{
-    text: string;
-    setOrigin: () => unknown;
-    setDepth: () => unknown;
-    setAngle: () => unknown;
-    setText: (value: string) => unknown;
-    destroy: () => void;
-  }> = [];
   const add = {
     graphics: () => graphics,
-    text: (_x: number, _y: number, initialText: string) => {
-      const object = {
-        text: initialText,
-        setOrigin() { return this; },
-        setDepth() { return this; },
-        setAngle() { return this; },
-        setText(value: string) { this.text = value; return this; },
-        destroy() {},
-      };
-      texts.push(object);
-      return object;
-    },
   };
   return {
     scene: { add } as unknown as Phaser.Scene,
     calls,
-    texts,
   };
 }
-
 
 function getFilledPaths(calls: GraphicsCall[]): Array<Array<{ x: number; y: number }>> {
   const paths: Array<Array<{ x: number; y: number }>> = [];
@@ -60,33 +38,48 @@ function getFilledPaths(calls: GraphicsCall[]): Array<Array<{ x: number; y: numb
   return paths;
 }
 
-function getThumbPath(calls: GraphicsCall[]): Array<{ x: number; y: number }> {
+function getGestureHand(calls: GraphicsCall[]): Array<{ x: number; y: number }> | undefined {
   return getFilledPaths(calls).find((path) => {
-    const xs = path.map((point) => point.x);
-    const ys = path.map((point) => point.y);
-    const width = Math.max(...xs) - Math.min(...xs);
-    const height = Math.max(...ys) - Math.min(...ys);
-    return path.length === 11 && width > 13 && width < 18 && height > 18;
-  }) ?? [];
+    if (path.length !== 20) return false;
+    const width = Math.max(...path.map((point) => point.x)) - Math.min(...path.map((point) => point.x));
+    const height = Math.max(...path.map((point) => point.y)) - Math.min(...path.map((point) => point.y));
+    return width >= 20 && width <= 22 && height >= 35 && height <= 37;
+  });
 }
 
 describe('LibertyStatueRenderer', () => {
-  it('draws the draped robe and seven-ray crown and updates the tablet after activation', () => {
+  it('draws a compact octopus mascot with a book, eight tentacles and a seven-ray crown', () => {
     const harness = createHarness();
     const renderer = new LibertyStatueRenderer(harness.scene);
 
     renderer.create('statue-a', 400, 900);
 
-    expect(harness.texts[0].text).toBe('BAD\nVIBES');
-    const polygonFillCalls = harness.calls.filter((call) => call.name === 'fillPath');
-    const closedPaths = harness.calls.filter((call) => call.name === 'closePath');
-    // Gown + seven distinct crown rays + tablet cover.
-    expect(polygonFillCalls.length).toBeGreaterThanOrEqual(9);
-    expect(closedPaths.length).toBeGreaterThanOrEqual(18);
+    const filledPaths = getFilledPaths(harness.calls);
+    // Eight curved ribbons: six form the tentacle skirt and two become the arms.
+    const tentacleRibbons = filledPaths.filter((path) => path.length === 26);
+    expect(tentacleRibbons).toHaveLength(8);
+    expect(filledPaths.length).toBeGreaterThanOrEqual(24);
+    const bookShapes = filledPaths.filter((path) => path.length === 4
+      && Math.min(...path.map((point) => point.x)) < 360
+      && Math.max(...path.map((point) => point.x)) < 380
+      && Math.min(...path.map((point) => point.y)) > 800
+      && Math.max(...path.map((point) => point.y)) < 840);
+    expect(bookShapes.length).toBeGreaterThanOrEqual(2);
+    expect(harness.calls.some((call) => call.name === 'fillCircle' && call.args[0] === 400 && call.args[2] === 26)).toBe(true);
+    expect(harness.calls.filter((call) => call.name === 'fillCircle').length).toBeGreaterThanOrEqual(25);
+    const allPoints = filledPaths.flat();
+    const visualWidth = Math.max(...allPoints.map((point) => point.x)) - Math.min(...allPoints.map((point) => point.x));
+    const visualHeight = Math.max(...allPoints.map((point) => point.y)) - Math.min(...allPoints.map((point) => point.y));
+    expect(visualWidth).toBeLessThan(90); // The body and props are compact around the round head.
+    expect(visualHeight).toBeLessThan(170); // About 1.5x shorter than the previous monument.
+    const topmostY = Math.min(...allPoints.map((point) => point.y));
+    expect(topmostY).toBeLessThan(750); // The crown and mohawk sit above the round head.
 
+    // The oversized hand remains a distinct, readable 20-point fist/thumb silhouette.
+    const hand = getGestureHand(harness.calls);
+    expect(hand).toBeDefined();
     expect(renderer.activate('statue-a')).toBe(true);
     expect(renderer.activate('statue-a')).toBe(false);
-    expect(harness.texts[0].text).toBe('GOOD\nVIBES');
 
     const drawCountBeforeAnimation = harness.calls.filter((call) => call.name === 'clear').length;
     renderer.update(720);
@@ -96,30 +89,27 @@ describe('LibertyStatueRenderer', () => {
     renderer.destroy();
   });
 
-  it('uses a broad separated thumb silhouette for both dislike and like poses', () => {
+  it('shows a clear thumbs-down before activation and a clear thumbs-up afterwards', () => {
     const harness = createHarness();
     const renderer = new LibertyStatueRenderer(harness.scene);
     renderer.create('statue-a', 400, 900);
 
-    // Select the broad 11-point thumb contour independently of other statue
-    // polygons. The starting wrist is at y=768 in the dislike pose.
-    const dislikeThumb = getThumbPath(harness.calls);
-    expect(dislikeThumb).toHaveLength(11);
-    expect(Math.max(...dislikeThumb.map((point) => point.y))).toBeGreaterThan(785);
-    expect(Math.max(...dislikeThumb.map((point) => point.x))
-      - Math.min(...dislikeThumb.map((point) => point.x))).toBeGreaterThan(13);
+    const dislikeHand = getGestureHand(harness.calls);
+    expect(dislikeHand).toBeDefined();
+    // Vertex 7 is the thumb tip: it points down before the statue is activated.
+    expect(dislikeHand![7].y).toBeGreaterThan(900 - 105 + 18);
 
     renderer.activate('statue-a');
     renderer.update(720);
     const lastDrawStart = harness.calls.map((call) => call.name).lastIndexOf('clear');
-    const likeThumb = getThumbPath(harness.calls.slice(lastDrawStart));
-    // The wrist has moved to y=743 and the thumb now projects clearly above it.
-    expect(likeThumb).toHaveLength(11);
-    expect(Math.min(...likeThumb.map((point) => point.y))).toBeLessThan(725);
+    const likeHand = getGestureHand(harness.calls.slice(lastDrawStart));
+    expect(likeHand).toBeDefined();
+    // The exact same thumb tip now points upwards.
+    expect(likeHand![7].y).toBeLessThan(900 - 105 - 18);
     renderer.destroy();
   });
 
-  it('applies the final thumbs-up pose immediately when reduced motion is enabled', () => {
+  it('applies the thumbs-up pose immediately when reduced motion is enabled', () => {
     const harness = createHarness();
     const renderer = new LibertyStatueRenderer(harness.scene);
     renderer.setReducedMotion(true);
@@ -129,6 +119,11 @@ describe('LibertyStatueRenderer', () => {
     const drawCountBeforeUpdate = harness.calls.filter((call) => call.name === 'clear').length;
     renderer.update(720);
     expect(harness.calls.filter((call) => call.name === 'clear')).toHaveLength(drawCountBeforeUpdate);
-    expect(harness.texts[0].text).toBe('GOOD\nVIBES');
+
+    const lastDrawStart = harness.calls.map((call) => call.name).lastIndexOf('clear');
+    const hand = getGestureHand(harness.calls.slice(lastDrawStart));
+    expect(hand).toBeDefined();
+    expect(hand![7].y).toBeLessThan(900 - 105 - 18);
+    renderer.destroy();
   });
 });

@@ -126,9 +126,9 @@ The platform follows its `points` array at a constant configured speed, loops ba
 
 Edit JSON files in `public/levels/`. `level-01.json` is the tutorial course and `physics-sandbox.json` is the movement sandbox. The browser validates each file before building collision bodies. Reload the game after changing a level.
 
-## Liberty statues
+## Octopus statues
 
-Levels can define stationary Liberty-inspired statues in a top-level `statues` array. The statue uses a flared draped gown, a seven-ray crown, a masonry pedestal and a side-branched clenched hand so the thumbs-up reads clearly at gameplay scale. It starts in a sad dislike pose with a downward thumb and a `BAD VIBES` book. The first player-ball collision makes it bounce the ball, animates the arm into a thumbs-up pose, changes the face to a smile and changes the book to `GOOD VIBES`. Further contacts do not reactivate it. The arm and face transition takes 720 ms; Reduced Motion displays the final pose immediately.
+Levels can define stationary Liberty-inspired octopus mascots in a top-level `statues` array. The compact mascot has a large round smiley head, a seven-ray golden crown with a tiny plum mohawk, six lower tentacles that fan out like a robe, a small book held in one tentacle, and an oversized hand at the end of another. Its copper-patina palette and warm stone pedestal preserve the original statue identity, while the suckers, earring and punk wrist cuff make it playful. Before activation it has a sad face and a clearly visible thumbs-down; after the first player-ball collision, the hand turns to thumbs-up and the face becomes a broad grin over 720 ms. Further contacts do not reactivate it; Reduced Motion displays the final pose immediately. The statue's physical collision body is scaled down with the visual.
 
 ```json
 {

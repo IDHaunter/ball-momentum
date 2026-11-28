@@ -5,30 +5,37 @@ interface StatueVisual {
   x: number;
   y: number;
   graphics: Phaser.GameObjects.Graphics;
-  bookText: Phaser.GameObjects.Text;
   activated: boolean;
   animationMs: number;
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 const ANIMATION_DURATION_MS = 720;
 const OUTLINE = 0x304b57;
-const STATUE_TEAL = 0x63aaa4;
-const STATUE_LIGHT = 0x9bd3c8;
-const STATUE_MID = 0x579b94;
-const STATUE_SHADE = 0x397b78;
-const GOLD = 0xf2c85d;
-const GOLD_LIGHT = 0xffe39a;
-const GOLD_SHADE = 0xc8993e;
-const BRICK = 0xb9674e;
-const BRICK_DARK = 0x814537;
-
-function interpolate(from: number, to: number, amount: number): number {
-  return from + (to - from) * amount;
-}
+const PATINA = 0x659f98;
+const PATINA_LIGHT = 0x9bc8bd;
+const PATINA_MID = 0x548d87;
+const PATINA_DARK = 0x376b69;
+const PATINA_DEEP = 0x2f5a5a;
+const GOLD = 0xe7bd58;
+const GOLD_LIGHT = 0xffe6a0;
+const GOLD_DARK = 0xb88639;
+const BOOK_COVER = 0x493d50;
+const BOOK_HIGHLIGHT = 0x92768a;
+const PAPER = 0xe8d8ae;
+const STONE = 0x9a9587;
+const STONE_LIGHT = 0xc3bba6;
+const STONE_DARK = 0x6d7069;
+const BLUSH = 0xf08a76;
+const VISUAL_HORIZONTAL_SCALE = 0.75;
 
 function drawLine(
   graphics: Phaser.GameObjects.Graphics,
-  points: Array<{ x: number; y: number }>,
+  points: Point[],
   color: number,
   width: number,
   alpha = 1,
@@ -43,10 +50,10 @@ function drawLine(
 
 function drawPolygon(
   graphics: Phaser.GameObjects.Graphics,
-  points: Array<{ x: number; y: number }>,
+  points: Point[],
   fill: number,
   stroke = OUTLINE,
-  strokeWidth = 2.5,
+  strokeWidth = 2,
 ): void {
   if (points.length < 3) return;
   graphics.fillStyle(fill, 1);
@@ -64,14 +71,92 @@ function drawPolygon(
   graphics.strokePath();
 }
 
-function pointOnCircle(cx: number, cy: number, radius: number, angle: number): { x: number; y: number } {
+function rotatePoint(point: Point, angle: number): Point {
+  const cosine = Math.cos(angle);
+  const sine = Math.sin(angle);
   return {
-    x: cx + Math.cos(angle) * radius,
-    y: cy + Math.sin(angle) * radius,
+    x: point.x * cosine - point.y * sine,
+    y: point.x * sine + point.y * cosine,
   };
 }
 
-/** Draws a Liberty-inspired copper statue with a one-shot dislike-to-like transition. */
+function horizontallyScaledGraphics(
+  graphics: Phaser.GameObjects.Graphics,
+  originX: number,
+  scale: number,
+): Phaser.GameObjects.Graphics {
+  let proxy: Phaser.GameObjects.Graphics;
+  proxy = new Proxy(graphics, {
+    get(target, property) {
+      const value = Reflect.get(target, property, target) as unknown;
+      if (typeof value !== 'function') return value;
+      return (...args: unknown[]) => {
+        const transformed = [...args];
+        if (property === 'moveTo' || property === 'lineTo' || property === 'fillCircle' || property === 'strokeCircle') {
+          transformed[0] = originX + ((transformed[0] as number) - originX) * scale;
+        } else if (property === 'fillEllipse' || property === 'strokeEllipse') {
+          transformed[0] = originX + ((transformed[0] as number) - originX) * scale;
+          transformed[2] = (transformed[2] as number) * scale;
+        }
+        const result = Reflect.apply(value, target, transformed);
+        return result === target ? proxy : result;
+      };
+    },
+  });
+  return proxy;
+}
+
+function cubicBezier(start: Point, controlA: Point, controlB: Point, end: Point, t: number): Point {
+  const inverse = 1 - t;
+  const a = inverse * inverse * inverse;
+  const b = 3 * inverse * inverse * t;
+  const c = 3 * inverse * t * t;
+  const d = t * t * t;
+  return {
+    x: a * start.x + b * controlA.x + c * controlB.x + d * end.x,
+    y: a * start.y + b * controlA.y + c * controlB.y + d * end.y,
+  };
+}
+
+/** Creates a tapered, curved ribbon used for each octopus tentacle. */
+function drawRibbon(
+  graphics: Phaser.GameObjects.Graphics,
+  start: Point,
+  controlA: Point,
+  controlB: Point,
+  end: Point,
+  startWidth: number,
+  endWidth: number,
+  fill: number,
+  highlight = PATINA_LIGHT,
+): Point[] {
+  const centerline: Point[] = [];
+  const left: Point[] = [];
+  const right: Point[] = [];
+  const segments = 12;
+
+  for (let index = 0; index <= segments; index += 1) {
+    const t = index / segments;
+    const point = cubicBezier(start, controlA, controlB, end, t);
+    const previous = cubicBezier(start, controlA, controlB, end, Math.max(0, t - 0.015));
+    const next = cubicBezier(start, controlA, controlB, end, Math.min(1, t + 0.015));
+    const dx = next.x - previous.x;
+    const dy = next.y - previous.y;
+    const length = Math.max(0.001, Math.hypot(dx, dy));
+    const normal = { x: -dy / length, y: dx / length };
+    const width = startWidth + (endWidth - startWidth) * t;
+    const half = width / 2;
+    centerline.push(point);
+    left.push({ x: point.x + normal.x * half, y: point.y + normal.y * half });
+    right.push({ x: point.x - normal.x * half, y: point.y - normal.y * half });
+  }
+
+  drawPolygon(graphics, [...left, ...right.reverse()], fill, OUTLINE, 1.8);
+  drawLine(graphics, centerline.slice(1, 10), highlight, 1.25, 0.78);
+  return centerline;
+}
+
+/** Draws a compact, goofy octopus mascot inspired by the Statue of Liberty. */
 export class LibertyStatueRenderer {
   private readonly statues = new Map<string, StatueVisual>();
   private reducedMotion = false;
@@ -81,20 +166,11 @@ export class LibertyStatueRenderer {
   create(id: string, x: number, baseY: number): void {
     this.remove(id);
     const graphics = this.scene.add.graphics().setDepth(6.2);
-    const bookText = this.scene.add.text(x + 48, baseY - 87, 'BAD\nVIBES', {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: '7px',
-      fontStyle: 'bold',
-      color: '#304b57',
-      align: 'center',
-      lineSpacing: -1,
-    }).setOrigin(0.5).setDepth(6.8).setAngle(17);
     const visual: StatueVisual = {
       id,
       x,
       y: baseY,
       graphics,
-      bookText,
       activated: false,
       animationMs: 0,
     };
@@ -107,7 +183,6 @@ export class LibertyStatueRenderer {
     if (!statue || statue.activated) return false;
     statue.activated = true;
     statue.animationMs = this.reducedMotion ? ANIMATION_DURATION_MS : 0;
-    statue.bookText.setText('GOOD\nVIBES');
     if (this.reducedMotion) this.draw(statue, 1);
     return true;
   }
@@ -137,15 +212,11 @@ export class LibertyStatueRenderer {
     const statue = this.statues.get(id);
     if (!statue) return;
     statue.graphics.destroy();
-    statue.bookText.destroy();
     this.statues.delete(id);
   }
 
   clear(): void {
-    for (const statue of this.statues.values()) {
-      statue.graphics.destroy();
-      statue.bookText.destroy();
-    }
+    for (const statue of this.statues.values()) statue.graphics.destroy();
     this.statues.clear();
   }
 
@@ -154,414 +225,337 @@ export class LibertyStatueRenderer {
   }
 
   private draw(statue: StatueVisual, progress: number): void {
-    const g = statue.graphics;
-    const x = statue.x;
-    const y = statue.y;
-    g.clear();
+    const graphics = statue.graphics;
+    const { x, y } = statue;
+    graphics.clear();
 
-    this.drawPedestal(g, x, y);
-    this.drawRobe(g, x, y);
-    this.drawArms(g, x, y, progress);
-    this.drawHeadAndCrown(g, x, y, progress);
-    this.drawBook(g, x, y);
+    // Compress the body, arms and base horizontally while keeping the head perfectly round.
+    const compactGraphics = horizontallyScaledGraphics(graphics, x, VISUAL_HORIZONTAL_SCALE);
+    this.drawPedestal(compactGraphics, x, y);
+    this.drawTentacleSkirt(compactGraphics, x, y);
+    this.drawBookArm(compactGraphics, x, y);
+    this.drawGestureArm(compactGraphics, x, y, progress);
+    this.drawHeadAndCrown(graphics, x, y, progress);
   }
 
   private drawPedestal(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
-    // Three masonry courses, with staggered joints and a stone cap, replace the toy-like narrow stand.
-    g.fillStyle(0x75463f, 0.18).fillEllipse(x, y - 2, 112, 12);
-    g.fillStyle(BRICK_DARK, 1).fillRect(x - 53, y - 18, 106, 18);
-    g.lineStyle(2.5, OUTLINE, 1).strokeRect(x - 53, y - 18, 106, 18);
-    g.fillStyle(BRICK, 1).fillRect(x - 50, y - 16, 100, 14);
-    g.lineStyle(1.4, BRICK_DARK, 1);
-    g.beginPath();
-    g.moveTo(x - 50, y - 9).lineTo(x + 50, y - 9);
-    g.moveTo(x - 34, y - 16).lineTo(x - 34, y - 9);
-    g.moveTo(x - 2, y - 16).lineTo(x - 2, y - 9);
-    g.moveTo(x + 31, y - 16).lineTo(x + 31, y - 9);
-    g.moveTo(x - 18, y - 9).lineTo(x - 18, y - 2);
-    g.moveTo(x + 15, y - 9).lineTo(x + 15, y - 2);
-    g.strokePath();
-
-    g.fillStyle(0x985442, 1).fillRect(x - 58, y - 25, 116, 7);
-    g.lineStyle(2.2, OUTLINE, 1).strokeRect(x - 58, y - 25, 116, 7);
-    g.fillStyle(0xd07b5c, 1).fillRect(x - 54, y - 24, 108, 4);
-    g.fillStyle(0x96513f, 1).fillRect(x - 48, y - 30, 96, 5);
-    g.lineStyle(2, OUTLINE, 1).strokeRect(x - 48, y - 30, 96, 5);
-    g.fillStyle(0xe0a06f, 1).fillRect(x - 45, y - 29, 90, 2);
-  }
-
-  private drawRobe(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
-    // A continuous flared gown hides mechanical-looking knees and segmented legs.
+    // Keep the familiar warm stone plinth, scaled down with the mascot.
     drawPolygon(g, [
-      { x: x - 15, y: y - 128 },
-      { x: x + 14, y: y - 128 },
-      { x: x + 24, y: y - 115 },
-      { x: x + 23, y: y - 92 },
-      { x: x + 19, y: y - 78 },
-      { x: x + 35, y: y - 31 },
-      { x: x - 35, y: y - 31 },
-      { x: x - 20, y: y - 78 },
-      { x: x - 24, y: y - 94 },
-      { x: x - 24, y: y - 115 },
-    ], STATUE_TEAL, OUTLINE, 3);
-
-    // Soft highlights and deep pleats give the robe volume without losing the game's outlined style.
-    drawLine(g, [
-      { x: x - 18, y: y - 113 }, { x: x - 15, y: y - 91 }, { x: x - 26, y: y - 39 },
-    ], STATUE_LIGHT, 4, 0.82);
-    drawLine(g, [
-      { x: x - 7, y: y - 89 }, { x: x - 10, y: y - 70 }, { x: x - 17, y: y - 35 },
-    ], STATUE_SHADE, 2.6, 0.9);
-    drawLine(g, [
-      { x: x + 5, y: y - 91 }, { x: x + 10, y: y - 69 }, { x: x + 19, y: y - 35 },
-    ], STATUE_LIGHT, 3.2, 0.78);
-    drawLine(g, [
-      { x: x + 17, y: y - 111 }, { x: x + 15, y: y - 91 }, { x: x + 29, y: y - 39 },
-    ], STATUE_SHADE, 3, 0.9);
-    drawLine(g, [
-      { x: x - 20, y: y - 106 }, { x: x - 8, y: y - 96 },
-      { x: x - 3, y: y - 83 }, { x: x - 8, y: y - 65 },
-    ], 0x4c8984, 2.2, 0.82);
-    drawLine(g, [
-      { x: x + 19, y: y - 105 }, { x: x + 9, y: y - 93 },
-      { x: x + 8, y: y - 79 }, { x: x + 15, y: y - 58 },
-    ], STATUE_LIGHT, 2.0, 0.74);
-    drawLine(g, [
-      { x: x - 22, y: y - 58 }, { x: x - 15, y: y - 48 },
-      { x: x - 17, y: y - 36 },
-    ], STATUE_SHADE, 1.8, 0.8);
-    drawLine(g, [
-      { x: x + 22, y: y - 57 }, { x: x + 16, y: y - 47 },
-      { x: x + 18, y: y - 35 },
-    ], STATUE_LIGHT, 1.8, 0.7);
-    drawLine(g, [
-      { x: x - 29, y: y - 34 }, { x, y: y - 32 }, { x: x + 29, y: y - 34 },
-    ], 0x315e5d, 2.2, 0.9);
-
-    // Neckline and a softly sculpted collar.
-    drawLine(g, [
-      { x: x - 12, y: y - 123 }, { x: x - 6, y: y - 118 },
-      { x, y: y - 116 }, { x: x + 7, y: y - 118 }, { x: x + 13, y: y - 123 },
-    ], STATUE_SHADE, 3);
-    drawLine(g, [
-      { x: x - 10, y: y - 122 }, { x: x, y: y - 118 }, { x: x + 10, y: y - 122 },
-    ], STATUE_LIGHT, 1.7);
-
-    // Diagonal gold sash and its small round clasp.
-    drawLine(g, [
-      { x: x + 20, y: y - 115 }, { x: x + 3, y: y - 99 },
-      { x: x - 15, y: y - 86 }, { x: x - 21, y: y - 78 },
-    ], OUTLINE, 15);
-    drawLine(g, [
-      { x: x + 20, y: y - 115 }, { x: x + 3, y: y - 99 },
-      { x: x - 15, y: y - 86 }, { x: x - 21, y: y - 78 },
-    ], GOLD, 10.5);
-    drawLine(g, [
-      { x: x + 17, y: y - 115 }, { x: x + 2, y: y - 100 },
-      { x: x - 14, y: y - 88 },
-    ], GOLD_LIGHT, 1.8);
+      { x: x - 36, y: y - 17 }, { x: x + 36, y: y - 17 },
+      { x: x + 33, y: y - 3 }, { x: x - 33, y: y - 3 },
+    ], STONE_DARK, OUTLINE, 2);
     drawPolygon(g, [
-      { x: x - 8, y: y - 96 },
-      { x: x - 3, y: y - 101 },
-      { x: x + 2, y: y - 96 },
-      { x: x - 3, y: y - 91 },
-    ], GOLD_SHADE, OUTLINE, 1.5);
-    g.fillStyle(GOLD_LIGHT, 1).fillCircle(x - 3, y - 96, 1.8);
+      { x: x - 33, y: y - 16 }, { x: x + 33, y: y - 16 },
+      { x: x + 30, y: y - 4 }, { x: x - 30, y: y - 4 },
+    ], STONE, OUTLINE, 1.35);
+    drawLine(g, [
+      { x: x - 29, y: y - 13 }, { x: x - 12, y: y - 13 },
+      { x: x + 11, y: y - 13 }, { x: x + 29, y: y - 13 },
+    ], STONE_LIGHT, 1.35, 0.85);
+    drawPolygon(g, [
+      { x: x - 40, y: y - 22 }, { x: x + 40, y: y - 22 },
+      { x: x + 37, y: y - 17 }, { x: x - 37, y: y - 17 },
+    ], STONE_LIGHT, OUTLINE, 1.8);
+    drawLine(g, [
+      { x: x - 37, y: y - 20 }, { x: x + 37, y: y - 20 },
+    ], 0xe0d4bd, 1.35, 0.95);
+    drawPolygon(g, [
+      { x: x - 35, y: y - 4 }, { x: x + 35, y: y - 4 },
+      { x: x + 40, y }, { x: x - 40, y },
+    ], STONE_DARK, OUTLINE, 2);
+    drawLine(g, [
+      { x: x - 35, y: y - 3 }, { x: x + 35, y: y - 3 },
+    ], STONE_LIGHT, 1.5, 0.9);
   }
 
-  private drawArms(g: Phaser.GameObjects.Graphics, x: number, y: number, progress: number): void {
-    // The raised arm is sculpted as a continuous limb. Subtle elbow folds replace
-    // the old gold "joint" ring, which made the arm look mechanical.
-    const shoulder = { x: x - 22, y: y - 113 };
-    const elbow = {
-      x: interpolate(x - 48, x - 42, progress),
-      y: interpolate(y - 126, y - 137, progress),
-    };
-    const wrist = {
-      x: interpolate(x - 58, x - 56, progress),
-      y: interpolate(y - 132, y - 157, progress),
-    };
-    drawLine(g, [shoulder, elbow, wrist], OUTLINE, 21);
-    drawLine(g, [shoulder, elbow, wrist], STATUE_TEAL, 15);
-    drawLine(g, [
-      { x: shoulder.x - 3, y: shoulder.y - 6 },
-      { x: elbow.x - 3, y: elbow.y - 5 },
-      { x: wrist.x - 3, y: wrist.y - 5 },
-    ], STATUE_LIGHT, 2.3, 0.78);
-    drawLine(g, [
-      { x: elbow.x - 6, y: elbow.y - 2 },
-      { x: elbow.x - 1, y: elbow.y + 2 },
-      { x: elbow.x + 4, y: elbow.y + 3 },
-    ], STATUE_SHADE, 1.8, 0.78);
-    drawLine(g, [
-      { x: elbow.x - 7, y: elbow.y + 5 },
-      { x: elbow.x - 2, y: elbow.y + 7 },
-    ], STATUE_LIGHT, 1.2, 0.6);
-    this.drawHand(g, wrist.x, wrist.y, progress);
+  private drawTentacleSkirt(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+    // A soft shadow under the head makes the skirt read as a bundle of tentacles.
+    g.fillStyle(PATINA_DEEP, 0.42).fillEllipse(x, y - 38, 48, 24);
 
-    // The other arm bends around the tablet; a softly highlighted sleeve and
-    // elbow crease give it the same sculpted, non-mechanical treatment.
-    const bookShoulder = { x: x + 21, y: y - 113 };
-    const bookElbow = { x: x + 31, y: y - 96 };
-    const bookWrist = { x: x + 34, y: y - 88 };
-    drawLine(g, [bookShoulder, bookElbow, bookWrist], OUTLINE, 18);
-    drawLine(g, [bookShoulder, bookElbow, bookWrist], STATUE_MID, 12.5);
+    const tentacles = [
+      { sx: -17, c1: -29, c2: -43, ex: -37, color: PATINA_DARK },
+      { sx: -11, c1: -21, c2: -29, ex: -25, color: PATINA },
+      { sx: -4, c1: -9, c2: -17, ex: -15, color: PATINA_MID },
+      { sx: 4, c1: 12, c2: 18, ex: 16, color: PATINA },
+      { sx: 11, c1: 24, c2: 31, ex: 28, color: PATINA_MID },
+      { sx: 17, c1: 31, c2: 43, ex: 38, color: PATINA_DARK },
+    ];
+
+    // Six lower tentacles fan out and taper into a dress-like silhouette.
+    tentacles.forEach((tentacle, index) => {
+      const centerline = drawRibbon(
+        g,
+        { x: x + tentacle.sx, y: y - 99 },
+        { x: x + tentacle.c1, y: y - 75 },
+        { x: x + tentacle.c2, y: y - 43 },
+        { x: x + tentacle.ex, y: y - 22 },
+        index === 0 || index === 5 ? 10 : 9,
+        2.8,
+        tentacle.color,
+        index % 2 === 0 ? PATINA_LIGHT : 0x86b9ae,
+      );
+
+      // Tiny pale suckers along the inner edge add an unmistakable octopus detail.
+      [0.42, 0.55, 0.68, 0.81].forEach((t, suckerIndex) => {
+        const point = centerline[Math.round(t * (centerline.length - 1))];
+        const offset = index < 3 ? 2 : -2;
+        g.fillStyle(PATINA_LIGHT, 0.98).fillCircle(point.x + offset, point.y + (suckerIndex % 2), 1.35);
+      });
+    });
+
+    // A gathered mantle/collar ties the tentacles into a single body under the head.
+    drawPolygon(g, [
+      { x: x - 20, y: y - 101 }, { x: x - 13, y: y - 108 },
+      { x: x, y: y - 111 }, { x: x + 13, y: y - 108 },
+      { x: x + 20, y: y - 101 }, { x: x + 13, y: y - 92 },
+      { x: x, y: y - 95 }, { x: x - 13, y: y - 92 },
+    ], PATINA_MID, OUTLINE, 2);
     drawLine(g, [
-      { x: bookShoulder.x + 2, y: bookShoulder.y - 5 },
-      { x: bookElbow.x + 1, y: bookElbow.y - 3 },
-      { x: bookWrist.x + 1, y: bookWrist.y - 3 },
-    ], STATUE_LIGHT, 1.8, 0.75);
-    drawLine(g, [
-      { x: bookElbow.x - 2, y: bookElbow.y + 2 },
-      { x: bookElbow.x + 3, y: bookElbow.y + 5 },
-    ], STATUE_SHADE, 1.6, 0.7);
+      { x: x - 14, y: y - 103 }, { x: x - 7, y: y - 98 },
+      { x, y: y - 96 }, { x: x + 8, y: y - 99 },
+      { x: x + 14, y: y - 104 },
+    ], PATINA_LIGHT, 1.8, 0.92);
   }
 
-  private drawHand(
-    g: Phaser.GameObjects.Graphics,
-    wristX: number,
-    wristY: number,
-    progress: number,
-  ): void {
-    // The hand is based on a conventional closed-fist/thumb silhouette: four
-    // curled knuckles form the palm, while one broad, angled thumb is clearly
-    // separated from the fist. The mirrored vertical pose makes dislike read as
-    // a real thumbs-down rather than a raised middle finger.
-    const thumbDirection = 2 * progress - 1; // down at 0, up at 1
-    const transitionArc = Math.sin(progress * Math.PI) * 5.5;
-    const thumbUp = [
-      { x: 0, y: -7 },
-      { x: 3, y: -10 },
-      { x: 4, y: -16 },
-      { x: 5, y: -22 },
-      { x: 8, y: -26 },
-      { x: 12, y: -26 },
-      { x: 15, y: -23 },
-      { x: 15, y: -19 },
-      { x: 13, y: -11 },
-      { x: 11, y: -5 },
-      { x: 8, y: 1 },
-    ];
-    const thumb = thumbUp.map((point) => ({
-      x: wristX + point.x + (point.y < -12 ? transitionArc : transitionArc * 0.45),
-      y: wristY - 2 + point.y * thumbDirection,
-    }));
-    drawPolygon(g, thumb, STATUE_LIGHT, OUTLINE, 2.8);
+  private drawBookArm(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+    // One upper tentacle curls left and holds a little closed book.
+    drawRibbon(
+      g,
+      { x: x - 17, y: y - 111 },
+      { x: x - 29, y: y - 116 },
+      { x: x - 38, y: y - 102 },
+      { x: x - 39, y: y - 88 },
+      7.5,
+      5.2,
+      PATINA_MID,
+      PATINA_LIGHT,
+    );
 
-    const palm = [
-      { x: wristX - 18, y: wristY - 4 },
-      { x: wristX - 18, y: wristY - 9 },
-      { x: wristX - 15, y: wristY - 12 },
-      { x: wristX - 12, y: wristY - 11 },
-      { x: wristX - 10, y: wristY - 8 },
-      { x: wristX - 9, y: wristY - 11 },
-      { x: wristX - 5, y: wristY - 12 },
-      { x: wristX - 2, y: wristY - 9 },
-      { x: wristX, y: wristY - 11 },
-      { x: wristX + 4, y: wristY - 10 },
-      { x: wristX + 7, y: wristY - 7 },
-      { x: wristX + 10, y: wristY - 6 },
-      { x: wristX + 12, y: wristY - 2 },
-      { x: wristX + 11, y: wristY + 7 },
-      { x: wristX + 7, y: wristY + 11 },
-      { x: wristX - 3, y: wristY + 13 },
-      { x: wristX - 13, y: wristY + 11 },
-      { x: wristX - 18, y: wristY + 6 },
-    ];
-    drawPolygon(g, palm, STATUE_TEAL, OUTLINE, 3);
-
-    // Four shallow knuckle ridges and two palm creases make the fist read as
-    // folded fingers, rather than a plain rounded block.
-    for (const offset of [-12, -6, 0, 5]) {
-      drawLine(g, [
-        { x: wristX + offset - 1.5, y: wristY - 8.3 },
-        { x: wristX + offset, y: wristY - 5.3 },
-        { x: wristX + offset + 1.5, y: wristY - 4.7 },
-      ], STATUE_LIGHT, 1.35, 0.85);
-    }
+    // Book: visible pages, dark teal cover, gold corners and a small bookmark; no tiny text.
+    drawPolygon(g, [
+      { x: x - 55, y: y - 96 }, { x: x - 34, y: y - 92 },
+      { x: x - 32, y: y - 65 }, { x: x - 54, y: y - 69 },
+    ], PAPER, OUTLINE, 1.65);
+    drawPolygon(g, [
+      { x: x - 57, y: y - 99 }, { x: x - 35, y: y - 95 },
+      { x: x - 34, y: y - 68 }, { x: x - 56, y: y - 72 },
+    ], BOOK_COVER, OUTLINE, 1.8);
     drawLine(g, [
-      { x: wristX - 11, y: wristY + 2 },
-      { x: wristX - 5, y: wristY + 5 },
-      { x: wristX + 2, y: wristY + 5 },
-    ], STATUE_SHADE, 1.6, 0.78);
+      { x: x - 45, y: y - 97 }, { x: x - 44, y: y - 70 },
+    ], GOLD, 1.2, 0.95);
     drawLine(g, [
-      { x: wristX + 4, y: wristY - 4 },
-      { x: wristX + 8, y: wristY - 2 },
-    ], STATUE_LIGHT, 1.4, 0.9);
+      { x: x - 53, y: y - 75 }, { x: x - 37, y: y - 72 },
+    ], BOOK_HIGHLIGHT, 1, 0.9);
+    drawPolygon(g, [
+      { x: x - 40, y: y - 69 }, { x: x - 36, y: y - 68 },
+      { x: x - 37, y: y - 61 }, { x: x - 40, y: y - 64 },
+    ], BLUSH, GOLD_DARK, 0.7);
+    g.fillStyle(GOLD_LIGHT, 1).fillCircle(x - 49, y - 91, 1.5);
 
-    // A soft highlight follows the thumb's length; the small crease at its base
-    // reinforces the thumb joint and keeps it distinct from an upright finger.
+    // A tiny curl of tentacle crosses the book's outer edge to show a grip.
+    drawLine(g, [
+      { x: x - 35, y: y - 86 }, { x: x - 31, y: y - 82 },
+      { x: x - 33, y: y - 78 }, { x: x - 37, y: y - 79 },
+    ], PATINA_LIGHT, 4, 1);
+    drawLine(g, [
+      { x: x - 35, y: y - 86 }, { x: x - 31, y: y - 82 },
+      { x: x - 33, y: y - 78 },
+    ], OUTLINE, 1.15, 1);
+  }
+
+  private drawGestureArm(g: Phaser.GameObjects.Graphics, x: number, y: number, progress: number): void {
+    // The second upper tentacle rises out to the right and ends in a large, readable hand.
+    drawRibbon(
+      g,
+      { x: x + 17, y: y - 111 },
+      { x: x + 29, y: y - 121 },
+      { x: x + 38, y: y - 112 },
+      { x: x + 40, y: y - 96 },
+      8,
+      5.6,
+      PATINA_MID,
+      PATINA_LIGHT,
+    );
+
+    // A punk wrist cuff separates the hand from the soft tentacle arm.
+    drawPolygon(g, [
+      { x: x + 34, y: y - 101 }, { x: x + 45, y: y - 99 },
+      { x: x + 46, y: y - 91 }, { x: x + 35, y: y - 93 },
+    ], BOOK_COVER, OUTLINE, 1.5);
+    drawLine(g, [
+      { x: x + 35, y: y - 100 }, { x: x + 45, y: y - 98 },
+    ], BOOK_HIGHLIGHT, 1.1, 0.95);
+    g.fillStyle(GOLD_LIGHT, 1).fillCircle(x + 39, y - 97, 1.25);
+    g.fillStyle(GOLD_LIGHT, 1).fillCircle(x + 43, y - 96, 1.25);
+
+    this.drawGestureHand(g, { x: x + 43, y: y - 105 }, progress);
+  }
+
+  private drawGestureHand(g: Phaser.GameObjects.Graphics, center: Point, progress: number): void {
+    // The thumb is a broad side protrusion from a closed fist, never a lone raised finger.
+    // A half-turn changes the thumbs-up silhouette into a thumbs-down silhouette.
+    const rotation = Math.PI * (1 - progress);
+    const handShape: Point[] = [
+      { x: -7, y: 15 },
+      { x: -10, y: 12 },
+      { x: -10, y: 1 },
+      { x: -10, y: -5 },
+      { x: -13, y: -7 },
+      { x: -18, y: -10 },
+      { x: -18, y: -16 },
+      { x: -14, y: -20 },
+      { x: -10, y: -18 },
+      { x: -7, y: -13 },
+      { x: -3, y: -11 },
+      { x: 4, y: -10 },
+      { x: 8, y: -7 },
+      { x: 10, y: -3 },
+      { x: 10, y: 3 },
+      { x: 8, y: 8 },
+      { x: 6, y: 13 },
+      { x: 2, y: 16 },
+      { x: -4, y: 16 },
+      { x: -7, y: 15 },
+    ];
+    const transformed = handShape.map((point) => rotatePoint(point, rotation))
+      .map((point) => ({ x: point.x + center.x, y: point.y + center.y }));
+    drawPolygon(g, transformed, PATINA_LIGHT, OUTLINE, 2.3);
+
     const thumbHighlight = [
-      { x: wristX + 4 + transitionArc * 0.45, y: wristY - 8 * thumbDirection },
-      { x: wristX + 7 + transitionArc, y: wristY - 15 * thumbDirection },
-      { x: wristX + 10 + transitionArc, y: wristY - 22 * thumbDirection },
+      { x: -16, y: -13 }, { x: -15, y: -18 }, { x: -11, y: -18 },
+    ].map((point) => rotatePoint(point, rotation))
+      .map((point) => ({ x: point.x + center.x, y: point.y + center.y }));
+    drawLine(g, thumbHighlight, 0xd0e5d7, 1.45, 0.95);
+
+    const creases = [
+      [{ x: 0, y: -5 }, { x: 4, y: -4 }, { x: 8, y: -3 }],
+      [{ x: 0, y: -1 }, { x: 5, y: 0 }, { x: 9, y: 1 }],
+      [{ x: -1, y: 3 }, { x: 4, y: 4 }, { x: 8, y: 5 }],
     ];
-    drawLine(g, thumbHighlight, 0xc3e7d8, 1.5, 0.82);
-    drawLine(g, [
-      { x: wristX + 5, y: wristY - 5 },
-      { x: wristX + 8, y: wristY - 2 },
-      { x: wristX + 10, y: wristY + 1 },
-    ], STATUE_SHADE, 1.35, 0.85);
+    creases.forEach((crease) => {
+      drawLine(g, crease.map((point) => rotatePoint(point, rotation))
+        .map((point) => ({ x: point.x + center.x, y: point.y + center.y })), PATINA_DARK, 1.05, 0.9);
+    });
   }
 
   private drawHeadAndCrown(g: Phaser.GameObjects.Graphics, x: number, y: number, progress: number): void {
     const headX = x;
-    const headY = y - 153;
+    const headY = y - 119;
 
-    // Seven filled triangular rays fan from a curved crown band, with bright inner facets.
-    const rayAngles = [-Math.PI + 0.10, -2.52, -2.05, -Math.PI / 2, -1.09, -0.62, -0.10];
-    const rayLengths = [36, 42, 46, 52, 46, 42, 36];
-    rayAngles.forEach((angle, index) => {
-      const halfWidth = index === 3 ? 0.105 : 0.085;
-      const left = pointOnCircle(headX, headY, 20, angle - halfWidth);
-      const tip = pointOnCircle(headX, headY, rayLengths[index], angle);
-      const right = pointOnCircle(headX, headY, 20, angle + halfWidth);
-      drawPolygon(g, [left, tip, right], GOLD, OUTLINE, 2.1);
-      const facetBase = pointOnCircle(headX, headY, 23, angle);
-      const facetTip = pointOnCircle(headX, headY, rayLengths[index] - 6, angle);
-      drawLine(g, [facetBase, facetTip], GOLD_LIGHT, 1.35, 0.95);
-      const shadedBase = pointOnCircle(headX, headY, 22, angle + halfWidth * 0.6);
-      drawLine(g, [shadedBase, tip], GOLD_SHADE, 1.0, 0.72);
+    // A rounded, oversized head is the octopus's main silhouette and emotional focal point.
+    g.fillStyle(PATINA_DARK, 1).fillCircle(headX, headY + 1, 27.5);
+    g.fillStyle(PATINA, 1).fillCircle(headX, headY, 26);
+    g.fillStyle(PATINA_LIGHT, 0.45).fillEllipse(headX - 8, headY - 13, 19, 9);
+    g.lineStyle(2.2, OUTLINE, 1).strokeCircle(headX, headY, 26);
+
+    // Seven short golden crown rays keep the Statue of Liberty reference without overpowering the mascot.
+    const rays = [
+      { bx: -22, tx: -31, ty: -20 },
+      { bx: -16, tx: -23, ty: -30 },
+      { bx: -9, tx: -12, ty: -35 },
+      { bx: 0, tx: 0, ty: -40 },
+      { bx: 9, tx: 12, ty: -35 },
+      { bx: 16, tx: 23, ty: -30 },
+      { bx: 22, tx: 31, ty: -20 },
+    ];
+    rays.forEach((ray) => {
+      drawPolygon(g, [
+        { x: headX + ray.bx - 3, y: headY - 15 },
+        { x: headX + ray.tx, y: headY + ray.ty },
+        { x: headX + ray.bx + 3, y: headY - 14 },
+      ], GOLD, OUTLINE, 1.35);
+      drawLine(g, [
+        { x: headX + ray.bx - 1, y: headY - 17 },
+        { x: headX + ray.tx - 1, y: headY + ray.ty + 4 },
+      ], GOLD_LIGHT, 1, 0.9);
     });
 
-    // Face, ears, and neck are sculpted as one silhouette; no circular robot helmet.
-    g.fillStyle(STATUE_SHADE, 1).fillRoundedRect(x - 7.5, y - 136, 15, 17, 6);
-    // A tapered jaw and long oval silhouette feel closer to a carved classical
-    // face than the previous round, helmet-like shape.
+    // A little plum mohawk peeks between the rays for a playful punk-rock nod.
     drawPolygon(g, [
-      { x: headX - 13, y: headY - 17 },
-      { x: headX - 9, y: headY - 21 },
-      { x: headX, y: headY - 23 },
-      { x: headX + 9, y: headY - 21 },
-      { x: headX + 13, y: headY - 17 },
-      { x: headX + 16, y: headY - 7 },
-      { x: headX + 15, y: headY + 4 },
-      { x: headX + 11, y: headY + 15 },
-      { x: headX + 5, y: headY + 22 },
-      { x: headX, y: headY + 24 },
-      { x: headX - 5, y: headY + 22 },
-      { x: headX - 11, y: headY + 15 },
-      { x: headX - 15, y: headY + 4 },
-      { x: headX - 16, y: headY - 7 },
-    ], STATUE_TEAL, OUTLINE, 3);
+      { x: headX - 10, y: headY - 21 }, { x: headX - 9, y: headY - 31 },
+      { x: headX - 3, y: headY - 26 }, { x: headX + 1, y: headY - 35 },
+      { x: headX + 5, y: headY - 25 }, { x: headX + 10, y: headY - 30 },
+      { x: headX + 11, y: headY - 20 },
+    ], BOOK_COVER, OUTLINE, 1.5);
     drawLine(g, [
-      { x: headX - 12, y: headY - 8 },
-      { x: headX - 11, y: headY + 4 },
-      { x: headX - 7, y: headY + 15 },
-    ], STATUE_LIGHT, 1.5, 0.62);
+      { x: headX - 7, y: headY - 25 }, { x: headX - 3, y: headY - 31 },
+      { x: headX + 1, y: headY - 25 }, { x: headX + 6, y: headY - 28 },
+    ], BLUSH, 1.2, 0.95);
+
+    // A gold circlet sits at the front of the crown, with three visible rivets.
     drawLine(g, [
-      { x: headX + 12, y: headY - 8 },
-      { x: headX + 10, y: headY + 5 },
-      { x: headX + 6, y: headY + 15 },
-    ], STATUE_SHADE, 1.5, 0.58);
-    for (const side of [-1, 1]) {
-      g.fillStyle(STATUE_MID, 1).fillEllipse(headX + side * 18, headY + 1, 7, 11);
-      g.lineStyle(1.6, OUTLINE, 1).strokeEllipse(headX + side * 18, headY + 1, 7, 11);
-      g.fillStyle(STATUE_LIGHT, 0.42).fillEllipse(headX + side * 6, headY - 9, 7, 15);
+      { x: headX - 23, y: headY - 14 }, { x: headX - 17, y: headY - 19 },
+      { x: headX, y: headY - 22 }, { x: headX + 17, y: headY - 19 },
+      { x: headX + 23, y: headY - 14 },
+    ], GOLD_DARK, 4.2, 1);
+    drawLine(g, [
+      { x: headX - 21, y: headY - 15 }, { x: headX - 13, y: headY - 20 },
+      { x: headX, y: headY - 21 }, { x: headX + 13, y: headY - 20 },
+      { x: headX + 21, y: headY - 15 },
+    ], GOLD_LIGHT, 1.25, 1);
+    for (const offset of [-13, 0, 13]) {
+      g.fillStyle(GOLD_LIGHT, 1).fillCircle(headX + offset, headY - 18, 1.35);
     }
 
-    // A curved circlet sits at the forehead and ties the seven rays together.
-    drawLine(g, [
-      { x: headX - 18, y: headY - 8 },
-      { x: headX - 14, y: headY - 17 },
-      { x: headX - 7, y: headY - 21 },
-      { x: headX, y: headY - 22 },
-      { x: headX + 7, y: headY - 21 },
-      { x: headX + 14, y: headY - 17 },
-      { x: headX + 18, y: headY - 8 },
-    ], GOLD_SHADE, 6);
-    drawLine(g, [
-      { x: headX - 17, y: headY - 9 },
-      { x: headX - 13, y: headY - 17 },
-      { x: headX, y: headY - 21 },
-      { x: headX + 13, y: headY - 17 },
-      { x: headX + 17, y: headY - 9 },
-    ], GOLD_LIGHT, 1.8);
-    for (const gemX of [-13, -7, 0, 7, 13]) {
-      g.fillStyle(GOLD_LIGHT, 1).fillCircle(headX + gemX, headY - 16 + Math.abs(gemX) * 0.16, 2);
-      g.lineStyle(0.8, OUTLINE, 0.8).strokeCircle(headX + gemX, headY - 16 + Math.abs(gemX) * 0.16, 2);
-    }
-
-    // Eyes and brows change from worried to warm and open.
-    const eyeY = headY - 1;
-    for (const side of [-1, 1]) {
-      const eyeX = headX + side * 8;
-      const eyeHeight = interpolate(2.8, 3.8, progress);
-      g.fillStyle(0x315e5d, 0.92).fillEllipse(eyeX, eyeY, 5.8, eyeHeight);
-      g.lineStyle(1.1, OUTLINE, 0.9).strokeEllipse(eyeX, eyeY, 5.8, eyeHeight);
+    const happy = progress >= 0.48;
+    if (!happy) {
+      // Sad face: drooping eyelids, pupils looking down, a tear and a clear frown.
+      for (const side of [-1, 1]) {
+        const eyeX = headX + side * 9;
+        g.fillStyle(0xf2e5bf, 1).fillCircle(eyeX, headY - 2, 6.3);
+        g.lineStyle(1.3, OUTLINE, 1).strokeCircle(eyeX, headY - 2, 6.3);
+        g.fillStyle(PATINA_DEEP, 1).fillCircle(eyeX + side * 0.7, headY + 1, 2.5);
+      }
       drawLine(g, [
-        { x: eyeX - 4.5, y: eyeY - 0.3 },
-        { x: eyeX, y: eyeY - interpolate(1.8, 2.3, progress) },
-        { x: eyeX + 4.5, y: eyeY - 0.2 },
-      ], STATUE_SHADE, 1.35, 0.95);
-      const browInnerY = interpolate(headY - 11, headY - 9, progress);
-      const browOuterY = interpolate(headY - 8, headY - 10, progress);
+        { x: headX - 16, y: headY - 11 }, { x: headX - 10, y: headY - 14 },
+        { x: headX - 4, y: headY - 11 },
+      ], PATINA_DEEP, 2.2, 1);
       drawLine(g, [
-        { x: eyeX - 5, y: browOuterY }, { x: eyeX, y: browInnerY },
-        { x: eyeX + 4, y: browOuterY + 1 },
-      ], STATUE_SHADE, 1.45, 0.9);
+        { x: headX + 4, y: headY - 11 }, { x: headX + 10, y: headY - 14 },
+        { x: headX + 16, y: headY - 11 },
+      ], PATINA_DEEP, 2.2, 1);
+      drawPolygon(g, [
+        { x: headX + 17, y: headY + 4 }, { x: headX + 20, y: headY + 10 },
+        { x: headX + 17, y: headY + 15 }, { x: headX + 14, y: headY + 10 },
+      ], 0x9bc8d0, 0x4c8790, 0.85);
+      drawLine(g, [
+        { x: headX - 7, y: headY + 15 }, { x: headX - 4, y: headY + 11 },
+        { x: headX, y: headY + 9 }, { x: headX + 4, y: headY + 11 },
+        { x: headX + 7, y: headY + 15 },
+      ], PATINA_DEEP, 2.5, 1);
+    } else {
+      // Happy face: bright round eyes and an exaggerated open smile.
+      for (const side of [-1, 1]) {
+        const eyeX = headX + side * 9;
+        g.fillStyle(0xffedb7, 1).fillCircle(eyeX, headY - 3, 6.5);
+        g.lineStyle(1.25, OUTLINE, 1).strokeCircle(eyeX, headY - 3, 6.5);
+        g.fillStyle(OUTLINE, 1).fillCircle(eyeX, headY - 2, 2.8);
+        g.fillStyle(0xffffff, 1).fillCircle(eyeX - 1.1, headY - 4, 1.25);
+      }
+      drawLine(g, [
+        { x: headX - 16, y: headY - 12 }, { x: headX - 10, y: headY - 15 },
+        { x: headX - 4, y: headY - 12 },
+      ], PATINA_DEEP, 1.8, 1);
+      drawLine(g, [
+        { x: headX + 4, y: headY - 12 }, { x: headX + 10, y: headY - 15 },
+        { x: headX + 16, y: headY - 12 },
+      ], PATINA_DEEP, 1.8, 1);
+      drawPolygon(g, [
+        { x: headX - 8, y: headY + 8 }, { x: headX - 4, y: headY + 7 },
+        { x: headX, y: headY + 8 }, { x: headX + 4, y: headY + 7 },
+        { x: headX + 8, y: headY + 8 }, { x: headX + 6, y: headY + 17 },
+        { x: headX, y: headY + 20 }, { x: headX - 6, y: headY + 17 },
+      ], BOOK_COVER, OUTLINE, 1.5);
+      drawLine(g, [
+        { x: headX - 5, y: headY + 9 }, { x: headX, y: headY + 10 },
+        { x: headX + 5, y: headY + 9 },
+      ], GOLD_LIGHT, 1.25, 0.95);
+      g.fillStyle(BLUSH, 0.9).fillCircle(headX - 17, headY + 9, 2.2);
+      g.fillStyle(BLUSH, 0.9).fillCircle(headX + 17, headY + 9, 2.2);
     }
 
-    // Small nose and a genuine frown-to-smile mouth transition.
-    drawLine(g, [
-      { x: headX, y: headY + 2 }, { x: headX - 1, y: headY + 7 },
-      { x: headX + 2, y: headY + 8 },
-    ], STATUE_SHADE, 1.6);
-    const mouth = [
-      { x: headX - 8, y: headY + interpolate(14, 11, progress) },
-      { x: headX - 4, y: headY + interpolate(9, 16, progress) },
-      { x: headX, y: headY + interpolate(8, 17, progress) },
-      { x: headX + 4, y: headY + interpolate(9, 16, progress) },
-      { x: headX + 8, y: headY + interpolate(14, 11, progress) },
-    ];
-    drawLine(g, mouth, OUTLINE, 2.3);
-    if (progress > 0.55) {
-      drawLine(g, [
-        { x: headX - 3, y: headY + 18 },
-        { x: headX, y: headY + 19 },
-        { x: headX + 3, y: headY + 18 },
-      ], STATUE_LIGHT, 1.1, 0.72);
-    }
-  }
-
-  private drawBook(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
-    // A small engraved tablet/book with a raised spine, gold corner studs and a page edge.
-    drawPolygon(g, [
-      { x: x + 30, y: y - 112 },
-      { x: x + 67, y: y - 101 },
-      { x: x + 61, y: y - 65 },
-      { x: x + 24, y: y - 76 },
-    ], 0x76b7ac, OUTLINE, 2.7);
-    drawLine(g, [
-      { x: x + 35, y: y - 106 }, { x: x + 29, y: y - 80 },
-    ], 0xc5e8dc, 2);
-    drawLine(g, [
-      { x: x + 36, y: y - 108 }, { x: x + 63, y: y - 100 },
-    ], GOLD_LIGHT, 1.6);
-    drawLine(g, [
-      { x: x + 28, y: y - 78 }, { x: x + 59, y: y - 69 },
-    ], STATUE_SHADE, 1.5);
-    g.fillStyle(GOLD, 1).fillCircle(x + 31, y - 108, 2.1);
-    g.fillStyle(GOLD, 1).fillCircle(x + 62, y - 98, 2.1);
-    // A small sculpted hand wraps around the lower edge of the tablet. Its
-    // fingers overlap the cover, replacing the old circular, robot-like wrist cap.
-    drawPolygon(g, [
-      { x: x + 22, y: y - 89 },
-      { x: x + 25, y: y - 94 },
-      { x: x + 30, y: y - 95 },
-      { x: x + 34, y: y - 91 },
-      { x: x + 36, y: y - 84 },
-      { x: x + 34, y: y - 78 },
-      { x: x + 29, y: y - 76 },
-      { x: x + 24, y: y - 79 },
-    ], STATUE_TEAL, OUTLINE, 2.1);
-    drawLine(g, [
-      { x: x + 25, y: y - 84 },
-      { x: x + 30, y: y - 82 },
-      { x: x + 35, y: y - 83 },
-    ], STATUE_LIGHT, 1.25, 0.88);
-    drawLine(g, [
-      { x: x + 27, y: y - 89 }, { x: x + 31, y: y - 86 },
-    ], STATUE_SHADE, 1.15, 0.82);
+    // A tiny hoop earring makes the round head feel like a cheeky character.
+    g.lineStyle(1.4, GOLD_DARK, 1).strokeCircle(headX + 23, headY + 5, 3.2);
+    g.fillStyle(GOLD_LIGHT, 1).fillCircle(headX + 25, headY + 8, 1.1);
   }
 }
