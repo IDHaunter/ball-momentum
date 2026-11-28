@@ -65,11 +65,11 @@ export class RadiationEnemyRenderer {
     this.container.add(this.symbol);
     this.countdown = scene.add.text(x, y, '', {
       fontFamily: 'Arial, sans-serif',
-      fontSize: `${Math.max(10, radius * 0.68)}px`,
+      fontSize: `${Math.max(9, radius * 0.58)}px`,
       fontStyle: 'bold',
-      color: '#24200b',
-      stroke: '#fff3a6',
-      strokeThickness: Math.max(1.2, radius * 0.075),
+      color: '#fff1ad',
+      stroke: '#382a04',
+      strokeThickness: Math.max(1.4, radius * 0.09),
     }).setOrigin(0.5).setDepth(16).setVisible(false);
     this.drawSymbol(false, 0);
   }
@@ -92,7 +92,7 @@ export class RadiationEnemyRenderer {
     const urgent = remainingMs <= 1000;
     const pulse = 1 + (0.06 + (urgent ? 0.1 : 0))
       * (0.5 + 0.5 * Math.sin(this.elapsedMs * (urgent ? 0.055 : 0.026)));
-    this.countdown.setColor(urgent ? '#b92512' : '#24200b').setScale(pulse);
+    this.countdown.setColor(urgent ? '#ffffff' : '#fff1ad').setScale(pulse);
   }
 
   dispose(): void {
@@ -119,31 +119,48 @@ export class RadiationEnemyRenderer {
       .fillEllipse(-r * 0.2, -r * 0.24, r * 1.16, r * 0.74);
     this.symbol.lineStyle(Math.max(1, r * 0.09), 0x59420a, 0.96).strokeEllipse(0, 0, r * 1.96, r * 1.96);
 
-    const sectorColor = activated && flash ? 0x4c3a05 : 0x735408;
-    const sectorHighlight = activated && flash ? 0xfff7a3 : 0xd79c12;
+    const sectorColors = activated && flash
+      ? [0x493604, 0x604707, 0x493604]
+      : [0x574207, 0x71540a, 0x574207];
     for (let index = 0; index < 3; index += 1) {
       const angle = -Math.PI / 2 + index * (Math.PI * 2 / 3);
-      const outerRadius = r * 0.77;
-      const innerRadius = r * 0.29;
-      const spread = 0.47;
-      const tip = { x: Math.cos(angle) * outerRadius, y: Math.sin(angle) * outerRadius };
-      const first = { x: Math.cos(angle - spread) * innerRadius, y: Math.sin(angle - spread) * innerRadius };
-      const second = { x: Math.cos(angle + spread) * innerRadius, y: Math.sin(angle + spread) * innerRadius };
-      this.symbol.fillStyle(sectorColor, 1)
-        .beginPath().moveTo(tip.x, tip.y).lineTo(first.x, first.y).lineTo(second.x, second.y).closePath().fillPath();
-      this.symbol.lineStyle(Math.max(0.65, r * 0.035), 0x382a04, 0.72)
-        .beginPath().moveTo(tip.x, tip.y).lineTo(first.x, first.y).lineTo(second.x, second.y).closePath().strokePath();
-      const glint = { x: Math.cos(angle) * r * 0.57, y: Math.sin(angle) * r * 0.57 };
-      this.symbol.fillStyle(sectorHighlight, activated ? 0.18 + pulse * 0.3 : 0.16)
-        .fillEllipse(glint.x, glint.y, r * 0.1, r * 0.1);
+      const outerRadius = r * 0.83;
+      const innerRadius = r * 0.17;
+      const halfAngle = 0.43;
+      const arcSteps = 6;
+      const drawBlade = (): void => {
+        this.symbol.beginPath();
+        for (let point = 0; point <= arcSteps; point += 1) {
+          const bladeAngle = angle - halfAngle + (point / arcSteps) * halfAngle * 2;
+          const x = Math.cos(bladeAngle) * outerRadius;
+          const y = Math.sin(bladeAngle) * outerRadius;
+          if (point === 0) this.symbol.moveTo(x, y);
+          else this.symbol.lineTo(x, y);
+        }
+        for (let point = arcSteps; point >= 0; point -= 1) {
+          const bladeAngle = angle - halfAngle + (point / arcSteps) * halfAngle * 2;
+          this.symbol.lineTo(Math.cos(bladeAngle) * innerRadius, Math.sin(bladeAngle) * innerRadius);
+        }
+        this.symbol.closePath();
+      };
+
+      this.symbol.fillStyle(sectorColors[index]!, 1);
+      drawBlade();
+      this.symbol.fillPath();
+      this.symbol.lineStyle(Math.max(0.7, r * 0.032), 0x382a04, 0.82);
+      drawBlade();
+      this.symbol.strokePath();
     }
 
-    this.symbol.fillStyle(0x5c4508, 1).fillEllipse(0, 0, r * 0.58, r * 0.58);
-    this.symbol.fillStyle(activated && flash ? 0xfffbd0 : 0xffdc32, 1)
-      .fillEllipse(0, 0, r * (activated ? 0.29 + pulse * 0.12 : 0.31), r * (activated ? 0.29 + pulse * 0.12 : 0.31));
+    // The classic trefoil has a solid dark hub; the countdown is drawn above it
+    // in a bright, high-contrast color while the three curved blades remain
+    // clearly separated by yellow gaps.
+    this.symbol.fillStyle(0x503b06, 1).fillEllipse(0, 0, r * 0.59, r * 0.59);
+    this.symbol.lineStyle(Math.max(0.7, r * 0.032), 0x382a04, 0.88)
+      .strokeEllipse(0, 0, r * 0.59, r * 0.59);
     if (activated) {
-      this.symbol.fillStyle(0xffffff, flash ? 0.72 : 0.18)
-        .fillEllipse(-r * 0.055, -r * 0.065, r * 0.11, r * 0.11);
+      this.symbol.fillStyle(0xffffff, flash ? 0.4 : 0.12)
+        .fillEllipse(-r * 0.06, -r * 0.075, r * 0.12, r * 0.12);
     }
   }
 }

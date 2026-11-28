@@ -9,7 +9,7 @@ import { calculateMovableBlockImpact } from './MovableBlockImpact';
 import { directionFromVelocity, hasPatrolEdgeAhead, hasPatrolObstacleAhead } from './BotPatrol';
 import { getBirdAttackInterceptPoint, getBirdChaseVelocity, getBirdGuardZone, getBirdTerritoryEgressDirection, isPointInsideBirdGuardZone } from './BirdPatrol';
 import { calculateBlastEnergy, calculateBlastVelocityDelta, distanceToPatrolGeometry } from './BombExplosion';
-import { getDirectHomingVelocity } from './RadiationFragmentGuidance';
+import { getDirectHomingVelocity, getOutwardFragmentLaunchDirection } from './RadiationFragmentGuidance';
 import type Phaser from 'phaser';
 import { createSurfaceTextureCanvas, createSurfaceTextureKey } from '../rendering/SurfaceTextureGenerator';
 import { hashSurfaceTextureSeed } from '../rendering/SurfaceTextureCatalog';
@@ -158,6 +158,7 @@ interface RadiationEnemyRecord {
   explosionRadius: number; explosionEnergy: number; fragmentRadius: number; fragmentLaunchSpeed: number;
   fragmentSpeed: number; fragmentArmingDelayMs: number; fragmentLifetimeMs: number; fragmentHitImpulse: number;
   killPlaneY: number; patrolMinX?: number; patrolMaxX?: number; activated: boolean;
+  launchNormal: Vector2;
   recoverySteps: number; turnCooldownSteps: number;
 }
 
@@ -754,7 +755,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       fragmentSpeed: definition.fragmentSpeed, fragmentArmingDelayMs: definition.fragmentArmingDelaySeconds * 1000,
       fragmentLifetimeMs: definition.fragmentLifetimeSeconds * 1000, fragmentHitImpulse: definition.fragmentHitImpulse,
       killPlaneY: definition.killPlaneY, patrolMinX: definition.patrolMinX, patrolMaxX: definition.patrolMaxX,
-      activated: false, recoverySteps: 0, turnCooldownSteps: 0,
+      activated: false, launchNormal: { x: 0, y: -1 }, recoverySteps: 0, turnCooldownSteps: 0,
     });
     if (!this.radiationFragmentRenderer) {
       this.radiationFragmentRenderer = new RadiationFragmentRenderer(
@@ -2449,9 +2450,15 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private spawnRadiationFragments(enemy: RadiationEnemyRecord, origin: Vector2): void {
     for (let index = 0; index < 6; index += 1) {
       const id = `${enemy.id}:fragment:${index + 1}`;
-      const angle = Math.random() * Math.PI * 2;
-      const direction = { x: Math.cos(angle), y: Math.sin(angle) };
-      const offset = enemy.radius * 0.48;
+      const direction = getOutwardFragmentLaunchDirection(
+        enemy.launchNormal,
+        index,
+        6,
+        Math.random(),
+      );
+      // Start every shard beyond the enemy's silhouette. In particular, a
+      // grounded enemy must not create fragments inside the floor collision.
+      const offset = enemy.radius + enemy.fragmentRadius + 5;
       const x = origin.x + direction.x * offset;
       const y = origin.y + direction.y * offset;
       const rawBody = this.factory.circle(x, y, enemy.fragmentRadius, {
@@ -2490,7 +2497,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   }
 
   private handleRadioactiveEnemyCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {
-    if (phase !== 'start') return;
+    if (phase === 'end') return;
     const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
     const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
     const metaA = this.metadata.get(bodyA);
@@ -2513,6 +2520,10 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       const dx = body.position.x - otherBody.position.x;
       const dy = body.position.y - otherBody.position.y;
       if (normal.x * dx + normal.y * dy < 0) normal = { x: -normal.x, y: -normal.y };
+      // Keep the most recent outward contact normal. It is used at detonation
+      // to launch all six fragments into the free-space half-plane.
+      enemy.launchNormal = normal;
+      if (phase !== 'start') return;
       const velocity = this.preStepVelocities.get(body) ?? PhysicsAdapter.fromMatterVelocity(body.velocity);
       const closingSpeed = -(velocity.x * normal.x + velocity.y * normal.y);
       if (Math.abs(normal.x) >= 0.62 && closingSpeed > 0.5) {
@@ -2522,6 +2533,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       }
       return;
     }
+
+    if (phase !== 'start') return;
 
     const velocity = this.preStepVelocities.get(body) ?? PhysicsAdapter.fromMatterVelocity(body.velocity);
     enemy.direction = directionFromVelocity(velocity.x, enemy.direction);

@@ -190,6 +190,39 @@ describe('MatterPhysicsWorld radioactive hunter', () => {
     harness.world.dispose();
   });
 
+  it('launches all six fragments away from the floor when the enemy detonates while grounded', () => {
+    const harness = createHarness();
+    harness.world.createBall({ x: 125, y: 100 }, ballOptions);
+    harness.world.createStaticBox({
+      id: 'support-floor', x: 0, y: 119, width: 240, height: 40,
+      friction: 0.4, frictionStatic: 0.6, restitution: 0,
+    });
+    harness.world.createRadioactiveEnemy(enemyDefinition);
+
+    const enemy = harness.bodies.find((body) => body.label === 'RADIATION_ENEMY:radioactive-hunter')!;
+    const floor = harness.bodies.find((body) => body.label === 'support-floor')!;
+    // Matter's normal points from bodyA toward bodyB; this pair represents the
+    // floor pushing upward against an enemy resting on it.
+    harness.handlers.get('collisionstart')?.({
+      pairs: [{ bodyA: enemy, bodyB: floor, collision: { normal: { x: 0, y: 1 }, supports: [] } }],
+    });
+
+    harness.world.step(16);
+    harness.world.step(484);
+    harness.world.step(120);
+
+    const fragments = harness.bodies.filter((body) => body.label?.startsWith('RADIATION_FRAGMENT:'));
+    expect(fragments).toHaveLength(6);
+    for (const fragment of fragments) {
+      const velocity = PhysicsAdapter.fromMatterVelocity(fragment.velocity);
+      expect(velocity.y).toBeLessThan(0);
+      // The floor starts at y=119. The fragment must be fully outside it at
+      // spawn time, not merely moving upward after already touching the floor.
+      expect(fragment.position.y + enemyDefinition.fragmentRadius).toBeLessThan(119);
+    }
+    harness.world.dispose();
+  });
+
   it('self-destructs all remaining fragments when their configured lifetime expires', () => {
     const harness = createHarness();
     harness.world.createBall({ x: 125, y: 100 }, ballOptions);

@@ -131,7 +131,9 @@ describe('MatterPhysicsWorld paired platform switch', () => {
     expect(lever.options).toMatchObject({ width: 14, height: 48 });
     expect(lever.options?.collisionFilter).toMatchObject({
       category: COLLISION_CATEGORIES.TERRAIN,
-      mask: COLLISION_CATEGORIES.BALL,
+      mask: COLLISION_CATEGORIES.BALL
+        | COLLISION_CATEGORIES.RADIATION_ENEMY
+        | COLLISION_CATEGORIES.RADIATION_FRAGMENT,
     });
 
     ball.velocity = PhysicsAdapter.toMatterVelocity({ x: 200, y: 0 });
