@@ -890,11 +890,40 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   }
 
   createStatue(definition: StatuePhysicsOptions): void {
-    // The octopus mascot is intentionally about 1.5x smaller than the former statue.
-    const width = 104;
-    const height = 132;
-    const centerY = definition.y - height / 2 - 1;
-    const rawBody = this.factory.rectangle(definition.x, centerY, width, height, {
+    // Use a compound contour instead of a large rectangle. Each convex part follows
+    // a visible part of the mascot, so the ball no longer hits empty space around
+    // the narrow tentacle skirt. The torch flame/smoke themselves remain non-solid.
+    const collisionParts: Vector2[][] = [
+      // Round head, cut along its lower tangent so the skirt can meet it cleanly.
+      [
+        { x: 0, y: -145 }, { x: 13, y: -142 }, { x: 22, y: -132 },
+        { x: 26, y: -119 }, { x: 22, y: -108 }, { x: -22, y: -108 },
+        { x: -26, y: -119 }, { x: -22, y: -132 }, { x: -13, y: -142 },
+      ],
+      // The lower tentacle silhouette is a flared, convex skirt rather than a rectangle.
+      [
+        { x: -22, y: -108 }, { x: 22, y: -108 },
+        { x: 32, y: -22 }, { x: -32, y: -22 },
+      ],
+      // The stone plinth shares its top edge with the skirt's lower edge.
+      [
+        { x: -32, y: -22 }, { x: 32, y: -22 },
+        { x: 28, y: 0 }, { x: -28, y: 0 },
+      ],
+      // The horizontal reaction fist has a separate, tight contact shape beside the head.
+      [
+        { x: 28, y: -124 }, { x: 33, y: -128 }, { x: 56, y: -128 },
+        { x: 64, y: -123 }, { x: 66, y: -116 }, { x: 63, y: -108 },
+        { x: 56, y: -102 }, { x: 43, y: -100 }, { x: 33, y: -104 },
+        { x: 28, y: -112 },
+      ],
+      // A narrow wrist joins the head to the side-facing hand without widening the body box.
+      [
+        { x: 11, y: -122 }, { x: 29, y: -122 },
+        { x: 29, y: -116 }, { x: 11, y: -116 },
+      ],
+    ];
+    const rawBody = this.factory.fromVertices(definition.x, definition.y, collisionParts, {
       label: `STATUE:${definition.id}`,
       isStatic: true,
       friction: 0.38,
@@ -906,10 +935,10 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
           | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY
           | COLLISION_CATEGORIES.DEMON_ENEMY,
       },
-    });
+    }, true);
     rawBody.label = `STATUE:${definition.id}`;
     const object = this.factory.gameObject(
-      (this.scene as unknown as MatterSceneLike).add.zone(definition.x, centerY, 1, 1),
+      (this.scene as unknown as MatterSceneLike).add.zone(rawBody.position.x, rawBody.position.y, 1, 1),
       rawBody,
       true,
     );

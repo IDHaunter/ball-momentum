@@ -7,6 +7,8 @@ interface StatueVisual {
   graphics: Phaser.GameObjects.Graphics;
   flameGraphics: Phaser.GameObjects.Graphics;
   faceGraphics: Phaser.GameObjects.Graphics;
+  tentacleGraphics: Phaser.GameObjects.Graphics;
+  headGraphics: Phaser.GameObjects.Graphics;
   activated: boolean;
   animationMs: number;
   elapsedMs: number;
@@ -190,6 +192,8 @@ export class LibertyStatueRenderer {
     const graphics = this.scene.add.graphics().setDepth(6.2);
     const flameGraphics = this.scene.add.graphics().setDepth(6.25);
     const faceGraphics = this.scene.add.graphics().setDepth(6.23);
+    const tentacleGraphics = this.scene.add.graphics().setDepth(6.21);
+    const headGraphics = this.scene.add.graphics().setDepth(6.22);
     const visual: StatueVisual = {
       id,
       x,
@@ -197,12 +201,16 @@ export class LibertyStatueRenderer {
       graphics,
       flameGraphics,
       faceGraphics,
+      tentacleGraphics,
+      headGraphics,
       activated: false,
       animationMs: 0,
       elapsedMs: 0,
     };
     this.statues.set(id, visual);
     this.draw(visual, 0);
+    this.drawTentacleLayer(visual, visual.elapsedMs);
+    this.drawHeadLayer(visual);
     this.drawTorchFlameLayer(visual, visual.elapsedMs);
     this.drawFaceLayer(visual, 0);
   }
@@ -246,9 +254,11 @@ export class LibertyStatueRenderer {
       }
       const linearProgress = statue.animationMs / ANIMATION_DURATION_MS;
       const faceProgress = 1 - (1 - linearProgress) * (1 - linearProgress);
+      // The lower tentacles sway gently on their own layer, regardless of activation state.
+      this.drawTentacleLayer(statue, statue.elapsedMs);
       // Eyes animate on a separate lightweight layer; the octopus body remains untouched.
       this.drawFaceLayer(statue, faceProgress);
-      // Only the small flame layer is redrawn continuously besides the animated face.
+      // Only the small flame layer is redrawn continuously besides the face and tentacles.
       this.drawTorchFlameLayer(statue, statue.elapsedMs);
     }
   }
@@ -259,6 +269,8 @@ export class LibertyStatueRenderer {
     statue.graphics.destroy();
     statue.flameGraphics.destroy();
     statue.faceGraphics.destroy();
+    statue.tentacleGraphics.destroy();
+    statue.headGraphics.destroy();
     this.statues.delete(id);
   }
 
@@ -267,6 +279,8 @@ export class LibertyStatueRenderer {
       statue.graphics.destroy();
       statue.flameGraphics.destroy();
       statue.faceGraphics.destroy();
+      statue.tentacleGraphics.destroy();
+      statue.headGraphics.destroy();
     }
     this.statues.clear();
   }
@@ -283,10 +297,21 @@ export class LibertyStatueRenderer {
     // Compress the body, props and pedestal while keeping the smiley head perfectly round.
     const compactGraphics = horizontallyScaledGraphics(graphics, x, VISUAL_HORIZONTAL_SCALE);
     this.drawPedestal(compactGraphics, x, y);
-    this.drawTentacleSkirt(compactGraphics, x, y);
     this.drawTorchArm(compactGraphics, x, y);
     this.drawGestureArm(compactGraphics, x, y, progress);
-    this.drawHeadAndCrown(graphics, x, y);
+  }
+
+  private drawTentacleLayer(statue: StatueVisual, elapsedMs: number): void {
+    const graphics = statue.tentacleGraphics;
+    graphics.clear();
+    const compactGraphics = horizontallyScaledGraphics(graphics, statue.x, VISUAL_HORIZONTAL_SCALE);
+    this.drawTentacleSkirt(compactGraphics, statue.x, statue.y, elapsedMs);
+  }
+
+  private drawHeadLayer(statue: StatueVisual): void {
+    const graphics = statue.headGraphics;
+    graphics.clear();
+    this.drawHeadAndCrown(graphics, statue.x, statue.y);
   }
 
   private drawPedestal(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
@@ -319,7 +344,7 @@ export class LibertyStatueRenderer {
     ], STONE_LIGHT, 1.5, 0.9);
   }
 
-  private drawTentacleSkirt(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
+  private drawTentacleSkirt(g: Phaser.GameObjects.Graphics, x: number, y: number, elapsedMs: number): void {
     // A soft shadow under the head makes the skirt read as a bundle of tentacles.
     g.fillStyle(PATINA_DEEP, 0.42).fillEllipse(x, y - 38, 48, 24);
 
@@ -334,12 +359,18 @@ export class LibertyStatueRenderer {
 
     // Six lower tentacles fan out and taper into a dress-like silhouette.
     tentacles.forEach((tentacle, index) => {
+      // Each tentacle follows a slightly offset wave, like a slow underwater drift.
+      // The roots stay anchored beneath the head while the middle and tips sway gently.
+      const phase = elapsedMs * 0.00155 + index * 0.76;
+      const midSway = Math.sin(phase - 0.52) * 1.15;
+      const tipSway = Math.sin(phase) * 2.35;
+      const tipLift = Math.cos(phase + 0.35) * 0.7;
       const centerline = drawRibbon(
         g,
         { x: x + tentacle.sx, y: y - 99 },
-        { x: x + tentacle.c1, y: y - 75 },
-        { x: x + tentacle.c2, y: y - 43 },
-        { x: x + tentacle.ex, y: y - 22 },
+        { x: x + tentacle.c1 + midSway * 0.28, y: y - 75 + tipLift * 0.12 },
+        { x: x + tentacle.c2 + midSway, y: y - 43 + tipLift * 0.42 },
+        { x: x + tentacle.ex + tipSway, y: y - 22 + tipLift },
         index === 0 || index === 5 ? 10 : 9,
         2.8,
         tentacle.color,

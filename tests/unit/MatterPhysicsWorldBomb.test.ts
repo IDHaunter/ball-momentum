@@ -5,7 +5,15 @@ import type { MatterBodyLike, MatterGameObjectLike } from '../../src/physics/Mat
 import type { CollisionEventLike } from '../../src/physics/MatterCollisionMapper';
 import type { PhysicsEvent, Vector2 } from '../../src/physics/PhysicsTypes';
 
-type TestBody = MatterBodyLike & { isStatic?: boolean; destroyed?: boolean; options?: Record<string, unknown>; width?: number; height?: number };
+type TestBody = MatterBodyLike & {
+  isStatic?: boolean;
+  destroyed?: boolean;
+  options?: Record<string, unknown>;
+  width?: number;
+  height?: number;
+  collisionParts?: Vector2[][];
+  flagInternal?: boolean;
+};
 type TestVisual = {
   kind: 'circle' | 'rectangle'; x: number; y: number; fillColor: number; alpha: number;
   scaleX: number; scaleY: number; rotation: number; visible: boolean; destroyed: boolean;
@@ -40,10 +48,19 @@ function createHarness() {
       destroy() { state.destroyed = true; },
     };
   };
-  const makeBody = (x: number, y: number, label: string, options: Record<string, unknown> = {}, width?: number, height?: number): TestBody => {
+  const makeBody = (
+    x: number,
+    y: number,
+    label: string,
+    options: Record<string, unknown> = {},
+    width?: number,
+    height?: number,
+    collisionParts?: Vector2[][],
+    flagInternal?: boolean,
+  ): TestBody => {
     const body: TestBody = {
       position: { x, y }, velocity: { x: 0, y: 0 }, angle: 0, angularVelocity: 0,
-      label, isStatic: Boolean(options.isStatic), destroyed: false, options, width, height,
+      label, isStatic: Boolean(options.isStatic), destroyed: false, options, width, height, collisionParts, flagInternal,
     };
     bodies.push(body);
     return body;
@@ -117,8 +134,17 @@ function createHarness() {
         rectangle(x: number, y: number, width: number, height: number, options: Record<string, unknown>) {
           return makeBody(x, y, String(options.label ?? ''), options, width, height);
         },
-        fromVertices(x: number, y: number, _vertices: Vector2[][], options: Record<string, unknown>) {
-          return makeBody(x, y, String(options.label ?? ''), options);
+        fromVertices(
+          x: number,
+          y: number,
+          vertices: Vector2[][],
+          options: Record<string, unknown>,
+          flagInternal = false,
+        ) {
+          const points = vertices.flat();
+          const width = Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x));
+          const height = Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y));
+          return makeBody(x, y, String(options.label ?? ''), options, width, height, vertices, flagInternal);
         },
         gameObject(visual: object, body: MatterBodyLike): MatterGameObjectLike {
           const testBody = body as TestBody;
@@ -156,7 +182,7 @@ const bombOptions = {
 };
 
 describe('MatterPhysicsWorld bombs and statues', () => {
-  it('creates a static high-restitution statue and activates it only on the first ball contact', () => {
+  it('creates a tight compound statue collider and activates it only on the first ball contact', () => {
     const harness = createHarness();
     harness.world.createStatue({ id: 'liberty-statue', x: 220, y: 300 });
     harness.world.createBall({ x: 120, y: 220 }, ballOptions);
@@ -164,8 +190,14 @@ describe('MatterPhysicsWorld bombs and statues', () => {
     const statue = harness.bodies.find((body) => body.label === 'STATUE:liberty-statue')!;
     const ball = harness.bodies.find((body) => body.label === 'BALL')!;
     expect(statue.isStatic).toBe(true);
-    expect(statue.width).toBe(104);
-    expect(statue.height).toBe(132);
+    expect(statue.width).toBe(98);
+    expect(statue.height).toBe(145);
+    expect(statue.collisionParts).toHaveLength(5);
+    // Separate convex pieces follow the head, tentacle skirt, plinth, fist and wrist;
+    // unlike the old 104x132 rectangle, empty corners and side gaps remain non-collidable.
+    expect(statue.collisionParts?.map((part) => part.length)).toEqual([9, 4, 4, 10, 4]);
+    expect(statue.collisionParts?.every((part) => part.length >= 4)).toBe(true);
+    expect(statue.flagInternal).toBe(true);
     expect(statue.options?.restitution).toBe(0.64);
     const filter = statue.options?.collisionFilter as { category: number; mask: number };
     expect(filter.category).toBe(0x0002);

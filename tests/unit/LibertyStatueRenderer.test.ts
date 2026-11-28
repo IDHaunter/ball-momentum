@@ -48,6 +48,15 @@ function getFilledPaths(
   return paths;
 }
 
+function getLatestFilledPaths(
+  calls: GraphicsCall[],
+  objectId: number,
+): Array<Array<{ x: number; y: number }>> {
+  const layerCalls = calls.filter((call) => call.objectId === objectId);
+  const latestClear = layerCalls.map((call) => call.name).lastIndexOf('clear');
+  return getFilledPaths(layerCalls.slice(latestClear), objectId);
+}
+
 function getThumbIcon(calls: GraphicsCall[]): Array<{ x: number; y: number }> | undefined {
   const matchingPaths = getFilledPaths(calls, 0).filter((path) => {
     // The compact horizontal hand is sampled from thirteen cubic curves into a 53-point silhouette.
@@ -69,6 +78,8 @@ describe('LibertyStatueRenderer', () => {
     renderer.create('statue-a', 400, 900);
 
     const bodyPaths = getFilledPaths(harness.calls, 0);
+    const tentaclePaths = getFilledPaths(harness.calls, 3);
+    const headPaths = getFilledPaths(harness.calls, 4);
     const initialTorchPaths = getFilledPaths(harness.calls, 1);
     expect(initialTorchPaths).toHaveLength(0);
     const smokeStrokes = harness.calls.filter((call) => call.objectId === 1 && call.name === 'strokePath');
@@ -78,9 +89,10 @@ describe('LibertyStatueRenderer', () => {
       .map((call) => call.args[0]);
     expect(initialTorchColors).not.toContain(0xff922f);
 
-    // Six lower tentacles, one torch-holding tentacle and one tiny gesture-side tentacle.
-    const tentacleRibbons = bodyPaths.filter((path) => path.length === 26);
-    expect(tentacleRibbons).toHaveLength(8);
+    // The six animated lower tentacles and two upper arms live on separate layers.
+    expect(tentaclePaths.filter((path) => path.length === 26)).toHaveLength(6);
+    expect(bodyPaths.filter((path) => path.length === 26)).toHaveLength(2);
+    expect(headPaths.length).toBeGreaterThan(0);
 
     // Activation immediately replaces the smoke with the same checkpoint-style flame.
     expect(renderer.activate('statue-a')).toBe(true);
@@ -97,14 +109,14 @@ describe('LibertyStatueRenderer', () => {
     expect(flamePaths.map((path) => path.length)).toEqual(expect.arrayContaining([9, 6, 5]));
 
     // The flame extends above the torch cup, while the body and pedestal stay compact.
-    const allPoints = [...bodyPaths.flat(), ...flamePaths.flat()];
+    const allPoints = [...bodyPaths.flat(), ...tentaclePaths.flat(), ...headPaths.flat(), ...flamePaths.flat()];
     const visualWidth = Math.max(...allPoints.map((point) => point.x)) - Math.min(...allPoints.map((point) => point.x));
     const visualHeight = Math.max(...allPoints.map((point) => point.y)) - Math.min(...allPoints.map((point) => point.y));
     // The clearer horizontal reaction widens the silhouette slightly, while keeping it compact.
     expect(visualWidth).toBeLessThan(115);
     expect(visualHeight).toBeLessThan(200);
     expect(Math.min(...allPoints.map((point) => point.y))).toBeLessThan(710);
-    expect(harness.calls.some((call) => call.objectId === 0
+    expect(harness.calls.some((call) => call.objectId === 4
       && call.name === 'fillCircle' && call.args[0] === 400 && call.args[2] === 26)).toBe(true);
 
     const thumbIcon = getThumbIcon(harness.calls);
@@ -183,7 +195,7 @@ describe('LibertyStatueRenderer', () => {
     renderer.destroy();
   });
 
-  it('animates only the inactive smoke layer while the rest of the statue remains static', () => {
+  it('animates the unactivated tentacles, smoke and eyes on independent layers', () => {
     const harness = createHarness();
     const renderer = new LibertyStatueRenderer(harness.scene);
     renderer.create('statue-a', 400, 900);
@@ -191,13 +203,44 @@ describe('LibertyStatueRenderer', () => {
     const bodyDrawsBefore = harness.calls.filter((call) => call.objectId === 0 && call.name === 'clear').length;
     const torchDrawsBefore = harness.calls.filter((call) => call.objectId === 1 && call.name === 'clear').length;
     const faceDrawsBefore = harness.calls.filter((call) => call.objectId === 2 && call.name === 'clear').length;
-    renderer.update(160);
+    const tentacleDrawsBefore = harness.calls.filter((call) => call.objectId === 3 && call.name === 'clear').length;
+    const legsBefore = getLatestFilledPaths(harness.calls, 3).filter((path) => path.length === 26);
+
+    renderer.update(420);
+
     expect(harness.calls.filter((call) => call.objectId === 0 && call.name === 'clear'))
       .toHaveLength(bodyDrawsBefore);
     expect(harness.calls.filter((call) => call.objectId === 1 && call.name === 'clear'))
       .toHaveLength(torchDrawsBefore + 1);
     expect(harness.calls.filter((call) => call.objectId === 2 && call.name === 'clear'))
       .toHaveLength(faceDrawsBefore + 1);
+    expect(harness.calls.filter((call) => call.objectId === 3 && call.name === 'clear'))
+      .toHaveLength(tentacleDrawsBefore + 1);
+    const legsAfter = getLatestFilledPaths(harness.calls, 3).filter((path) => path.length === 26);
+    expect(legsAfter).toHaveLength(6);
+    expect(legsAfter).not.toEqual(legsBefore);
+
+    // The lower tentacles keep moving after the statue is activated too.
+    renderer.activate('statue-a');
+    const activeLegsBefore = legsAfter;
+    renderer.update(420);
+    const activeLegsAfter = getLatestFilledPaths(harness.calls, 3).filter((path) => path.length === 26);
+    expect(activeLegsAfter).not.toEqual(activeLegsBefore);
+    renderer.destroy();
+  });
+
+  it('keeps the lower tentacles still when reduced motion is enabled', () => {
+    const harness = createHarness();
+    const renderer = new LibertyStatueRenderer(harness.scene);
+    renderer.setReducedMotion(true);
+    renderer.create('statue-a', 400, 900);
+
+    const tentacleDrawsBefore = harness.calls.filter((call) => call.objectId === 3 && call.name === 'clear').length;
+    const legsBefore = getLatestFilledPaths(harness.calls, 3);
+    renderer.update(900);
+    expect(harness.calls.filter((call) => call.objectId === 3 && call.name === 'clear'))
+      .toHaveLength(tentacleDrawsBefore);
+    expect(getLatestFilledPaths(harness.calls, 3)).toEqual(legsBefore);
     renderer.destroy();
   });
 
