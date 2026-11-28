@@ -87,6 +87,18 @@ export interface BotDefinition {
   patrolRange?: BotPatrolRangeDefinition;
 }
 
+
+export interface RadiationEnemyPatrolRangeDefinition { minX: number; maxX: number; }
+
+/** Yellow radiation-symbol patrol enemy that detonates and launches six guided shards. */
+export interface RadiationEnemyDefinition {
+  id: string; x: number; y: number; radius: number; mass: number; speed: number; direction?: -1 | 1;
+  detectionRadius: number; fuseSeconds: number; explosionRadius: number; explosionEnergy: number;
+  fragmentRadius: number; fragmentLaunchSpeed: number; fragmentSpeed: number;
+  fragmentArmingDelaySeconds: number; fragmentLifetimeSeconds: number; fragmentHitImpulse: number;
+  restitution?: number; friction?: number; patrolRange?: RadiationEnemyPatrolRangeDefinition;
+}
+
 /** Flying guardian that patrols a horizontal segment and defends its rectangular territory. */
 export interface BirdDefinition {
   id: string;
@@ -222,6 +234,7 @@ export interface LevelDefinition {
   triggers: TriggerDefinition[];
   bots?: BotDefinition[];
   birds?: BirdDefinition[];
+  radiationEnemies?: RadiationEnemyDefinition[];
   bombs?: BombDefinition[];
   statues?: StatueDefinition[];
   rollingObjects?: RollingObjectDefinition[];

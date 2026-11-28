@@ -342,6 +342,22 @@ export class GameplayScene extends Phaser.Scene {
         }
         continue;
       }
+      if (event.type === 'RADIATION_ENEMY_EXPLODED') {
+        if (this.gameRegistry.flow.state === 'PLAYING') {
+          this.effects.bombExplosion(event.position.x, event.position.y, event.radius, event.explosionEnergy);
+          for (const terrainId of event.breakableIds) {
+            const broken = this.levelBuilder?.breakSolid(terrainId) ?? [];
+            for (const solid of broken) this.effects.glassShatter(solid);
+          }
+        }
+        continue;
+      }
+      if (event.type === 'RADIATION_FRAGMENT_EXPLODED') {
+        if (this.gameRegistry.flow.state === 'PLAYING') {
+          this.effects.radiationFragmentExplosion(event.position.x, event.position.y);
+        }
+        continue;
+      }
       if (event.type === 'ROLLING_OBJECT_BREAKABLE_IMPACT') {
         if (this.gameRegistry.flow.state !== 'PLAYING' || !this.levelBuilder) continue;
         const breakable = this.levelBuilder.getBreakable(event.terrainId);

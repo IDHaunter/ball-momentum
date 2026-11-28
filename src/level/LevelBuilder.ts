@@ -96,6 +96,18 @@ export class LevelBuilder {
         patrolMaxX: bird.patrolRange.maxX,
       });
     }
+    for (const enemy of level.radiationEnemies ?? []) {
+      this.world.createRadioactiveEnemy({
+        id: enemy.id, x: enemy.x, y: enemy.y, radius: enemy.radius, mass: enemy.mass, speed: enemy.speed,
+        direction: enemy.direction ?? 1, detectionRadius: enemy.detectionRadius, fuseSeconds: enemy.fuseSeconds,
+        explosionRadius: enemy.explosionRadius, explosionEnergy: enemy.explosionEnergy,
+        fragmentRadius: enemy.fragmentRadius, fragmentLaunchSpeed: enemy.fragmentLaunchSpeed,
+        fragmentSpeed: enemy.fragmentSpeed, fragmentArmingDelaySeconds: enemy.fragmentArmingDelaySeconds,
+        fragmentLifetimeSeconds: enemy.fragmentLifetimeSeconds, fragmentHitImpulse: enemy.fragmentHitImpulse,
+        restitution: enemy.restitution ?? 0.38, friction: enemy.friction ?? 0.045,
+        killPlaneY: level.world.killPlaneY, patrolMinX: enemy.patrolRange?.minX, patrolMaxX: enemy.patrolRange?.maxX,
+      });
+    }
     for (const enemy of level.vomitEnemies ?? []) {
       this.world.createVomitEnemy({
         id: enemy.id,

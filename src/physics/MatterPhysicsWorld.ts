@@ -2,19 +2,22 @@ import { COLLISION_CATEGORIES } from './CollisionCategories';
 import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
-import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, DemonPhysicsOptions, PlatformSwitchPhysicsOptions, StatuePhysicsOptions, MovableBoxOptions, RollingObjectPhysicsOptions, PatrolGeometry, PhysicsEvent, SensorOptions, SpikeEntityKind, SpikeSensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
+import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, DemonPhysicsOptions, PlatformSwitchPhysicsOptions, StatuePhysicsOptions, MovableBoxOptions, RollingObjectPhysicsOptions, PatrolGeometry, PhysicsEvent, SensorOptions, SpikeEntityKind, SpikeSensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions, RadiationEnemyPhysicsOptions } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
 import { directionFromVelocity, hasPatrolEdgeAhead, hasPatrolObstacleAhead } from './BotPatrol';
 import { getBirdAttackInterceptPoint, getBirdChaseVelocity, getBirdGuardZone, getBirdTerritoryEgressDirection, isPointInsideBirdGuardZone } from './BirdPatrol';
 import { calculateBlastEnergy, calculateBlastVelocityDelta, distanceToPatrolGeometry } from './BombExplosion';
+import { getDirectHomingVelocity } from './RadiationFragmentGuidance';
 import type Phaser from 'phaser';
 import { createSurfaceTextureCanvas, createSurfaceTextureKey } from '../rendering/SurfaceTextureGenerator';
 import { hashSurfaceTextureSeed } from '../rendering/SurfaceTextureCatalog';
 import { drawBoxBorders, getBoxBorderSegments, getSpikeTriangles } from '../rendering/SurfaceBorderRenderer';
 import { BirdRenderer, type BirdRendererSceneLike } from '../rendering/BirdRenderer';
 import { VomitEnemyRenderer, type VomitRendererSceneLike } from '../rendering/VomitEnemyRenderer';
+import { RadiationEnemyRenderer, type RadiationRendererSceneLike, type RadiationGraphicsLike } from '../rendering/RadiationEnemyRenderer';
+import { RadiationFragmentRenderer, type RadiationFragmentVisual } from '../rendering/RadiationFragmentRenderer';
 import { FIXED_STEP_SECONDS } from '../utils/TimeUtils';
 import { BOT_GRADIENT_TEXTURE_KEY, BOT_GRADIENT_TEXTURE_SIZE, drawBotGradient } from '../rendering/BotGradient';
 import { BOMB_GRADIENT_TEXTURE_KEY, BOMB_GRADIENT_TEXTURE_SIZE, drawBombGradient } from '../rendering/BombGradient';
@@ -147,6 +150,20 @@ interface BirdRecord {
   pendingAttackImpulse: { ballBody: MatterBodyLike; direction: Vector2 } | null;
   pendingDirectionUpdate: boolean;
   turnCooldownSteps: number;
+}
+
+interface RadiationEnemyRecord {
+  object: MatterGameObjectLike; renderer: RadiationEnemyRenderer; id: string; radius: number; mass: number;
+  speed: number; direction: -1 | 1; detectionRadius: number; fuseMs: number; remainingMs: number; zeroDisplayMs: number | null;
+  explosionRadius: number; explosionEnergy: number; fragmentRadius: number; fragmentLaunchSpeed: number;
+  fragmentSpeed: number; fragmentArmingDelayMs: number; fragmentLifetimeMs: number; fragmentHitImpulse: number;
+  killPlaneY: number; patrolMinX?: number; patrolMaxX?: number; activated: boolean;
+  recoverySteps: number; turnCooldownSteps: number;
+}
+
+interface RadiationFragmentRecord {
+  id: string; object: MatterGameObjectLike; radius: number; speed: number; velocity: Vector2;
+  armingRemainingMs: number; lifetimeRemainingMs: number; lifetimeMs: number; hitImpulse: number; killPlaneY: number;
 }
 
 interface VomitEnemyRecord {
@@ -289,6 +306,10 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private readonly bombs = new Map<string, BombRecord>();
   private readonly statues = new Map<string, { activated: boolean }>();
   private readonly vomitEnemies = new Map<string, VomitEnemyRecord>();
+  private readonly radiationEnemies = new Map<string, RadiationEnemyRecord>();
+  private readonly radiationFragments = new Map<string, RadiationFragmentRecord>();
+  private readonly pendingRadiationFragmentRemovals = new Map<string, { explode: boolean; position: Vector2 }>();
+  private radiationFragmentRenderer: RadiationFragmentRenderer | null = null;
   private readonly demons = new Map<string, DemonRecord>();
   private readonly platformSwitches = new Map<string, PlatformSwitchRecord>();
   private readonly collisionStart = (event: CollisionEventLike) => this.handleCollision(event, 'start');
@@ -312,12 +333,14 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   step(fixedStepMs: number): void {
     this.updateBirdsBeforeStep(fixedStepMs);
     this.updateVomitEnemiesBeforeStep(fixedStepMs);
+    this.updateRadioactiveEnemiesBeforeStep(fixedStepMs);
+    this.updateRadiationFragmentsBeforeStep(fixedStepMs);
     this.updateDemonEnemiesBeforeStep(fixedStepMs);
     this.updatePlatformSwitchesBeforeStep(fixedStepMs);
     this.updateBotsBeforeStep();
     this.preStepVelocities.clear();
     for (const [body, meta] of this.metadata.entries()) {
-      if (meta.kind === 'ball' || meta.kind === 'bot' || meta.kind === 'bird' || meta.kind === 'movable' || meta.kind === 'rollingObject' || meta.kind === 'bomb' || meta.kind === 'vomitEnemy' || meta.kind === 'demon') {
+      if (meta.kind === 'ball' || meta.kind === 'bot' || meta.kind === 'bird' || meta.kind === 'movable' || meta.kind === 'rollingObject' || meta.kind === 'bomb' || meta.kind === 'vomitEnemy' || meta.kind === 'demon' || meta.kind === 'radiationEnemy' || meta.kind === 'radiationFragment') {
         this.preStepVelocities.set(body, PhysicsAdapter.fromMatterVelocity(body.velocity));
       }
     }
@@ -336,6 +359,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.updateBotsAfterStep();
     this.updateBirdsAfterStep(fixedStepMs);
     this.updateVomitEnemiesAfterStep(fixedStepMs);
+    this.updateRadioactiveEnemiesAfterStep(fixedStepMs);
+    this.updateRadiationFragmentsAfterStep(fixedStepMs);
     this.updateDemonEnemiesAfterStep(fixedStepMs);
     this.updatePlatformSwitchesAfterStep(fixedStepMs);
     this.updateBombs(fixedStepMs);
@@ -352,7 +377,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       label: 'BALL', isStatic: false, restitution: options.restitution,
       friction: options.friction, frictionStatic: options.frictionStatic, frictionAir: options.frictionAir,
       mass: options.mass, inertia: options.fixedRotation ? Infinity : undefined,
-      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY },
+      collisionFilter: { category: COLLISION_CATEGORIES.BALL, mask: COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY | COLLISION_CATEGORIES.RADIATION_FRAGMENT },
     });
     rawBody.label = 'BALL';
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(position.x, position.y, 1, 1), rawBody, true);
@@ -374,7 +399,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       {
         label: definition.id, isStatic: true,
         friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY },
+        collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY | COLLISION_CATEGORIES.RADIATION_FRAGMENT },
       },
     );
     rawBody.label = definition.id;
@@ -395,7 +420,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     const rawBody = this.factory.fromVertices(center.x, center.y, [local], {
       label: definition.id, isStatic: true,
       friction: definition.friction, frictionStatic: definition.frictionStatic, restitution: definition.restitution,
-      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY },
+      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY | COLLISION_CATEGORIES.RADIATION_FRAGMENT },
     }, true);
     rawBody.label = definition.id;
     const object = this.factory.gameObject((this.scene as unknown as MatterSceneLike).add.zone(center.x, center.y, 1, 1), rawBody, true);
@@ -416,7 +441,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.MOVABLE,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY | COLLISION_CATEGORIES.RADIATION_FRAGMENT,
       },
     });
     rawBody.label = `MOVABLE:${definition.id}`;
@@ -504,7 +529,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BOT,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY,
       },
     });
     rawBody.label = `BOT:${definition.id}`;
@@ -625,7 +650,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BIRD,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY,
       },
     });
     rawBody.label = `BIRD:${definition.id}`;
@@ -670,7 +695,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       collisionFilter: {
         category: COLLISION_CATEGORIES.VOMIT_ENEMY,
         mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE
-          | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
+          | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY,
       },
     });
     rawBody.label = `VOMIT_ENEMY:${definition.id}`;
@@ -697,6 +722,45 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       playerInRange: false,
       killPlaneY: definition.killPlaneY,
     });
+  }
+
+  createRadioactiveEnemy(definition: RadiationEnemyPhysicsOptions): void {
+    const rawBody = this.factory.circle(definition.x, definition.y, definition.radius, {
+      label: `RADIATION_ENEMY:${definition.id}`, isStatic: false, mass: definition.mass,
+      friction: definition.friction, frictionStatic: Math.min(1, definition.friction * 1.15),
+      frictionAir: 0.008, restitution: definition.restitution,
+      collisionFilter: {
+        category: COLLISION_CATEGORIES.RADIATION_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER
+          | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB
+          | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY
+          | COLLISION_CATEGORIES.RADIATION_ENEMY,
+      },
+    });
+    rawBody.label = `RADIATION_ENEMY:${definition.id}`;
+    const renderer = new RadiationEnemyRenderer(
+      this.scene as unknown as RadiationRendererSceneLike, definition.radius, definition.x, definition.y,
+    );
+    const scene = this.scene as unknown as MatterSceneLike;
+    const object = this.factory.gameObject(scene.add.zone(definition.x, definition.y, 1, 1), rawBody, true);
+    object.body.label = `RADIATION_ENEMY:${definition.id}`;
+    this.registerLevelObject(object, { kind: 'radiationEnemy', id: definition.id, mass: definition.mass });
+    this.radiationEnemies.set(definition.id, {
+      object, renderer, id: definition.id, radius: definition.radius, mass: definition.mass,
+      speed: definition.speed, direction: definition.direction, detectionRadius: definition.detectionRadius,
+      fuseMs: definition.fuseSeconds * 1000, remainingMs: definition.fuseSeconds * 1000, zeroDisplayMs: null,
+      explosionRadius: definition.explosionRadius, explosionEnergy: definition.explosionEnergy,
+      fragmentRadius: definition.fragmentRadius, fragmentLaunchSpeed: definition.fragmentLaunchSpeed,
+      fragmentSpeed: definition.fragmentSpeed, fragmentArmingDelayMs: definition.fragmentArmingDelaySeconds * 1000,
+      fragmentLifetimeMs: definition.fragmentLifetimeSeconds * 1000, fragmentHitImpulse: definition.fragmentHitImpulse,
+      killPlaneY: definition.killPlaneY, patrolMinX: definition.patrolMinX, patrolMaxX: definition.patrolMaxX,
+      activated: false, recoverySteps: 0, turnCooldownSteps: 0,
+    });
+    if (!this.radiationFragmentRenderer) {
+      this.radiationFragmentRenderer = new RadiationFragmentRenderer(
+        this.scene as unknown as { add: { graphics(): RadiationGraphicsLike } },
+      );
+    }
   }
 
   createDemonEnemy(definition: DemonPhysicsOptions): void {
@@ -785,7 +849,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         category: COLLISION_CATEGORIES.MOVABLE,
         mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT
           | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY
-          | COLLISION_CATEGORIES.DEMON_ENEMY,
+          | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY | COLLISION_CATEGORIES.RADIATION_FRAGMENT,
       },
     });
     const platformObject = this.factory.gameObject(
@@ -811,7 +875,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       isSensor: false,
       friction: 0.38,
       restitution: 0.2,
-      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL },
+      collisionFilter: { category: COLLISION_CATEGORIES.TERRAIN, mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.RADIATION_ENEMY | COLLISION_CATEGORIES.RADIATION_FRAGMENT },
     });
     const leverObject = this.factory.gameObject(
       (this.scene as unknown as MatterSceneLike).add.zone(leverCenter.x, leverCenter.y, 1, 1),
@@ -871,7 +935,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         category: COLLISION_CATEGORIES.MOVABLE,
         mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE
           | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD
-          | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
+          | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY | COLLISION_CATEGORIES.RADIATION_FRAGMENT,
       },
     });
     rawBody.label = `ROLLING_OBJECT:${definition.id}`;
@@ -933,7 +997,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         category: COLLISION_CATEGORIES.TERRAIN,
         mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT
           | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY
-          | COLLISION_CATEGORIES.DEMON_ENEMY,
+          | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY | COLLISION_CATEGORIES.RADIATION_FRAGMENT,
       },
     }, true);
     rawBody.label = `STATUE:${definition.id}`;
@@ -958,7 +1022,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: definition.restitution,
       collisionFilter: {
         category: COLLISION_CATEGORIES.BOMB,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY,
       },
     });
     rawBody.label = `BOMB:${definition.id}`;
@@ -1087,7 +1151,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       restitution: 0,
       collisionFilter: {
         category: COLLISION_CATEGORIES.TRIGGER,
-        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.DEMON_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY,
       },
     }, true);
     rawBody.label = `SPIKE:${definition.id}`;
@@ -1134,6 +1198,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     if (kind === 'bot') this.removeBot(id);
     else if (kind === 'bird') this.removeBird(id);
     else if (kind === 'vomitEnemy') this.removeVomitEnemy(id);
+    else if (kind === 'radiationEnemy') this.removeRadioactiveEnemy(id);
     else if (kind === 'demon') this.removeDemonEnemy(id);
     this.spikeVictims.delete(`${kind}:${id}`);
   }
@@ -1201,6 +1266,12 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.birds.clear();
     for (const enemy of this.vomitEnemies.values()) enemy.renderer.dispose();
     this.vomitEnemies.clear();
+    for (const enemy of this.radiationEnemies.values()) enemy.renderer.dispose();
+    this.radiationEnemies.clear();
+    this.radiationFragments.clear();
+    this.pendingRadiationFragmentRemovals.clear();
+    this.radiationFragmentRenderer?.dispose();
+    this.radiationFragmentRenderer = null;
     for (const demon of this.demons.values()) demon.renderer.dispose();
     this.demons.clear();
     for (const bomb of this.bombs.values()) this.destroyBombVisuals(bomb);
@@ -1243,6 +1314,8 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       this.handleStatueCollision(pair, phase);
       this.handleBirdCollision(pair, phase);
       this.handleDemonCollision(pair, phase);
+      this.handleRadioactiveEnemyCollision(pair, phase);
+      this.handleRadiationFragmentCollision(pair, phase);
       this.handleBombCollision(pair, phase);
       this.handleBotCollision(pair, phase);
       this.handleRollingObjectCollision(pair, phase);
@@ -2120,6 +2193,384 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     enemy.object.destroy();
   }
 
+  private updateRadioactiveEnemiesBeforeStep(stepMs: number): void {
+    const ballBody = this.ballObject?.body;
+    const patrolGeometries = [...this.metadata.entries()]
+      .filter(([, meta]) => (meta.kind === 'terrain' || meta.kind === 'movable') && !meta.dynamic && meta.patrolGeometry)
+      .map(([, meta]) => meta.patrolGeometry as PatrolGeometry);
+    const detonations: Array<[string, RadiationEnemyRecord]> = [];
+
+    for (const [id, enemy] of [...this.radiationEnemies.entries()]) {
+      const body = enemy.object.body;
+      if (body.position.y > enemy.killPlaneY) {
+        this.removeRadioactiveEnemy(id);
+        continue;
+      }
+
+      if (!enemy.activated && ballBody) {
+        const distance = Math.hypot(ballBody.position.x - body.position.x, ballBody.position.y - body.position.y);
+        if (distance <= enemy.detectionRadius) {
+          enemy.activated = true;
+          enemy.remainingMs = enemy.fuseMs;
+        }
+      }
+
+      if (enemy.activated) {
+        if (enemy.zeroDisplayMs !== null) {
+          enemy.zeroDisplayMs -= stepMs;
+          if (enemy.zeroDisplayMs <= 0) {
+            detonations.push([id, enemy]);
+            continue;
+          }
+        } else {
+          enemy.remainingMs = Math.max(0, enemy.remainingMs - stepMs);
+          if (enemy.remainingMs <= 0) enemy.zeroDisplayMs = 120;
+        }
+      }
+
+      if (enemy.turnCooldownSteps > 0) enemy.turnCooldownSteps -= 1;
+      if (enemy.recoverySteps > 0) {
+        enemy.recoverySteps -= 1;
+        continue;
+      }
+
+      const x = body.position.x;
+      const y = body.position.y;
+      const reachedBound = (enemy.direction > 0 && enemy.patrolMaxX !== undefined && x >= enemy.patrolMaxX)
+        || (enemy.direction < 0 && enemy.patrolMinX !== undefined && x <= enemy.patrolMinX);
+      const hitObstacle = hasPatrolObstacleAhead(x, y, enemy.direction, enemy.radius, patrolGeometries);
+      const reachedEdge = hasPatrolEdgeAhead(x, y + enemy.radius, enemy.radius, enemy.direction, patrolGeometries);
+      if (reachedBound || reachedEdge || (enemy.turnCooldownSteps === 0 && hitObstacle)) {
+        enemy.direction = enemy.direction === 1 ? -1 : 1;
+        enemy.turnCooldownSteps = 9;
+      }
+
+      const currentVelocity = PhysicsAdapter.fromMatterVelocity(body.velocity);
+      const nextVelocity = PhysicsAdapter.toMatterVelocity({ x: enemy.direction * enemy.speed, y: currentVelocity.y });
+      enemy.object.setVelocity(nextVelocity.x, nextVelocity.y);
+      enemy.object.setAwake();
+    }
+
+    for (const [id, enemy] of detonations) this.detonateRadioactiveEnemy(id, enemy);
+  }
+
+  private updateRadioactiveEnemiesAfterStep(stepMs: number): void {
+    for (const [id, enemy] of [...this.radiationEnemies.entries()]) {
+      const body = enemy.object.body;
+      if (body.position.y > enemy.killPlaneY) {
+        this.removeRadioactiveEnemy(id);
+        continue;
+      }
+      enemy.renderer.update(stepMs, body.position, body.angle, enemy.activated, enemy.remainingMs);
+    }
+  }
+
+  private updateRadiationFragmentsBeforeStep(stepMs: number): void {
+    const target = this.ballObject?.body.position;
+    for (const [id, fragment] of [...this.radiationFragments.entries()]) {
+      if (this.pendingRadiationFragmentRemovals.has(id)) continue;
+      const body = fragment.object.body;
+      fragment.armingRemainingMs = Math.max(0, fragment.armingRemainingMs - stepMs);
+      fragment.lifetimeRemainingMs = Math.max(0, fragment.lifetimeRemainingMs - stepMs);
+      if (fragment.lifetimeRemainingMs <= 0) {
+        this.queueRadiationFragmentRemoval(id, true);
+        continue;
+      }
+      if (body.position.y > fragment.killPlaneY) {
+        this.queueRadiationFragmentRemoval(id, false);
+        continue;
+      }
+      if (fragment.armingRemainingMs > 0 || !target) continue;
+
+      fragment.velocity = getDirectHomingVelocity(body.position, target, fragment.speed, fragment.velocity);
+      const matterVelocity = PhysicsAdapter.toMatterVelocity(fragment.velocity);
+      fragment.object.setVelocity(matterVelocity.x, matterVelocity.y);
+      fragment.object.setAwake();
+    }
+  }
+
+  private updateRadiationFragmentsAfterStep(stepMs: number): void {
+    for (const [id, pending] of [...this.pendingRadiationFragmentRemovals.entries()]) {
+      this.pendingRadiationFragmentRemovals.delete(id);
+      this.removeRadiationFragment(id, pending.explode, pending.position);
+    }
+
+    const visuals: RadiationFragmentVisual[] = [];
+    for (const fragment of this.radiationFragments.values()) {
+      const velocity = PhysicsAdapter.fromMatterVelocity(fragment.object.body.velocity);
+      fragment.velocity = velocity;
+      visuals.push({
+        position: fragment.object.body.position,
+        velocity,
+        radius: fragment.radius,
+        lifeRatio: fragment.lifetimeMs > 0 ? fragment.lifetimeRemainingMs / fragment.lifetimeMs : 0,
+      });
+    }
+    this.radiationFragmentRenderer?.draw(visuals, stepMs);
+  }
+
+  private queueRadiationFragmentRemoval(id: string, explode: boolean): void {
+    if (this.pendingRadiationFragmentRemovals.has(id)) return;
+    const fragment = this.radiationFragments.get(id);
+    if (!fragment) return;
+    this.pendingRadiationFragmentRemovals.set(id, {
+      explode,
+      position: { ...fragment.object.body.position },
+    });
+  }
+
+  private removeRadiationFragment(id: string, explode: boolean, lastPosition?: Vector2): void {
+    const fragment = this.radiationFragments.get(id);
+    if (!fragment) return;
+    this.radiationFragments.delete(id);
+    this.pendingRadiationFragmentRemovals.delete(id);
+    const position = lastPosition ?? { ...fragment.object.body.position };
+    const entry = this.levelObjects.findIndex((object) => object.body === fragment.object.body);
+    if (entry >= 0) this.levelObjects.splice(entry, 1);
+    this.metadata.delete(fragment.object.body);
+    fragment.object.destroy();
+    if (explode) {
+      for (const listener of this.listeners) listener({ type: 'RADIATION_FRAGMENT_EXPLODED', fragmentId: id, position });
+    }
+  }
+
+  private removeRadioactiveEnemy(id: string): void {
+    const enemy = this.radiationEnemies.get(id);
+    if (!enemy) return;
+    this.radiationEnemies.delete(id);
+    enemy.renderer.dispose();
+    const entry = this.levelObjects.findIndex((object) => object.body === enemy.object.body);
+    if (entry >= 0) this.levelObjects.splice(entry, 1);
+    this.metadata.delete(enemy.object.body);
+    enemy.object.destroy();
+  }
+
+  private detonateRadioactiveEnemy(id: string, enemy: RadiationEnemyRecord): void {
+    if (!this.radiationEnemies.has(id)) return;
+    const origin = { ...enemy.object.body.position };
+    const breakableIds = this.applyRadiationBlast(origin, enemy.explosionRadius, enemy.explosionEnergy, enemy.object.body);
+    this.removeRadioactiveEnemy(id);
+    this.spawnRadiationFragments(enemy, origin);
+    for (const listener of this.listeners) {
+      listener({
+        type: 'RADIATION_ENEMY_EXPLODED', enemyId: id, position: origin,
+        radius: enemy.explosionRadius, explosionEnergy: enemy.explosionEnergy, breakableIds,
+      });
+    }
+  }
+
+  private applyRadiationBlast(
+    origin: Vector2,
+    explosionRadius: number,
+    explosionEnergy: number,
+    sourceBody: MatterBodyLike,
+  ): string[] {
+    const breakableIds: string[] = [];
+    for (const [body, meta] of [...this.metadata.entries()]) {
+      if (body === sourceBody) continue;
+      if (meta.kind === 'terrain') {
+        if (!meta.breakable || !meta.breakableThresholdEnergy || !meta.patrolGeometry) continue;
+        const distance = distanceToPatrolGeometry(origin, meta.patrolGeometry);
+        const energy = calculateBlastEnergy(explosionEnergy, explosionRadius, distance);
+        if (energy >= meta.breakableThresholdEnergy) breakableIds.push(meta.id);
+        continue;
+      }
+      if (meta.kind !== 'ball' && meta.kind !== 'bot' && meta.kind !== 'movable'
+        && meta.kind !== 'rollingObject' && meta.kind !== 'bird' && meta.kind !== 'vomitEnemy'
+        && meta.kind !== 'demon' && meta.kind !== 'radiationEnemy') continue;
+      const target = this.getRadiationBlastTargetObject(meta);
+      if (!target) continue;
+      const distance = Math.hypot(body.position.x - origin.x, body.position.y - origin.y);
+      if (distance >= explosionRadius) continue;
+      const energy = calculateBlastEnergy(explosionEnergy, explosionRadius, distance);
+      if (energy <= 0) continue;
+
+      if (meta.kind === 'movable') {
+        const block = this.movableBlocks.get(meta.id);
+        if (!block) continue;
+        if (!block.activated) {
+          if (energy < block.minimumImpactEnergy) continue;
+          block.activated = true;
+          meta.dynamic = true;
+          block.object.setStatic(false);
+        }
+      }
+
+      const mass = meta.mass ?? 1;
+      const delta = calculateBlastVelocityDelta(origin, body.position, mass, energy);
+      const current = PhysicsAdapter.fromMatterVelocity(body.velocity);
+      const next = PhysicsAdapter.toMatterVelocity({ x: current.x + delta.x, y: current.y + delta.y });
+      target.setVelocity(next.x, next.y);
+      target.setAwake();
+
+      if (meta.kind === 'bot') {
+        const bot = this.bots.get(meta.id);
+        if (bot) {
+          bot.direction = directionFromVelocity(current.x + delta.x, bot.direction);
+          bot.recoverySteps = 36;
+          bot.turnCooldownSteps = 8;
+        }
+      } else if (meta.kind === 'bird') {
+        const bird = this.birds.get(meta.id);
+        if (bird) {
+          bird.recoveryMs = Math.max(bird.recoveryMs, 420);
+          bird.attacking = false;
+          bird.pendingAttackImpulse = null;
+        }
+      } else if (meta.kind === 'radiationEnemy') {
+        const enemy = this.radiationEnemies.get(meta.id);
+        if (enemy) {
+          enemy.direction = directionFromVelocity(current.x + delta.x, enemy.direction);
+          enemy.recoverySteps = 36;
+          enemy.turnCooldownSteps = 8;
+        }
+      }
+    }
+    return breakableIds;
+  }
+
+  private getRadiationBlastTargetObject(meta: PhysicsBodyMetadata): MatterGameObjectLike | null {
+    switch (meta.kind) {
+      case 'ball': return this.ballObject;
+      case 'bot': return this.bots.get(meta.id)?.object ?? null;
+      case 'movable': return this.movableBlocks.get(meta.id)?.object ?? null;
+      case 'rollingObject': return this.rollingObjects.get(meta.id)?.object ?? null;
+      case 'bird': return this.birds.get(meta.id)?.object ?? null;
+      case 'vomitEnemy': return this.vomitEnemies.get(meta.id)?.object ?? null;
+      case 'demon': {
+        const demon = this.demons.get(meta.id);
+        return demon?.phase === 'active' ? demon.object : null;
+      }
+      case 'radiationEnemy': return this.radiationEnemies.get(meta.id)?.object ?? null;
+      default: return null;
+    }
+  }
+
+  private spawnRadiationFragments(enemy: RadiationEnemyRecord, origin: Vector2): void {
+    for (let index = 0; index < 6; index += 1) {
+      const id = `${enemy.id}:fragment:${index + 1}`;
+      const angle = Math.random() * Math.PI * 2;
+      const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+      const offset = enemy.radius * 0.48;
+      const x = origin.x + direction.x * offset;
+      const y = origin.y + direction.y * offset;
+      const rawBody = this.factory.circle(x, y, enemy.fragmentRadius, {
+        label: `RADIATION_FRAGMENT:${id}`,
+        isStatic: false,
+        isSensor: true,
+        ignoreGravity: true,
+        mass: 0.1,
+        friction: 0,
+        frictionStatic: 0,
+        frictionAir: 0,
+        restitution: 0,
+        collisionFilter: {
+          category: COLLISION_CATEGORIES.RADIATION_FRAGMENT,
+          mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.MOVABLE,
+        },
+      });
+      rawBody.label = `RADIATION_FRAGMENT:${id}`;
+      const object = this.factory.gameObject(
+        (this.scene as unknown as MatterSceneLike).add.zone(x, y, 1, 1), rawBody, true,
+      );
+      object.body.label = `RADIATION_FRAGMENT:${id}`;
+      this.registerLevelObject(object, { kind: 'radiationFragment', id, mass: 0.1 });
+      const launchSpeed = enemy.fragmentLaunchSpeed * (0.82 + Math.random() * 0.36);
+      const velocity = { x: direction.x * launchSpeed, y: direction.y * launchSpeed };
+      const matterVelocity = PhysicsAdapter.toMatterVelocity(velocity);
+      object.setVelocity(matterVelocity.x, matterVelocity.y);
+      object.setAwake();
+      this.radiationFragments.set(id, {
+        id, object, radius: enemy.fragmentRadius, speed: enemy.fragmentSpeed, velocity,
+        armingRemainingMs: enemy.fragmentArmingDelayMs,
+        lifetimeRemainingMs: enemy.fragmentLifetimeMs, lifetimeMs: enemy.fragmentLifetimeMs,
+        hitImpulse: enemy.fragmentHitImpulse, killPlaneY: enemy.killPlaneY,
+      });
+    }
+  }
+
+  private handleRadioactiveEnemyCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {
+    if (phase !== 'start') return;
+    const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
+    const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
+    const metaA = this.metadata.get(bodyA);
+    const metaB = this.metadata.get(bodyB);
+    if (!metaA || !metaB) return;
+    const enemyIsA = metaA.kind === 'radiationEnemy';
+    const enemyMeta = enemyIsA ? metaA : metaB.kind === 'radiationEnemy' ? metaB : null;
+    const otherMeta = enemyIsA ? metaB : metaA;
+    if (!enemyMeta) return;
+    const enemy = this.radiationEnemies.get(enemyMeta.id);
+    if (!enemy) return;
+    const body = enemyIsA ? bodyA : bodyB;
+
+    if (otherMeta.kind === 'terrain' || otherMeta.kind === 'movable') {
+      const otherBody = enemyIsA ? bodyB : bodyA;
+      const sign = enemyIsA ? 1 : -1;
+      const n = pair.collision.normal;
+      const length = Math.hypot(n.x, n.y) || 1;
+      let normal = { x: sign * n.x / length, y: sign * n.y / length };
+      const dx = body.position.x - otherBody.position.x;
+      const dy = body.position.y - otherBody.position.y;
+      if (normal.x * dx + normal.y * dy < 0) normal = { x: -normal.x, y: -normal.y };
+      const velocity = this.preStepVelocities.get(body) ?? PhysicsAdapter.fromMatterVelocity(body.velocity);
+      const closingSpeed = -(velocity.x * normal.x + velocity.y * normal.y);
+      if (Math.abs(normal.x) >= 0.62 && closingSpeed > 0.5) {
+        enemy.direction = directionFromVelocity(velocity.x, enemy.direction);
+        enemy.recoverySteps = 5;
+        enemy.turnCooldownSteps = 8;
+      }
+      return;
+    }
+
+    const velocity = this.preStepVelocities.get(body) ?? PhysicsAdapter.fromMatterVelocity(body.velocity);
+    enemy.direction = directionFromVelocity(velocity.x, enemy.direction);
+    enemy.recoverySteps = 7;
+    enemy.turnCooldownSteps = 8;
+  }
+
+  private handleRadiationFragmentCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {
+    if (phase !== 'start') return;
+    const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
+    const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
+    const metaA = this.metadata.get(bodyA);
+    const metaB = this.metadata.get(bodyB);
+    if (!metaA || !metaB) return;
+    const fragmentIsA = metaA.kind === 'radiationFragment';
+    const fragmentMeta = fragmentIsA ? metaA : metaB.kind === 'radiationFragment' ? metaB : null;
+    if (!fragmentMeta) return;
+    const otherMeta = fragmentIsA ? metaB : metaA;
+    const fragment = this.radiationFragments.get(fragmentMeta.id);
+    if (!fragment || this.pendingRadiationFragmentRemovals.has(fragmentMeta.id)) return;
+
+    if (otherMeta.kind === 'ball') {
+      const ballBody = fragmentIsA ? bodyB : bodyA;
+      const dx = ballBody.position.x - (fragmentIsA ? bodyA : bodyB).position.x;
+      const dy = ballBody.position.y - (fragmentIsA ? bodyA : bodyB).position.y;
+      const distance = Math.hypot(dx, dy);
+      const fallbackLength = Math.hypot(fragment.velocity.x, fragment.velocity.y) || 1;
+      const direction = distance > 1e-6
+        ? { x: dx / distance, y: dy / distance }
+        : { x: fragment.velocity.x / fallbackLength, y: fragment.velocity.y / fallbackLength };
+      const mass = this.metadata.get(ballBody)?.mass ?? 1;
+      const current = PhysicsAdapter.fromMatterVelocity(ballBody.velocity);
+      const impulse = fragment.hitImpulse / Math.max(0.01, mass);
+      const matterVelocity = PhysicsAdapter.toMatterVelocity({
+        x: current.x + direction.x * impulse,
+        y: current.y + direction.y * impulse,
+      });
+      this.ballObject?.setVelocity(matterVelocity.x, matterVelocity.y);
+      this.ballObject?.setAwake();
+      this.queueRadiationFragmentRemoval(fragment.id, true);
+      return;
+    }
+
+    if (otherMeta.kind === 'terrain' || otherMeta.kind === 'movable' || otherMeta.kind === 'rollingObject'
+      || otherMeta.kind === 'lever' || otherMeta.kind === 'statue') {
+      this.queueRadiationFragmentRemoval(fragment.id, true);
+    }
+  }
+
   private updateDemonEnemiesBeforeStep(stepMs: number): void {
     const ballBody = this.ballObject?.body;
     const ballMass = ballBody ? this.metadata.get(ballBody)?.mass ?? 1 : 1;
@@ -2383,7 +2834,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
       filter.category = COLLISION_CATEGORIES.DEMON_ENEMY;
       filter.mask = active
         ? COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.TERRAIN | COLLISION_CATEGORIES.TRIGGER | COLLISION_CATEGORIES.MOVABLE
-          | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY
+          | COLLISION_CATEGORIES.BOT | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY | COLLISION_CATEGORIES.RADIATION_ENEMY
         : 0;
     }
   }

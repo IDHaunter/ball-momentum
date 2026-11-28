@@ -103,6 +103,37 @@ export class EffectsRenderer {
     }
   }
 
+  radiationFragmentExplosion(x: number, y: number): void {
+    if (this.reducedMotion) return;
+    const flash = this.trackEffect(this.scene.add.circle(x, y, 4, 0xffef91, 0.9).setDepth(14));
+    this.scene.tweens.add({
+      targets: flash,
+      scale: 2.8,
+      alpha: 0,
+      duration: 150,
+      ease: 'Quad.easeOut',
+      onComplete: () => this.finishEffect(flash),
+    });
+    for (let index = 0; index < 6; index += 1) {
+      const angle = (Math.PI * 2 * index) / 6 + (Math.random() - 0.5) * 0.45;
+      const distance = 10 + Math.random() * 15;
+      const spark = this.trackEffect(this.scene.add.circle(
+        x, y, 1.2 + Math.random() * 1.5,
+        index % 2 === 0 ? 0xffec6a : 0xff8b2b, 0.95,
+      ).setDepth(14));
+      this.scene.tweens.add({
+        targets: spark,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: 0.15,
+        duration: 120 + Math.random() * 90,
+        ease: 'Quad.easeOut',
+        onComplete: () => this.finishEffect(spark),
+      });
+    }
+  }
+
   glassShatter(solid: SolidDefinition): void {
     if (this.reducedMotion) return;
     let minX: number;

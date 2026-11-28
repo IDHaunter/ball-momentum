@@ -39,6 +39,7 @@ class FakeWorld implements IPhysicsWorld {
   createBomb(_definition: BombPhysicsOptions): void {}
   createRollingObject(_definition: import('../../src/physics/PhysicsTypes').RollingObjectPhysicsOptions): void {}
   createVomitEnemy(_definition: VomitEnemyPhysicsOptions): void {}
+  createRadioactiveEnemy(_definition: import('../../src/physics/PhysicsTypes').RadiationEnemyPhysicsOptions): void {}
   createDemonEnemy(_definition: DemonPhysicsOptions): void {}
   createPlatformSwitch(_definition: PlatformSwitchPhysicsOptions): void {}
   removeTerrainBody(_id: string): void {}

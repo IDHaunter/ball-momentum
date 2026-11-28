@@ -81,6 +81,17 @@ export interface VomitEnemyPhysicsOptions {
   killPlaneY: number;
 }
 
+
+export interface RadiationEnemyPhysicsOptions {
+  id: string; x: number; y: number; radius: number; mass: number; speed: number;
+  direction: -1 | 1; detectionRadius: number; fuseSeconds: number;
+  explosionRadius: number; explosionEnergy: number; fragmentRadius: number;
+  fragmentLaunchSpeed: number; fragmentSpeed: number; fragmentArmingDelaySeconds: number;
+  fragmentLifetimeSeconds: number; fragmentHitImpulse: number;
+  restitution: number; friction: number; killPlaneY: number;
+  patrolMinX?: number; patrolMaxX?: number;
+}
+
 export interface DemonSpawnArea { minX: number; minY: number; maxX: number; maxY: number; }
 
 export interface DemonPhysicsOptions {
@@ -172,13 +183,13 @@ export interface SensorOptions {
   x: number; y: number; width: number; height: number;
 }
 
-export type SpikeEntityKind = 'player' | 'bot' | 'bird' | 'vomitEnemy' | 'demon';
+export type SpikeEntityKind = 'player' | 'bot' | 'bird' | 'vomitEnemy' | 'demon' | 'radiationEnemy';
 
 export type PhysicsEvent =
   | { type: 'ROLLING_OBJECT_BREAKABLE_IMPACT'; rollingObjectId: string; terrainId: string; impactEnergy: number }
   | { type: 'SPIKE_ENTITY_HIT'; spikeId: string; entityKind: SpikeEntityKind; entityId: string; position: Vector2 }
   | { type: 'BALL_BOT_IMPACT'; botId: string; normal: Vector2; contactPoint: Vector2; impactSpeed: number }
-  | { type: 'BALL_ENEMY_IMPACT'; enemyKind: 'bird' | 'vomitEnemy' | 'demon'; enemyId: string; normal: Vector2; contactPoint: Vector2; impactSpeed: number }
+  | { type: 'BALL_ENEMY_IMPACT'; enemyKind: 'bird' | 'vomitEnemy' | 'demon' | 'radiationEnemy'; enemyId: string; normal: Vector2; contactPoint: Vector2; impactSpeed: number }
   | { type: 'BALL_TERRAIN_CONTACT_STARTED' | 'BALL_TERRAIN_CONTACT_ACTIVE'; terrainId: string; supportNormal: Vector2; impactSpeed: number }
   | { type: 'BALL_TERRAIN_CONTACT_ENDED'; terrainId: string }
   | { type: 'BALL_MOVABLE_IMPACT'; movableId: string; normal: Vector2; incomingVelocity: Vector2; normalImpactSpeed: number; impactEnergy: number; ballMass: number }
@@ -186,6 +197,8 @@ export type PhysicsEvent =
   | { type: 'BALL_WALL_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; penetrationDepth: number; breakable?: boolean }
   | { type: 'BALL_TERRAIN_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; penetrationDepth: number }
   | { type: 'BOMB_EXPLODED'; bombId: string; position: Vector2; radius: number; explosionEnergy: number; breakableIds: string[] }
+  | { type: 'RADIATION_ENEMY_EXPLODED'; enemyId: string; position: Vector2; radius: number; explosionEnergy: number; breakableIds: string[] }
+  | { type: 'RADIATION_FRAGMENT_EXPLODED'; fragmentId: string; position: Vector2 }
   | { type: 'STATUE_ACTIVATED'; statueId: string }
   | { type: 'BALL_ENTERED_TRIGGER'; triggerId: string; triggerType: 'hazard' | 'checkpoint' | 'goal' | 'poop' }
   | { type: 'BOT_ENTERED_TRIGGER'; botId: string; triggerId: string; triggerType: 'poop' }

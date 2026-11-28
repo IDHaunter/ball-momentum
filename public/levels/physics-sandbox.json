@@ -1371,5 +1371,32 @@
       "x": 10160,
       "y": 920
     }
+  ],
+  "radiationEnemies": [
+    {
+      "id": "sandbox-radioactive-hunter",
+      "x": 7140,
+      "y": 862,
+      "radius": 19,
+      "mass": 1.25,
+      "speed": 82,
+      "direction": -1,
+      "detectionRadius": 210,
+      "fuseSeconds": 1.6,
+      "explosionRadius": 250,
+      "explosionEnergy": 175000,
+      "fragmentRadius": 5,
+      "fragmentLaunchSpeed": 205,
+      "fragmentSpeed": 315,
+      "fragmentArmingDelaySeconds": 0.24,
+      "fragmentLifetimeSeconds": 2.3,
+      "fragmentHitImpulse": 270,
+      "restitution": 0.38,
+      "friction": 0.045,
+      "patrolRange": {
+        "minX": 6990,
+        "maxX": 7280
+      }
+    }
   ]
 }

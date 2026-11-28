@@ -107,6 +107,31 @@ const birdSchema = z.object({
 });
 
 
+const radiationEnemySchema = z.object({
+  id: z.string().min(1),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  radius: z.number().finite().min(10).max(80),
+  mass: z.number().finite().positive().max(1000),
+  speed: z.number().finite().positive().max(2000),
+  direction: z.union([z.literal(-1), z.literal(1)]).optional(),
+  detectionRadius: z.number().finite().min(20).max(1400),
+  fuseSeconds: z.number().finite().min(0.3).max(15),
+  explosionRadius: z.number().finite().positive().max(1400),
+  explosionEnergy: z.number().finite().positive(),
+  fragmentRadius: z.number().finite().min(2).max(18),
+  fragmentLaunchSpeed: z.number().finite().positive().max(2400),
+  fragmentSpeed: z.number().finite().positive().max(2400),
+  fragmentArmingDelaySeconds: z.number().finite().min(0).max(3),
+  fragmentLifetimeSeconds: z.number().finite().min(0.25).max(10),
+  fragmentHitImpulse: z.number().finite().min(0).max(8000),
+  restitution: z.number().min(0).max(1).optional(),
+  friction: z.number().min(0).max(1).optional(),
+  patrolRange: z.object({ minX: z.number().finite(), maxX: z.number().finite() })
+    .refine((range) => range.maxX > range.minX, { message: 'patrolRange.maxX must be greater than minX' })
+    .optional(),
+});
+
 const poopPickupSchema = z.object({
   id: z.string().min(1),
   x: z.number().finite(),
@@ -226,6 +251,7 @@ export const LevelSchema = z.object({
   triggers: z.array(triggerSchema),
   bots: z.array(botSchema).max(24).optional(),
   birds: z.array(birdSchema).max(24).optional(),
+  radiationEnemies: z.array(radiationEnemySchema).max(24).optional(),
   bombs: z.array(bombSchema).max(24).optional(),
   statues: z.array(statueSchema).max(24).optional(),
   rollingObjects: z.array(rollingObjectSchema).max(24).optional(),

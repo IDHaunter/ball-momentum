@@ -351,6 +351,43 @@ Example:
 
 The Physics Sandbox includes a slime-guarded ledge beside a pit after the texture gallery. Try jumping past its repeated pulses, then push the gremlin into the gap.
 
+## Radioactive hunter enemies
+
+Levels may define optional `radiationEnemies` entries. A radioactive hunter is a dynamic circular enemy that patrols its platform, reverses at its configured `patrolRange`, at an unsupported edge, or when it collides with terrain or another solid body. When the main ball enters `detectionRadius`, the enemy activates: the radiation symbol flashes, its core pulses, and a countdown appears in the center. Leaving the radius does not disarm it. When `fuseSeconds` expires, it detonates using the same quadratic radial energy falloff as a time bomb and can break nearby breakable terrain.
+
+Each detonation spawns exactly six triangular fragments. They first scatter in random directions at `fragmentLaunchSpeed` (with a small random ±18% speed variation); after `fragmentArmingDelaySeconds`, each fragment simply points directly at the player's current position and travels at `fragmentSpeed`. There is no path planning or steering intelligence beyond this direct homing rule. A fragment that reaches the ball adds `fragmentHitImpulse / ballMass` to its velocity. Fragments disappear when they hit terrain or a movable body, when they hit the player, or when `fragmentLifetimeSeconds` expires. A short orange/yellow exhaust makes the shards read visually as tiny rockets. The enemy and fragment bodies are removed when the level is unloaded.
+
+All speeds are in pixels per second. `explosionEnergy` and `fragmentHitImpulse` are impulse-like mass × px/s values; `explosionRadius` and `detectionRadius` are pixels. `patrolRange` is optional: without it, the enemy turns at platform edges and physical obstacles. `direction` accepts `1` (right) or `-1` (left).
+
+Example:
+
+```json
+{
+  "id": "radioactive-hunter",
+  "x": 7140,
+  "y": 862,
+  "radius": 19,
+  "mass": 1.25,
+  "speed": 82,
+  "direction": -1,
+  "detectionRadius": 210,
+  "fuseSeconds": 1.6,
+  "explosionRadius": 250,
+  "explosionEnergy": 175000,
+  "fragmentRadius": 5,
+  "fragmentLaunchSpeed": 205,
+  "fragmentSpeed": 315,
+  "fragmentArmingDelaySeconds": 0.24,
+  "fragmentLifetimeSeconds": 2.3,
+  "fragmentHitImpulse": 270,
+  "restitution": 0.38,
+  "friction": 0.045,
+  "patrolRange": { "minX": 6990, "maxX": 7280 }
+}
+```
+
+The Physics Sandbox includes a radioactive hunter on the ledge to the right of the spike wall. Approach its detection radius, then try to escape the six homing shards before their short lifetime expires.
+
 ## Patrol bot appearance
 
 The red patrol bots in the Physics Sandbox use the same 18 px radius as the default player smiley and are positioned so their lower edge rests on the patrol island. Their oversized eyes retain the manic pupils; the mouth follows its own lower-face track instead of orbiting with the eyes as the body rolls. The circular body outline is a restrained 1.1 px dark burgundy stroke rather than a thick bright pink rim.
