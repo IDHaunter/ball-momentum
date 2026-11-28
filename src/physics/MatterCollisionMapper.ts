@@ -10,7 +10,7 @@ export interface CollisionPairLike {
 export interface CollisionEventLike { pairs: CollisionPairLike[]; }
 
 export interface PhysicsBodyMetadata {
-  kind: 'ball' | 'terrain' | 'trigger' | 'spike' | 'movable' | 'rollingObject' | 'bot' | 'bomb' | 'bird' | 'vomitEnemy' | 'demon' | 'lever';
+  kind: 'ball' | 'terrain' | 'trigger' | 'spike' | 'movable' | 'rollingObject' | 'bot' | 'bomb' | 'bird' | 'vomitEnemy' | 'demon' | 'lever' | 'statue';
   id: string;
   mass?: number;
   minimumImpactEnergy?: number;
@@ -115,7 +115,7 @@ export class MatterCollisionMapper {
       return [{ type: 'BALL_ENEMY_IMPACT', enemyKind: otherMeta.kind, enemyId: otherMeta.id, normal, contactPoint, impactSpeed }];
     }
 
-    if (otherMeta.kind === 'terrain' || otherMeta.kind === 'movable') {
+    if (otherMeta.kind === 'terrain' || otherMeta.kind === 'movable' || otherMeta.kind === 'statue') {
       if (phase === 'end') return [{ type: 'BALL_TERRAIN_CONTACT_ENDED', terrainId: otherMeta.id }];
       const n = pair.collision.normal;
       // Convert Matter's pair normal to the outward normal for the ball.

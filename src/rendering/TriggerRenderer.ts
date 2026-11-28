@@ -21,6 +21,7 @@ interface GoalPortalVisual {
   field: Phaser.GameObjects.Image;
   flow: Phaser.GameObjects.Image;
   waves: Phaser.GameObjects.Graphics;
+  requirementText: Phaser.GameObjects.Text;
   width: number;
   height: number;
   elapsedMs: number;
@@ -122,9 +123,28 @@ export class TriggerRenderer {
     for (const portal of this.goalPortals.values()) this.updateGoalPortal(portal, safeDelta);
   }
 
+  setGoalRequirement(id: string, remainingStatues: number): void {
+    const portal = this.goalPortals.get(id);
+    if (!portal || portal.active) return;
+    const safeRemaining = Math.max(0, Math.floor(remainingStatues));
+    portal.requirementText.setText(`PORTAL LOCKED · ${safeRemaining} STATUE${safeRemaining === 1 ? '' : 'S'} LEFT`);
+    portal.requirementText.setVisible(safeRemaining > 0);
+    portal.glow.setTint(0xff9a77);
+    portal.field.setTint(0xffc19b);
+  }
+
+  clearGoalRequirement(id: string): void {
+    const portal = this.goalPortals.get(id);
+    if (!portal) return;
+    portal.requirementText.setVisible(false);
+    portal.glow.clearTint();
+    portal.field.clearTint();
+  }
+
   activateGoal(id: string): void {
     const portal = this.goalPortals.get(id);
     if (!portal || portal.active) return;
+    this.clearGoalRequirement(id);
     portal.active = true;
     portal.activationElapsedMs = this.reducedMotion ? null : 0;
     this.updateGoalPortal(portal, 0);
@@ -189,7 +209,15 @@ export class TriggerRenderer {
       .setDisplaySize(portalWidth * 0.94, portalHeight * 0.94)
       .setAlpha(0.42);
     const waves = this.scene.add.graphics();
-    const container = this.scene.add.container(centerX, centerY, [glow, field, flow, waves])
+    const requirementText = this.scene.add.text(0, -portalHeight / 2 - 20, '', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#ffd0b5',
+      backgroundColor: '#472b32',
+      padding: { x: 8, y: 5 },
+    }).setOrigin(0.5).setVisible(false);
+    const container = this.scene.add.container(centerX, centerY, [glow, field, flow, waves, requirementText])
       .setDepth(GOAL_PORTAL_DEPTH);
 
     const portal: GoalPortalVisual = {
@@ -199,6 +227,7 @@ export class TriggerRenderer {
       field,
       flow,
       waves,
+      requirementText,
       width: portalWidth,
       height: portalHeight,
       elapsedMs: 0,

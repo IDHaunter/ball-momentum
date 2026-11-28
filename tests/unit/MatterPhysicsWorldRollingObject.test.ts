@@ -195,12 +195,16 @@ describe('MatterPhysicsWorld rolling objects', () => {
     harness.collide({ x: 500, y: 0 });
     harness.physics.step(1000 / 60);
 
-    expect(harness.events).toEqual([{
+    expect(harness.events).toHaveLength(1);
+    const impact = harness.events[0];
+    expect(impact).toMatchObject({
       type: 'ROLLING_OBJECT_BREAKABLE_IMPACT',
       rollingObjectId: 'rolling-stone',
       terrainId: 'glass-wall',
-      impactEnergy: 937_500,
-    }]);
+    });
+    if (impact.type !== 'ROLLING_OBJECT_BREAKABLE_IMPACT') throw new Error('Expected a breakable impact');
+    // Impact energy is calculated from floating-point Matter velocities.
+    expect(impact.impactEnergy).toBeCloseTo(937_500, 7);
     expect(harness.rollingBody.position.x).toBeCloseTo(155, 5);
     expect(PhysicsAdapter.fromMatterVelocity(harness.rollingBody.velocity).x).toBeCloseTo(360, 5);
     harness.physics.dispose();
@@ -226,7 +230,10 @@ describe('MatterPhysicsWorld rolling objects', () => {
     harness.collide({ x: 500, y: 0 }, 'active');
     harness.physics.step(1000 / 60);
     expect(harness.events).toHaveLength(1);
-    expect(harness.events[0]).toMatchObject({ type: 'ROLLING_OBJECT_BREAKABLE_IMPACT', impactEnergy: 937_500 });
+    const impact = harness.events[0];
+    expect(impact.type).toBe('ROLLING_OBJECT_BREAKABLE_IMPACT');
+    if (impact.type !== 'ROLLING_OBJECT_BREAKABLE_IMPACT') throw new Error('Expected a breakable impact');
+    expect(impact.impactEnergy).toBeCloseTo(937_500, 7);
     expect(PhysicsAdapter.fromMatterVelocity(harness.rollingBody.velocity).x).toBeCloseTo(360, 5);
     harness.physics.dispose();
   });

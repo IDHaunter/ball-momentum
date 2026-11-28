@@ -126,6 +126,21 @@ The platform follows its `points` array at a constant configured speed, loops ba
 
 Edit JSON files in `public/levels/`. `level-01.json` is the tutorial course and `physics-sandbox.json` is the movement sandbox. The browser validates each file before building collision bodies. Reload the game after changing a level.
 
+## Liberty statues
+
+Levels can define stationary Liberty-inspired statues in a top-level `statues` array. The statue uses a flared draped gown, a seven-ray crown, a masonry pedestal and a side-branched clenched hand so the thumbs-up reads clearly at gameplay scale. It starts in a sad dislike pose with a downward thumb and a `BAD VIBES` book. The first player-ball collision makes it bounce the ball, animates the arm into a thumbs-up pose, changes the face to a smile and changes the book to `GOOD VIBES`. Further contacts do not reactivate it. The arm and face transition takes 720 ms; Reduced Motion displays the final pose immediately.
+
+```json
+{
+  "statues": [
+    { "id": "liberty-statue-a", "x": 8405, "y": 930 },
+    { "id": "liberty-statue-b", "x": 8610, "y": 930 }
+  ]
+}
+```
+
+`x` is the statue centre and `y` is the ground/base position, both in world pixels. A level with statues shows a `STATUES completed / total` HUD counter. The goal portal remains locked until every statue has been hit; entering it early displays the remaining requirement on the portal and in the HUD. Levels without statues retain their previous completion behavior. The Physics Sandbox contains two statues immediately before its final rocky section.
+
 ## Checkpoints
 
 Checkpoint triggers remain non-physical sensor volumes. Their visual marker is a slim brushed-metal lamp post with a borderless, radially shaded glass globe and floating `Z` marks. Reaching one wakes the bulb, opens its face into dark sunglasses, and turns on a broad, feather-soft amber light pool that gently flickers without visible concentric rings. The active checkpoint remains the respawn location after death. Checkpoint placement and respawn coordinates are configured with the usual `triggers` entry (`type: "checkpoint"`, `x`, `y`, `width`, `height`, `respawnX`, and `respawnY`). The lamp is decorative only and does not push or stop the player. Reduced Motion keeps the bulb and ambient glow steadily lit without the continuous animation.

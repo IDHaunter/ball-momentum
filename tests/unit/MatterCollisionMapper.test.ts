@@ -52,6 +52,55 @@ describe('MatterCollisionMapper', () => {
       expect.objectContaining({ type: 'BALL_TERRAIN_CONTACT_ACTIVE', supportNormal: { x: 0, y: 1 } }),
     ]);
   });
+
+  it('treats a statue as solid support terrain so the ball can land and jump from it', () => {
+    const ball = body(100, 100);
+    const statue = body(100, 160);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball' }],
+      [statue, { kind: 'statue', id: 'liberty-statue' }],
+    ]));
+
+    const events = mapper.mapPair({
+      bodyA: ball,
+      bodyB: statue,
+      collision: { normal: { x: 0, y: -1 } },
+    }, 'active');
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: 'BALL_TERRAIN_CONTACT_ACTIVE',
+        terrainId: 'liberty-statue',
+        supportNormal: { x: 0, y: -1 },
+      }),
+    ]);
+  });
+
+  it('uses the normal wall-bounce path when the ball hits a statue from the side', () => {
+    const ball = body(100, 100);
+    ball.velocity = { x: 10, y: 0 };
+    ball.circleRadius = 18;
+    const statue = body(130, 100);
+    const mapper = new MatterCollisionMapper(new Map<MatterBodyLike, PhysicsBodyMetadata>([
+      [ball, { kind: 'ball', id: 'ball' }],
+      [statue, { kind: 'statue', id: 'liberty-statue' }],
+    ]));
+
+    const events = mapper.mapPair({
+      bodyA: ball,
+      bodyB: statue,
+      collision: { normal: { x: -1, y: 0 } },
+    }, 'start', { x: 600, y: 0 });
+
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'BALL_WALL_IMPACT',
+        terrainId: 'liberty-statue',
+        normal: { x: -1, y: 0 },
+        impactSpeed: 600,
+      }),
+    ]));
+  });
 });
 
 

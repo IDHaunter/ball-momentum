@@ -178,6 +178,12 @@ const rollingObjectSchema = z.object({
   restitution: z.number().finite().min(0).max(1).optional(),
 });
 
+const statueSchema = z.object({
+  id: z.string().min(1),
+  x: z.number().finite(),
+  y: z.number().finite(),
+});
+
 const bombSchema = z.object({
   id: z.string().min(1),
   x: z.number().finite(),
@@ -221,6 +227,7 @@ export const LevelSchema = z.object({
   bots: z.array(botSchema).max(24).optional(),
   birds: z.array(birdSchema).max(24).optional(),
   bombs: z.array(bombSchema).max(24).optional(),
+  statues: z.array(statueSchema).max(24).optional(),
   rollingObjects: z.array(rollingObjectSchema).max(24).optional(),
   poopPickups: z.array(poopPickupSchema).max(48).optional(),
   vomitEnemies: z.array(vomitEnemySchema).max(24).optional(),

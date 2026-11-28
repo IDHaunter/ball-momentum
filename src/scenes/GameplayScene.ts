@@ -24,6 +24,7 @@ import { FollowCameraController } from '../camera/FollowCameraController';
 import { CheckpointManager } from '../gameflow/CheckpointManager';
 import { RespawnManager } from '../gameflow/RespawnManager';
 import { CompletionManager } from '../gameflow/CompletionManager';
+import { StatueProgress } from '../gameflow/StatueProgress';
 import { LevelProgression } from '../gameflow/LevelProgression';
 import { LocalStorageProgressRepository } from '../platform/Storage/LocalStorageProgressRepository';
 import type { GameRegistry } from '../app/GameRegistry';
@@ -40,6 +41,8 @@ export class GameplayScene extends Phaser.Scene {
   private readonly progress = new LocalStorageProgressRepository();
   private readonly respawn = new RespawnManager();
   private readonly completion = new CompletionManager();
+  private statueProgress = new StatueProgress();
+  private readonly blockedGoalIds = new Set<string>();
   private readonly progression = new LevelProgression(GAME_DEFAULTS.levelIds);
   private physicsWorld!: MatterPhysicsWorld;
   private levelBuilder!: LevelBuilder;
@@ -99,6 +102,7 @@ export class GameplayScene extends Phaser.Scene {
     if (currentState === 'BOOT') { this.gameRegistry.flow.transition('MAIN_MENU'); currentState = 'MAIN_MENU'; }
     if (currentState !== 'LOADING_LEVEL') this.gameRegistry.flow.transition('LOADING_LEVEL');
     this.currentLevelId = id;
+    this.blockedGoalIds.clear();
     this.debugRenderer?.setVisible(this.debugEnabled);
     this.accumulator = 0;
     this.inputManager?.clear();
@@ -116,6 +120,7 @@ export class GameplayScene extends Phaser.Scene {
     try {
       const level = await this.levelManager.load(id);
       this.level = level;
+      this.statueProgress = new StatueProgress((level.statues ?? []).map((statue) => statue.id));
       this.clock.reset();
       this.physicsEvents = [];
       this.physicsWorld.setGravity(this.physicsConfig.world.gravityX, this.physicsConfig.world.gravityY, this.physicsConfig.world.gravityScale);
@@ -133,6 +138,7 @@ export class GameplayScene extends Phaser.Scene {
       this.cameraController.snap(level.spawn.x, level.spawn.y);
       this.levelStartedAtMs = this.clock.nowMs;
       this.gameRegistry.events.emit('levelLoaded', { id: level.id, title: level.title });
+      this.gameRegistry.events.emit('statuesChanged', this.statueProgress.snapshot);
       this.gameRegistry.flow.transition('PLAYING');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -299,6 +305,21 @@ export class GameplayScene extends Phaser.Scene {
     const events = this.physicsEvents;
     this.physicsEvents = [];
     for (const event of events) {
+      if (event.type === 'STATUE_ACTIVATED') {
+        if (this.gameRegistry.flow.state !== 'PLAYING' || !this.statueProgress.activate(event.statueId)) continue;
+        this.levelBuilder?.activateStatue(event.statueId);
+        const progress = this.statueProgress.snapshot;
+        this.gameRegistry.events.emit('statuesChanged', progress);
+        if (progress.complete && this.level) {
+          for (const goalId of this.blockedGoalIds) this.levelBuilder?.clearGoalRequirement(goalId);
+          this.blockedGoalIds.clear();
+        } else {
+          for (const goalId of this.blockedGoalIds) {
+            this.levelBuilder?.setGoalRequirement(goalId, progress.remaining);
+          }
+        }
+        continue;
+      }
       if (event.type === 'SPIKE_ENTITY_HIT') {
         if (event.entityKind === 'player') {
           if (this.gameRegistry.flow.state === 'PLAYING') {
@@ -422,6 +443,13 @@ export class GameplayScene extends Phaser.Scene {
           this.gameRegistry.events.emit('checkpoint', { id: trigger.id });
         }
       } else if (event.triggerType === 'goal') {
+        const progress = this.statueProgress.snapshot;
+        if (!progress.complete) {
+          this.blockedGoalIds.add(event.triggerId);
+          this.levelBuilder?.setGoalRequirement(event.triggerId, progress.remaining);
+          this.gameRegistry.events.emit('goalBlocked', progress);
+          continue;
+        }
         this.levelBuilder?.activateGoal(event.triggerId);
         this.completeLevel();
       }
@@ -449,6 +477,8 @@ export class GameplayScene extends Phaser.Scene {
     this.checkpoint = null;
     this.clock.reset();
     this.currentLevelId = GAME_DEFAULTS.initialLevelId;
+    this.statueProgress = new StatueProgress();
+    this.blockedGoalIds.clear();
     this.lastBoostIndicator = '';
     this.lastSubsteps = 0;
 
@@ -470,7 +500,18 @@ export class GameplayScene extends Phaser.Scene {
   }
 
   private completeLevel(): void {
-    if (this.gameRegistry.flow.state !== 'PLAYING' || !this.level || !this.completion.complete()) return;
+    if (this.gameRegistry.flow.state !== 'PLAYING' || !this.level) return;
+    const statueProgress = this.statueProgress.snapshot;
+    if (!statueProgress.complete) {
+      const goal = this.level.triggers.find((trigger) => trigger.type === 'goal');
+      if (goal) {
+        this.blockedGoalIds.add(goal.id);
+        this.levelBuilder?.setGoalRequirement(goal.id, statueProgress.remaining);
+      }
+      this.gameRegistry.events.emit('goalBlocked', statueProgress);
+      return;
+    }
+    if (!this.completion.complete()) return;
     this.gameRegistry.flow.transition('LEVEL_COMPLETE');
     const elapsed = this.clock.nowMs - this.levelStartedAtMs;
     this.progress.markLevelCompleted(this.level.id, elapsed);

@@ -86,6 +86,14 @@ export class LevelValidator {
       }
     }
 
+    for (const statue of level.statues ?? []) {
+      addId(statue.id, `statues.${statue.id}`);
+      if (statue.x < 80 || statue.x > level.world.width - 80
+        || statue.y < 200 || statue.y > level.world.height) {
+        errors.push(`statues.${statue.id}: statue must stay inside world bounds with room for its complete silhouette`);
+      }
+    }
+
     for (const bomb of level.bombs ?? []) {
       addId(bomb.id, `bombs.${bomb.id}`);
       if (bomb.x - bomb.radius < 0 || bomb.x + bomb.radius > level.world.width

@@ -1190,6 +1190,15 @@
       "text": "GLASS BREAKER",
       "color": "#a8f0ff",
       "depth": 4
+    },
+    {
+      "id": "sandbox-liberty-statues-hint",
+      "type": "text",
+      "x": 8540,
+      "y": 690,
+      "text": "LIBERTY STATUES · HIT ONCE TO LIKE",
+      "color": "#f5c451",
+      "depth": 4
     }
   ],
   "bots": [
@@ -1349,6 +1358,18 @@
       "appearance": "stone",
       "friction": 0.05,
       "restitution": 0.08
+    }
+  ],
+  "statues": [
+    {
+      "id": "sandbox-liberty-statue-a",
+      "x": 8380,
+      "y": 930
+    },
+    {
+      "id": "sandbox-liberty-statue-b",
+      "x": 8700,
+      "y": 930
     }
   ]
 }

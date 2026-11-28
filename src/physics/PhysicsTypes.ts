@@ -47,6 +47,12 @@ export interface RollingObjectPhysicsOptions {
   killPlaneY: number;
 }
 
+export interface StatuePhysicsOptions {
+  id: string;
+  x: number;
+  y: number;
+}
+
 export interface BombPhysicsOptions {
   id: string;
   x: number;
@@ -180,6 +186,7 @@ export type PhysicsEvent =
   | { type: 'BALL_WALL_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; penetrationDepth: number; breakable?: boolean }
   | { type: 'BALL_TERRAIN_IMPACT'; terrainId: string; normal: Vector2; incomingVelocity: Vector2; contactPoint: Vector2; impactSpeed: number; penetrationDepth: number }
   | { type: 'BOMB_EXPLODED'; bombId: string; position: Vector2; radius: number; explosionEnergy: number; breakableIds: string[] }
+  | { type: 'STATUE_ACTIVATED'; statueId: string }
   | { type: 'BALL_ENTERED_TRIGGER'; triggerId: string; triggerType: 'hazard' | 'checkpoint' | 'goal' | 'poop' }
   | { type: 'BOT_ENTERED_TRIGGER'; botId: string; triggerId: string; triggerType: 'poop' }
   | { type: 'BALL_EXITED_TRIGGER'; triggerId: string };

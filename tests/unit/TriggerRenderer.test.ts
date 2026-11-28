@@ -22,10 +22,13 @@ class FakeDisplayObject {
   scaleY = 1;
   angle = 0;
   alpha = 1;
+  tint = 0xffffff;
+  visible = true;
   fillAlpha = 1;
   depth = 0;
   destroyed = false;
   textureKey = '';
+  text = '';
   readonly calls: string[] = [];
   readonly fillColors: number[] = [];
   readonly strokeWidths: number[] = [];
@@ -61,6 +64,10 @@ class FakeDisplayObject {
   setTexture(key: string) { this.textureKey = key; return this; }
   setAngle(value: number) { this.angle = value; return this; }
   setAlpha(value: number) { this.alpha = value; return this; }
+  setTint(value: number) { this.tint = value; return this; }
+  setText(value: string) { this.text = value; this.calls.push('setText'); return this; }
+  clearTint() { this.tint = 0xffffff; this.calls.push('clearTint'); return this; }
+  setVisible(value: boolean) { this.visible = value; return this; }
   setOrigin() { return this; }
   setStrokeStyle(width = 0) { this.strokeWidths.push(width); return this; }
   setFillStyle(color: number) { this.fillColors.push(color); return this; }
@@ -204,6 +211,26 @@ describe('TriggerRenderer goal portals', () => {
     expect(field.height).toBe(160);
     expect(glow.width).toBeCloseTo(glow.height, 5);
     expect(flow.width).toBeCloseTo(flow.height, 5);
+  });
+
+  it('clears the locked tint before activating the portal', () => {
+    const harness = createScene();
+    const renderer = new TriggerRenderer(harness.scene);
+    renderer.render([goal]);
+
+    renderer.setGoalRequirement('goal-a', 2);
+    const [glow, field, , , requirementText] = harness.containers[0].children;
+    expect(glow.tint).toBe(0xff9a77);
+    expect(field.tint).toBe(0xffc19b);
+    expect(requirementText.visible).toBe(true);
+    expect(requirementText.text).toBe('PORTAL LOCKED · 2 STATUES LEFT');
+
+    renderer.activateGoal('goal-a');
+    expect(glow.tint).toBe(0xffffff);
+    expect(field.tint).toBe(0xffffff);
+    expect(glow.calls).toContain('clearTint');
+    expect(field.calls).toContain('clearTint');
+    expect(requirementText.visible).toBe(false);
   });
 
   it('animates flowing energy waves and plays a restrained entry ripple when the ball reaches the goal', () => {

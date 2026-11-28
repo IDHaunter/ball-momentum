@@ -91,9 +91,11 @@ export class GameApplication {
 
     this.unsubscribers.push(
       this.registry.events.on('stateChanged', ({ state }) => this.renderState(state)),
-      this.registry.events.on('levelLoaded', ({ title }) => { this.hud.setTitle(title); this.hideError(); }),
+      this.registry.events.on('levelLoaded', ({ title }) => { this.hud.setTitle(title); this.hud.clearGoalBlocked(); this.hideError(); }),
       this.registry.events.on('completed', ({ title, hasNext }) => { this.complete.setTitle(title); this.complete.setNextAvailable(hasNext); }),
       this.registry.events.on('boostChanged', ({ available, used }) => this.hud.setBoost(available, used)),
+      this.registry.events.on('statuesChanged', (progress) => this.hud.setStatueProgress(progress)),
+      this.registry.events.on('goalBlocked', (progress) => this.hud.showGoalBlocked(progress)),
       this.registry.events.on('debugChanged', ({ enabled }) => {
         this.debugPanelEnabled = enabled;
         if (enabled && !this.menuOverlayActive) {

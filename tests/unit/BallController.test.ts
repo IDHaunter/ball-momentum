@@ -31,6 +31,7 @@ class FakeWorld implements IPhysicsWorld {
   createBall(position: Vector2, _options: BallPhysicsOptions): IPhysicsBody { this.body = new FakeBody(position); return this.body; }
   createStaticBox(_definition: StaticBoxOptions): void {}
   createStaticPolygon(_definition: StaticPolygonOptions): void {}
+  createStatue(_definition: Parameters<IPhysicsWorld['createStatue']>[0]): void {}
   createSpikeSensor(_definition: Parameters<IPhysicsWorld['createSpikeSensor']>[0]): void {}
   createMovableBox(_definition: MovableBoxOptions): void {}
   createBot(): void {}

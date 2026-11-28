@@ -9,6 +9,8 @@ export interface GameEventMap {
   error: { message: string };
   debugChanged: { enabled: boolean };
   boostChanged: { available: boolean; used: boolean };
+  statuesChanged: { completed: number; total: number; remaining: number; complete: boolean };
+  goalBlocked: { completed: number; total: number; remaining: number; complete: boolean };
   pickupCollected: {
     id: string;
     type: 'poop';

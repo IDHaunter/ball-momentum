@@ -11,12 +11,14 @@ import { BackgroundRenderer } from '../rendering/BackgroundRenderer';
 import { BreakableTerrainManager } from './BreakableTerrainManager';
 import type { BreakableSolidDefinition, PoopPickupDefinition } from './LevelTypes';
 import { getDemonSpawnPoints } from './DemonSpawnSelector';
+import { LibertyStatueRenderer } from '../rendering/LibertyStatueRenderer';
 
 export class LevelBuilder {
   private readonly terrainRenderer: TerrainRenderer;
   private readonly triggerRenderer: TriggerRenderer;
   private readonly poopPickupRenderer: PoopPickupRenderer;
   private readonly backgroundRenderer: BackgroundRenderer;
+  private readonly statueRenderer: LibertyStatueRenderer;
   private readonly terrainFactory: TerrainFactory;
   private readonly triggerFactory: TriggerFactory;
   private readonly poopPickupFactory: PoopPickupFactory;
@@ -28,6 +30,7 @@ export class LevelBuilder {
     this.triggerRenderer = new TriggerRenderer(scene);
     this.poopPickupRenderer = new PoopPickupRenderer(scene);
     this.backgroundRenderer = new BackgroundRenderer(scene);
+    this.statueRenderer = new LibertyStatueRenderer(scene);
     this.terrainFactory = new TerrainFactory(world, this.terrainRenderer);
     this.triggerFactory = new TriggerFactory(world, this.triggerRenderer);
     this.poopPickupFactory = new PoopPickupFactory(world, this.poopPickupRenderer);
@@ -40,6 +43,10 @@ export class LevelBuilder {
     this.terrainFactory.build(level);
     this.triggerFactory.build(level);
     this.poopPickupFactory.build(level.poopPickups ?? []);
+    for (const statue of level.statues ?? []) {
+      this.world.createStatue({ id: statue.id, x: statue.x, y: statue.y });
+      this.statueRenderer.create(statue.id, statue.x, statue.y);
+    }
     for (const rollingObject of level.rollingObjects ?? []) {
       this.world.createRollingObject({
         id: rollingObject.id,
@@ -175,6 +182,7 @@ export class LevelBuilder {
   setReducedMotion(enabled: boolean): void {
     this.poopPickupRenderer.setReducedMotion(enabled);
     this.triggerRenderer.setReducedMotion(enabled);
+    this.statueRenderer.setReducedMotion(enabled);
   }
 
   activateCheckpoint(id: string): void {
@@ -185,8 +193,21 @@ export class LevelBuilder {
     this.triggerRenderer.activateGoal(id);
   }
 
+  setGoalRequirement(id: string, remainingStatues: number): void {
+    this.triggerRenderer.setGoalRequirement(id, remainingStatues);
+  }
+
+  clearGoalRequirement(id: string): void {
+    this.triggerRenderer.clearGoalRequirement(id);
+  }
+
+  activateStatue(id: string): void {
+    this.statueRenderer.activate(id);
+  }
+
   update(deltaMs: number): void {
     this.triggerRenderer.update(deltaMs);
+    this.statueRenderer.update(deltaMs);
   }
 
   getBreakable(id: string): BreakableSolidDefinition | null {
@@ -204,6 +225,7 @@ export class LevelBuilder {
 
   clear(): void {
     this.backgroundRenderer.clear();
+    this.statueRenderer.clear();
     this.terrainRenderer.clear();
     this.triggerRenderer.render([]);
     this.poopPickupFactory.clear();
@@ -216,6 +238,7 @@ export class LevelBuilder {
     this.clear();
     this.terrainRenderer.destroy();
     this.triggerRenderer.destroy();
+    this.statueRenderer.destroy();
     this.poopPickupRenderer.destroy();
     this.backgroundRenderer.destroy();
   }

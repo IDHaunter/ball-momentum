@@ -155,7 +155,32 @@ const bombOptions = {
   restitution: 0.58, friction: 0.08, killPlaneY: 500,
 };
 
-describe('MatterPhysicsWorld bombs', () => {
+describe('MatterPhysicsWorld bombs and statues', () => {
+  it('creates a static high-restitution statue and activates it only on the first ball contact', () => {
+    const harness = createHarness();
+    harness.world.createStatue({ id: 'liberty-statue', x: 220, y: 300 });
+    harness.world.createBall({ x: 120, y: 220 }, ballOptions);
+
+    const statue = harness.bodies.find((body) => body.label === 'STATUE:liberty-statue')!;
+    const ball = harness.bodies.find((body) => body.label === 'BALL')!;
+    expect(statue.isStatic).toBe(true);
+    expect(statue.options?.restitution).toBe(0.64);
+    const filter = statue.options?.collisionFilter as { category: number; mask: number };
+    expect(filter.category).toBe(0x0002);
+    expect(filter.mask & 0x0001).toBeTruthy();
+
+    const collision = {
+      pairs: [{ bodyA: ball, bodyB: statue, collision: { normal: { x: -1, y: 0 } } }],
+    } as CollisionEventLike;
+    harness.handlers.get('collisionstart')?.(collision);
+    harness.handlers.get('collisionstart')?.(collision);
+
+    expect(harness.events.filter((event) => event.type === 'STATUE_ACTIVATED')).toEqual([
+      { type: 'STATUE_ACTIVATED', statueId: 'liberty-statue' },
+    ]);
+    harness.world.dispose();
+  });
+
   it('creates a static bomb that collides with the player and autonomous bots', () => {
     const harness = createHarness();
     harness.world.createBomb(bombOptions);

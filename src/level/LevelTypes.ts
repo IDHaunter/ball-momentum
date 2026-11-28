@@ -47,6 +47,15 @@ export interface RollingObjectDefinition {
   restitution?: number;
 }
 
+/** Stationary Liberty-inspired objective that changes from dislike to like after the ball hits it. */
+export interface StatueDefinition {
+  id: string;
+  /** Horizontal centre in world pixels. */
+  x: number;
+  /** Ground/base position in world pixels. */
+  y: number;
+}
+
 export interface BombDefinition {
   id: string;
   x: number;
@@ -214,6 +223,7 @@ export interface LevelDefinition {
   bots?: BotDefinition[];
   birds?: BirdDefinition[];
   bombs?: BombDefinition[];
+  statues?: StatueDefinition[];
   rollingObjects?: RollingObjectDefinition[];
   poopPickups?: PoopPickupDefinition[];
   vomitEnemies?: VomitEnemyDefinition[];

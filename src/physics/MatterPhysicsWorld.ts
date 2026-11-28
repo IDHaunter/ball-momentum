@@ -2,7 +2,7 @@ import { COLLISION_CATEGORIES } from './CollisionCategories';
 import type { IPhysicsWorld } from './IPhysicsWorld';
 import { MatterCollisionMapper, type CollisionEventLike, type PhysicsBodyMetadata } from './MatterCollisionMapper';
 import { MatterPhysicsBody, type MatterBodyLike, type MatterGameObjectLike } from './MatterPhysicsBody';
-import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, DemonPhysicsOptions, PlatformSwitchPhysicsOptions, MovableBoxOptions, RollingObjectPhysicsOptions, PatrolGeometry, PhysicsEvent, SensorOptions, SpikeEntityKind, SpikeSensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
+import type { BallPhysicsOptions, BirdPhysicsOptions, BombPhysicsOptions, BotPhysicsOptions, DemonPhysicsOptions, PlatformSwitchPhysicsOptions, StatuePhysicsOptions, MovableBoxOptions, RollingObjectPhysicsOptions, PatrolGeometry, PhysicsEvent, SensorOptions, SpikeEntityKind, SpikeSensorOptions, StaticBoxOptions, StaticPolygonOptions, Vector2, SpeedSpinBoostResult, VomitEnemyPhysicsOptions } from './PhysicsTypes';
 import { polygonCentroid } from '../utils/GeometryUtils';
 import { PhysicsAdapter } from './PhysicsAdapter';
 import { calculateMovableBlockImpact } from './MovableBlockImpact';
@@ -287,6 +287,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private readonly bots = new Map<string, BotRecord>();
   private readonly birds = new Map<string, BirdRecord>();
   private readonly bombs = new Map<string, BombRecord>();
+  private readonly statues = new Map<string, { activated: boolean }>();
   private readonly vomitEnemies = new Map<string, VomitEnemyRecord>();
   private readonly demons = new Map<string, DemonRecord>();
   private readonly platformSwitches = new Map<string, PlatformSwitchRecord>();
@@ -888,6 +889,34 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     });
   }
 
+  createStatue(definition: StatuePhysicsOptions): void {
+    const width = 156;
+    const height = 198;
+    const centerY = definition.y - height / 2 - 1;
+    const rawBody = this.factory.rectangle(definition.x, centerY, width, height, {
+      label: `STATUE:${definition.id}`,
+      isStatic: true,
+      friction: 0.38,
+      frictionStatic: 0.52,
+      restitution: 0.64,
+      collisionFilter: {
+        category: COLLISION_CATEGORIES.TERRAIN,
+        mask: COLLISION_CATEGORIES.BALL | COLLISION_CATEGORIES.MOVABLE | COLLISION_CATEGORIES.BOT
+          | COLLISION_CATEGORIES.BOMB | COLLISION_CATEGORIES.BIRD | COLLISION_CATEGORIES.VOMIT_ENEMY
+          | COLLISION_CATEGORIES.DEMON_ENEMY,
+      },
+    });
+    rawBody.label = `STATUE:${definition.id}`;
+    const object = this.factory.gameObject(
+      (this.scene as unknown as MatterSceneLike).add.zone(definition.x, centerY, 1, 1),
+      rawBody,
+      true,
+    );
+    object.body.label = `STATUE:${definition.id}`;
+    this.registerLevelObject(object, { kind: 'statue', id: definition.id });
+    this.statues.set(definition.id, { activated: false });
+  }
+
   createBomb(definition: BombPhysicsOptions): void {
     const rawBody = this.factory.circle(definition.x, definition.y, definition.radius, {
       label: `BOMB:${definition.id}`,
@@ -1146,6 +1175,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
     this.demons.clear();
     for (const bomb of this.bombs.values()) this.destroyBombVisuals(bomb);
     this.bombs.clear();
+    this.statues.clear();
     for (const mechanism of this.platformSwitches.values()) mechanism.renderer.dispose();
     this.platformSwitches.clear();
     this.preStepVelocities.clear();
@@ -1180,6 +1210,7 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
   private handleCollision(event: CollisionEventLike, phase: 'start' | 'active' | 'end'): void {
     for (const pair of event.pairs ?? []) {
       this.handlePlatformSwitchCollision(pair, phase);
+      this.handleStatueCollision(pair, phase);
       this.handleBirdCollision(pair, phase);
       this.handleDemonCollision(pair, phase);
       this.handleBombCollision(pair, phase);
@@ -1205,6 +1236,24 @@ export class MatterPhysicsWorld implements IPhysicsWorld {
         for (const listener of this.listeners) listener(item);
       }
     }
+  }
+
+  private handleStatueCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {
+    if (phase !== 'start') return;
+    const bodyA = pair.bodyA.parent && pair.bodyA.parent !== pair.bodyA ? pair.bodyA.parent : pair.bodyA;
+    const bodyB = pair.bodyB.parent && pair.bodyB.parent !== pair.bodyB ? pair.bodyB.parent : pair.bodyB;
+    const metaA = this.metadata.get(bodyA);
+    const metaB = this.metadata.get(bodyB);
+    if (!metaA || !metaB) return;
+
+    const statueMeta = metaA.kind === 'statue' ? metaA : metaB.kind === 'statue' ? metaB : null;
+    const otherMeta = statueMeta === metaA ? metaB : metaA;
+    if (!statueMeta || otherMeta.kind !== 'ball') return;
+
+    const statue = this.statues.get(statueMeta.id);
+    if (!statue || statue.activated) return;
+    statue.activated = true;
+    for (const listener of this.listeners) listener({ type: 'STATUE_ACTIVATED', statueId: statueMeta.id });
   }
 
   private handlePlatformSwitchCollision(pair: CollisionEventLike['pairs'][number], phase: 'start' | 'active' | 'end'): void {

@@ -67,3 +67,11 @@
   .skin-card-name { font-size: 11px; }
   .skin-section-heading { align-items: flex-start; flex-direction: column; gap: 2px; }
 }
+.statue-indicator { padding: 5px 8px; border-radius: 7px; background: #39434c; color: #d6e0e3; font-size: 9px; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }
+.statue-indicator.is-complete { background: #264d43; color: #8af0c0; }
+.portal-requirement { position: absolute; top: calc(100% + 10px); left: 50%; width: max-content; max-width: min(90vw, 560px); transform: translateX(-50%); padding: 9px 13px; border: 1px solid rgba(255, 164, 132, .58); border-radius: 9px; background: rgba(67, 38, 45, .94); color: #ffd2be; font-size: 10px; font-weight: 850; letter-spacing: .08em; text-align: center; box-shadow: 0 7px 24px rgba(0, 0, 0, .28); }
+.portal-requirement[hidden] { display: none !important; }
+@media (max-width: 600px) {
+  .statue-indicator { padding: 4px 5px; font-size: 8px; }
+  .portal-requirement { font-size: 9px; padding: 8px 10px; }
+}

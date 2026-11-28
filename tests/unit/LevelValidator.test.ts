@@ -18,6 +18,21 @@ describe('LevelValidator', () => {
     expect(() => validator.validate(invalid)).toThrow(/duplicate ID/);
   });
 
+  it('accepts Liberty statues as level objectives and validates their placement', () => {
+    const level = {
+      ...validLevel,
+      statues: [
+        { id: 'statue-a', x: 250, y: 300 },
+        { id: 'statue-b', x: 500, y: 300 },
+      ],
+    };
+    expect(validator.validate(level).statues).toHaveLength(2);
+    expect(() => validator.validate({ ...level, statues: [{ ...level.statues[0], x: 10 }] }))
+      .toThrow(/complete silhouette/);
+    expect(() => validator.validate({ ...level, statues: [{ ...level.statues[0], id: 'floor' }] }))
+      .toThrow(/duplicate ID/);
+  });
+
   it('formats schema issue paths without assuming path segments are only strings or numbers', () => {
     const invalid = { ...validLevel, world: { ...validLevel.world, width: 'wide' } };
     expect(() => validator.validate(invalid)).toThrow(/world\.width/);
