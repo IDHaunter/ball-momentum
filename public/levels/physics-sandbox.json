@@ -743,7 +743,7 @@
       "x": 9010,
       "y": 560,
       "width": 150,
-      "height": 640,
+      "height": 840,
       "material": "stone",
       "texture": {
         "pattern": "stone-fragments",
@@ -812,7 +812,7 @@
       "y": 920,
       "width": 1020,
       "height": 480,
-      "material": "normal",
+      "material": "stone",
       "texture": {
         "pattern": "stone-fragments",
         "density": 1.0,
@@ -820,7 +820,7 @@
         "seed": 323
       },
       "borders": {
-        "top": "pavers",
+        "top": "stone",
         "right": "stone",
         "bottom": "none",
         "left": "none"
@@ -835,7 +835,7 @@
       "height": 160,
       "material": "glass",
       "breakable": {
-        "thresholdEnergy": 180000,
+        "thresholdEnergy": 210000,
         "velocityRetention": 0.72
       },
       "texture": "glass-facets",
@@ -1167,7 +1167,7 @@
     {
       "id": "sandbox-switch-finish-hint",
       "type": "text",
-      "x": 8400,
+      "x": 8500,
       "y": 860,
       "text": "FINAL LANDING",
       "color": "#b8e6a2",
@@ -1368,8 +1368,8 @@
     },
     {
       "id": "sandbox-liberty-statue-b",
-      "x": 8700,
-      "y": 930
+      "x": 10160,
+      "y": 920
     }
   ]
 }
