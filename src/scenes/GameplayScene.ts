@@ -423,9 +423,7 @@ export class GameplayScene extends Phaser.Scene {
           event.botId, pickup.speedBoostPercent, pickup.spinBoostPercent,
         );
         if (!boost) continue;
-        this.effects.poopBoost(
-          pickup.x, pickup.y, pickup.radius, pickup.speedBoostPercent, pickup.spinBoostPercent,
-        );
+        this.effects.poopBoost(pickup.x, pickup.y, pickup.radius, pickup.message);
         this.gameRegistry.events.emit('pickupCollected', {
           id: pickup.id, type: 'poop', targetKind: 'bot', targetId: event.botId,
           speedBoostPercent: pickup.speedBoostPercent, spinBoostPercent: pickup.spinBoostPercent,
@@ -440,9 +438,7 @@ export class GameplayScene extends Phaser.Scene {
         const pickup = this.levelBuilder.collectPoopPickup(event.triggerId);
         if (!pickup) continue;
         const boost = this.ball.applySpeedSpinBoost(pickup.speedBoostPercent, pickup.spinBoostPercent);
-        this.effects.poopBoost(
-          pickup.x, pickup.y, pickup.radius, pickup.speedBoostPercent, pickup.spinBoostPercent,
-        );
+        this.effects.poopBoost(pickup.x, pickup.y, pickup.radius, pickup.message);
         this.gameRegistry.events.emit('pickupCollected', {
           id: pickup.id, type: 'poop', targetKind: 'player', targetId: 'player',
           speedBoostPercent: pickup.speedBoostPercent, spinBoostPercent: pickup.spinBoostPercent,
@@ -457,7 +453,7 @@ export class GameplayScene extends Phaser.Scene {
         if (!popper) continue;
         const launch = this.ball.applyPartyPopperImpulse(popper.upwardLaunchSpeed, popper.forwardBoost);
         this.ballVisual?.launch();
-        this.effects.partyPopperBurst(popper.x, popper.y + popper.radius * 0.35, popper.radius);
+        this.effects.partyPopperBurst(popper.x, popper.y + popper.radius * 0.35, popper.radius, popper.message);
         this.emitBoostState();
         this.gameRegistry.events.emit('partyPopperTriggered', {
           id: popper.id,

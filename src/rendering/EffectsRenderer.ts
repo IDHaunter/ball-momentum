@@ -1,6 +1,12 @@
 import type Phaser from 'phaser';
 import type { SolidDefinition } from '../level/LevelTypes';
 
+/** Returns a usable optional pickup caption, suppressing missing and whitespace-only values. */
+export function resolvePickupCaption(message?: string): string | null {
+  const normalized = message?.trim();
+  return normalized ? normalized : null;
+}
+
 export class EffectsRenderer {
   private lastWallImpactAt = -Infinity;
   private readonly activeEffects = new Set<Phaser.GameObjects.GameObject>();
@@ -225,7 +231,7 @@ export class EffectsRenderer {
     }
   }
 
-  partyPopperBurst(x: number, y: number, radius: number): void {
+  partyPopperBurst(x: number, y: number, radius: number, message?: string): void {
     if (this.reducedMotion) return;
 
     const colors = [0xff4f78, 0xffd34f, 0x55d6e8, 0x8b70f2, 0x71d68b, 0xff8a45];
@@ -253,11 +259,11 @@ export class EffectsRenderer {
     });
 
     // Curled, zig-zag paper ribbons fan upward and outward from the cone.
-    for (let index = 0; index < 20; index += 1) {
+    for (let index = 0; index < 36; index += 1) {
       const color = colors[index % colors.length];
       const ribbon = this.trackEffect(this.scene.add.graphics().setPosition(x, y).setDepth(17));
-      const ribbonWidth = 2 + Math.random() * 1.8;
-      const length = 7 + Math.random() * 8;
+      const ribbonWidth = 2.1 + Math.random() * 1.9;
+      const length = 9 + Math.random() * 9;
       ribbon.lineStyle(ribbonWidth, color, 1);
       ribbon.beginPath();
       ribbon.moveTo(-length * 0.5, 0);
@@ -267,44 +273,46 @@ export class EffectsRenderer {
       ribbon.strokePath();
 
       const angle = -Math.PI + Math.random() * Math.PI;
-      const distance = radius * (1.2 + Math.random() * 2.7);
+      const distance = radius * (2.2 + Math.random() * 4.2);
       this.scene.tweens.add({
         targets: ribbon,
         x: x + Math.cos(angle) * distance,
-        y: y + Math.sin(angle) * distance + 8 + Math.random() * 22,
+        y: y + Math.sin(angle) * distance + radius * (0.08 + Math.random() * 0.28),
         angle: (Math.random() - 0.5) * 650,
         scaleX: 0.55 + Math.random() * 0.55,
         scaleY: 0.65 + Math.random() * 0.8,
         alpha: 0,
-        duration: 440 + Math.random() * 320,
+        duration: 760 + Math.random() * 440,
         ease: 'Cubic.easeOut',
         onComplete: () => this.finishEffect(ribbon),
       });
     }
 
     // Small square and triangular paper pieces make the burst feel denser.
-    for (let index = 0; index < 13; index += 1) {
+    for (let index = 0; index < 28; index += 1) {
       const color = colors[(index * 2 + 1) % colors.length];
       const piece = this.trackEffect(this.scene.add.rectangle(
         x, y, 2.5 + Math.random() * 3.5, 4 + Math.random() * 5, color, 1,
       ).setDepth(18));
       const angle = -Math.PI + Math.random() * Math.PI;
-      const distance = radius * (1.1 + Math.random() * 2.4);
+      const distance = radius * (2 + Math.random() * 4.1);
       this.scene.tweens.add({
         targets: piece,
         x: x + Math.cos(angle) * distance,
-        y: y + Math.sin(angle) * distance + 14 + Math.random() * 24,
+        y: y + Math.sin(angle) * distance + radius * (0.12 + Math.random() * 0.3),
         angle: (Math.random() - 0.5) * 900,
         alpha: 0,
         scale: 0.35,
-        duration: 390 + Math.random() * 300,
+        duration: 680 + Math.random() * 420,
         ease: 'Cubic.easeOut',
         onComplete: () => this.finishEffect(piece),
       });
     }
+
+    this.showPickupMessage(x, y, radius, message, '#fff2a8', '#57304a');
   }
 
-  poopBoost(x: number, y: number, radius: number, speedBoostPercent: number, spinBoostPercent: number): void {
+  poopBoost(x: number, y: number, radius: number, message?: string): void {
     if (this.reducedMotion) return;
 
     const groundY = y + radius;
@@ -399,18 +407,39 @@ export class EffectsRenderer {
       });
     }
 
-    const caption = this.trackEffect(this.scene.add.text(
-      x, y - radius - 16,
-      `ZOOM!  +${Math.round(speedBoostPercent)}% SPEED  +${Math.round(spinBoostPercent)}% SPIN`,
-      {
-        fontFamily: 'Arial, sans-serif', fontSize: '13px', fontStyle: 'bold',
-        color: '#ffe6a1', stroke: '#56301d', strokeThickness: 4,
-        shadow: { color: '#24160f', blur: 5, fill: true, offsetX: 1, offsetY: 2 },
-      },
-    ).setOrigin(0.5).setDepth(16));
+    this.showPickupMessage(x, y, radius, message, '#ffe6a1', '#56301d');
+  }
+
+  private showPickupMessage(
+    x: number,
+    y: number,
+    radius: number,
+    rawMessage: string | undefined,
+    color: string,
+    stroke: string,
+  ): void {
+    const message = resolvePickupCaption(rawMessage);
+    if (message === null) return;
+
+    const caption = this.trackEffect(this.scene.add.text(x, y - radius - 18, message, {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '15px',
+      fontStyle: 'bold',
+      color,
+      stroke,
+      strokeThickness: 4,
+      align: 'center',
+      wordWrap: { width: 220, useAdvancedWrap: true },
+      shadow: { color: '#24160f', blur: 5, fill: true, offsetX: 1, offsetY: 2 },
+      padding: { x: 4, y: 3 },
+    }).setOrigin(0.5).setDepth(20));
     this.scene.tweens.add({
-      targets: caption, y: caption.y - 34, alpha: 0, scale: 1.12,
-      duration: 660, ease: 'Quad.easeOut',
+      targets: caption,
+      y: caption.y - 42,
+      alpha: 0,
+      scale: 1.12,
+      duration: 850,
+      ease: 'Quad.easeOut',
       onComplete: () => this.finishEffect(caption),
     });
   }

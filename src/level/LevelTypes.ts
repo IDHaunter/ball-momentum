@@ -126,6 +126,8 @@ export interface PoopPickupDefinition {
   radius: number;
   speedBoostPercent: number;
   spinBoostPercent: number;
+  /** Optional floating comic caption shown when the pickup is collected. */
+  message?: string;
 }
 
 /** One-shot party popper that launches the player upward and forward on contact. */
@@ -138,6 +140,8 @@ export interface PartyPopperDefinition {
   upwardLaunchSpeed: number;
   /** Additional horizontal speed in px/s, applied in the ball's current travel direction. */
   forwardBoost: number;
+  /** Optional floating comic caption shown when the popper bursts. */
+  message?: string;
 }
 
 /** Pushable green character that repeatedly vomits impulses at the player inside its detection radius. */

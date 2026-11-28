@@ -90,7 +90,7 @@ Levels can define timed bombs in a top-level `bombs` array. Bombs are activated 
 
 ## Party poppers
 
-Levels can place small one-shot party poppers in a top-level `partyPoppers` array. Touching one immediately launches the player upward and adds horizontal speed in the current travel direction. Unlike the poop boost, the popper does not multiply spin; unlike a bomb, it does not apply a radial physics blast. Its visual burst sends colorful paper ribbons and confetti across the screen.
+Levels can place small one-shot party poppers in a top-level `partyPoppers` array. Touching one immediately launches the player upward and adds horizontal speed in the current travel direction. Unlike the poop boost, the popper does not multiply spin; unlike a bomb, it does not apply a radial physics blast. Its visual burst sends a dense fan of colorful paper ribbons and confetti across a wider area. Both poppers and poop pickups support an optional JSON `message` caption; when omitted (or left blank), no floating text is shown.
 
 ```json
 {
@@ -101,13 +101,14 @@ Levels can place small one-shot party poppers in a top-level `partyPoppers` arra
       "y": 681,
       "radius": 19,
       "upwardLaunchSpeed": 700,
-      "forwardBoost": 240
+      "forwardBoost": 240,
+      "message": "ПУФ!"
     }
   ]
 }
 ```
 
-`x`/`y` and `radius` use the same placement convention as poop pickups. `upwardLaunchSpeed` is the minimum upward player speed in px/s; the popper always sends the ball upward, including if it was falling. `forwardBoost` is an additional horizontal speed in px/s, applied to the right or left according to the ball's current movement direction (or its last horizontal input when nearly stationary). Both values are configurable per instance.
+`x`/`y` and `radius` use the same placement convention as poop pickups. `upwardLaunchSpeed` is the minimum upward player speed in px/s; the popper always sends the ball upward, including if it was falling. `forwardBoost` is an additional horizontal speed in px/s, applied to the right or left according to the ball's current movement direction (or its last horizontal input when nearly stationary). Both values are configurable per instance. The optional `message` field (up to 80 characters) displays a short floating comic caption when the popper bursts. If it is omitted or blank, only the visual burst is shown. The Physics Sandbox contains three poppers on separate platforms, including both captioned and silent examples.
 
 ## Paired lever switches and moving platforms
 
@@ -312,13 +313,14 @@ Levels can define optional one-shot cartoon poop collectibles in the top-level `
       "y": 861,
       "radius": 19,
       "speedBoostPercent": 25,
-      "spinBoostPercent": 45
+      "spinBoostPercent": 45,
+      "message": "УПС!"
     }
   ]
 }
 ```
 
-`x` and `y` are the center coordinates of the pickup sensor. Its lower edge (`y + radius`) is treated as the surface contact line, and the visual character is bottom-aligned to that line. To place a pickup on a horizontal surface at `surfaceY`, set `y` to `surfaceY - radius`. `radius` controls the square sensor bounds and scales the character proportionally. `speedBoostPercent` accepts 0–200 and `spinBoostPercent` accepts 0–300. Pickups are collected once and reset when the level is restarted. The Physics Sandbox includes one example placed on its long concrete platform.
+`x` and `y` are the center coordinates of the pickup sensor. Its lower edge (`y + radius`) is treated as the surface contact line, and the visual character is bottom-aligned to that line. To place a pickup on a horizontal surface at `surfaceY`, set `y` to `surfaceY - radius`. `radius` controls the square sensor bounds and scales the character proportionally. `speedBoostPercent` accepts 0–200 and `spinBoostPercent` accepts 0–300. The optional `message` field (up to 80 characters) displays a floating comic caption when collected; when omitted or blank, no text appears. Pickups are collected once and reset when the level is restarted. The Physics Sandbox includes both captioned and silent examples.
 
 ## Flying bird guardians
 

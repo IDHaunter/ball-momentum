@@ -139,6 +139,7 @@ const poopPickupSchema = z.object({
   radius: z.number().finite().min(10).max(48),
   speedBoostPercent: z.number().finite().min(0).max(200),
   spinBoostPercent: z.number().finite().min(0).max(300),
+  message: z.string().max(80).optional(),
 });
 
 const partyPopperSchema = z.object({
@@ -148,6 +149,7 @@ const partyPopperSchema = z.object({
   radius: z.number().finite().min(10).max(48),
   upwardLaunchSpeed: z.number().finite().positive().max(2200),
   forwardBoost: z.number().finite().min(0).max(1600),
+  message: z.string().max(80).optional(),
 });
 
 const vomitEnemySchema = z.object({

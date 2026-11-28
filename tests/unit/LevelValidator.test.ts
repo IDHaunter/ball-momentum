@@ -94,18 +94,24 @@ describe('LevelValidator', () => {
       ...validLevel,
       poopPickups: [{
         id: 'poop-boost', x: 420, y: 180, radius: 18,
-        speedBoostPercent: 25, spinBoostPercent: 45,
+        speedBoostPercent: 25, spinBoostPercent: 45, message: 'Упс!',
       }],
     };
     expect(validator.validate(level).poopPickups?.[0]).toMatchObject({
-      id: 'poop-boost', speedBoostPercent: 25, spinBoostPercent: 45, radius: 18,
+      id: 'poop-boost', speedBoostPercent: 25, spinBoostPercent: 45, radius: 18, message: 'Упс!',
     });
+    const withoutMessage = validator.validate({
+      ...validLevel,
+      poopPickups: [{ id: 'silent-poop', x: 420, y: 180, radius: 18, speedBoostPercent: 25, spinBoostPercent: 45 }],
+    });
+    expect(withoutMessage.poopPickups?.[0].message).toBeUndefined();
   });
 
   it('rejects poop pickups with invalid percentages, out-of-bounds positions or duplicate IDs', () => {
     const basePickup = { id: 'poop-boost', x: 420, y: 180, radius: 18, speedBoostPercent: 25, spinBoostPercent: 45 };
     expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, speedBoostPercent: -1 }] })).toThrow(/speedBoostPercent/);
     expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, spinBoostPercent: 301 }] })).toThrow(/spinBoostPercent/);
+    expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, message: 'x'.repeat(81) }] })).toThrow(/message/);
     expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, x: 5 }] })).toThrow(/pickup circle must be inside world bounds/);
     expect(() => validator.validate({ ...validLevel, poopPickups: [{ ...basePickup, id: 'floor' }] })).toThrow(/duplicate ID/);
   });
@@ -115,12 +121,17 @@ describe('LevelValidator', () => {
       ...validLevel,
       partyPoppers: [{
         id: 'party-popper-a', x: 420, y: 180, radius: 19,
-        upwardLaunchSpeed: 700, forwardBoost: 240,
+        upwardLaunchSpeed: 700, forwardBoost: 240, message: 'ПУФ!',
       }],
     };
     expect(validator.validate(level).partyPoppers?.[0]).toMatchObject({
-      id: 'party-popper-a', upwardLaunchSpeed: 700, forwardBoost: 240,
+      id: 'party-popper-a', upwardLaunchSpeed: 700, forwardBoost: 240, message: 'ПУФ!',
     });
+    const withoutMessage = validator.validate({
+      ...validLevel,
+      partyPoppers: [{ id: 'silent-popper', x: 420, y: 180, radius: 19, upwardLaunchSpeed: 700, forwardBoost: 240 }],
+    });
+    expect(withoutMessage.partyPoppers?.[0].message).toBeUndefined();
   });
 
   it('rejects party poppers with invalid launch values, out-of-bounds positions or duplicate IDs', () => {
@@ -132,6 +143,8 @@ describe('LevelValidator', () => {
       .toThrow(/upwardLaunchSpeed/);
     expect(() => validator.validate({ ...validLevel, partyPoppers: [{ ...basePopper, forwardBoost: -1 }] }))
       .toThrow(/forwardBoost/);
+    expect(() => validator.validate({ ...validLevel, partyPoppers: [{ ...basePopper, message: 'x'.repeat(81) }] }))
+      .toThrow(/message/);
     expect(() => validator.validate({ ...validLevel, partyPoppers: [{ ...basePopper, x: 5 }] }))
       .toThrow(/pickup circle must be inside world bounds/);
     expect(() => validator.validate({ ...validLevel, partyPoppers: [{ ...basePopper, id: 'floor' }] }))

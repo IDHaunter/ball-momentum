@@ -1246,7 +1246,8 @@
       "y": 681,
       "radius": 19,
       "speedBoostPercent": 25,
-      "spinBoostPercent": 45
+      "spinBoostPercent": 45,
+      "message": "Oops!"
     },
     {
       "id": "sandbox-poop-boost_small_2",
@@ -1254,7 +1255,8 @@
       "y": 681,
       "radius": 19,
       "speedBoostPercent": 25,
-      "spinBoostPercent": 45
+      "spinBoostPercent": 45,
+      "message": "Bober kurw@..."
     },
     {
       "id": "sandbox-poop-boost_big",
@@ -1262,7 +1264,8 @@
       "y": 861,
       "radius": 19,
       "speedBoostPercent": 35,
-      "spinBoostPercent": 65
+      "spinBoostPercent": 65,
+      "message": "Slippery!"
     }
   ],
   "birds": [
@@ -1406,7 +1409,26 @@
       "y": 681,
       "radius": 19,
       "upwardLaunchSpeed": 700,
-      "forwardBoost": 240
+      "forwardBoost": 240,
+      "message": "Yay!"
+    },
+    {
+      "id": "sandbox-party-popper-b",
+      "x": 2040,
+      "y": 861,
+      "radius": 19,
+      "upwardLaunchSpeed": 760,
+      "forwardBoost": 270,
+      "message": "Turbo!"
+    },
+    {
+      "id": "sandbox-party-popper-c",
+      "x": 3150,
+      "y": 861,
+      "radius": 19,
+      "upwardLaunchSpeed": 820,
+      "forwardBoost": 290,
+      "message": "Boom!"
     }
   ]
 }
