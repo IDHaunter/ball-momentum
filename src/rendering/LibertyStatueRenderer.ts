@@ -212,6 +212,8 @@ export class LibertyStatueRenderer {
     if (!statue || statue.activated) return false;
     statue.activated = true;
     statue.animationMs = this.reducedMotion ? ANIMATION_DURATION_MS : 0;
+    // Replace the inactive smoke with the exact existing flame as soon as the statue activates.
+    this.drawTorchFlameLayer(statue, statue.elapsedMs);
     if (this.reducedMotion) {
       this.draw(statue, 1);
       this.drawFaceLayer(statue, 1);
@@ -445,7 +447,57 @@ export class LibertyStatueRenderer {
     const g = statue.flameGraphics;
     g.clear();
     const compactGraphics = horizontallyScaledGraphics(g, statue.x, VISUAL_HORIZONTAL_SCALE);
-    this.drawTorchFlame(compactGraphics, { x: statue.x - 41, y: statue.y - 180 }, elapsedMs);
+    const torchCenter = { x: statue.x - 41, y: statue.y - 180 };
+    if (statue.activated) {
+      this.drawTorchFlame(compactGraphics, torchCenter, elapsedMs);
+      return;
+    }
+    this.drawTorchSmoke(compactGraphics, torchCenter, elapsedMs);
+  }
+
+  /** Draws a few soft, rising wisps while the statue is waiting to be activated. */
+  private drawTorchSmoke(g: Phaser.GameObjects.Graphics, center: Point, elapsedMs: number): void {
+    const drift = Math.sin(elapsedMs * 0.0038) * 2.2;
+    const curl = Math.sin(elapsedMs * 0.0052 + 0.9) * 1.6;
+    const baseY = center.y + 7;
+    const wisps: Array<{ start: Point; segments: CubicSegment[]; color: number; width: number; alpha: number }> = [
+      {
+        start: { x: center.x - 1.2, y: baseY },
+        segments: [
+          { controlA: { x: center.x - 5 + drift * 0.35, y: center.y + 1 }, controlB: { x: center.x + 5 + drift * 0.5, y: center.y - 5 }, end: { x: center.x + 1 + drift, y: center.y - 12 } },
+          { controlA: { x: center.x - 3 + drift, y: center.y - 18 }, controlB: { x: center.x + 5 + curl, y: center.y - 22 }, end: { x: center.x + 1 + curl, y: center.y - 29 } },
+        ],
+        color: 0x93aaa5,
+        width: 3.1,
+        alpha: 0.58,
+      },
+      {
+        start: { x: center.x - 4.5, y: baseY - 1 },
+        segments: [
+          { controlA: { x: center.x - 8 + drift * 0.25, y: center.y - 4 }, controlB: { x: center.x - 2 + drift, y: center.y - 9 }, end: { x: center.x - 5 + drift, y: center.y - 15 } },
+          { controlA: { x: center.x - 8 + drift, y: center.y - 19 }, controlB: { x: center.x - 1 + curl, y: center.y - 22 }, end: { x: center.x - 3 + curl, y: center.y - 25 } },
+        ],
+        color: 0xc0c9bd,
+        width: 1.75,
+        alpha: 0.62,
+      },
+      {
+        start: { x: center.x + 3.5, y: baseY - 1 },
+        segments: [
+          { controlA: { x: center.x + 7 + drift * 0.2, y: center.y - 4 }, controlB: { x: center.x + 1 + curl, y: center.y - 8 }, end: { x: center.x + 5 + curl, y: center.y - 13 } },
+          { controlA: { x: center.x + 8 + curl, y: center.y - 17 }, controlB: { x: center.x + 2 + drift, y: center.y - 20 }, end: { x: center.x + 4 + drift, y: center.y - 23 } },
+        ],
+        color: 0x718c89,
+        width: 1.35,
+        alpha: 0.46,
+      },
+    ];
+
+    for (const wisp of wisps) {
+      const points = sampleCubicPath(wisp.start, wisp.segments, 5);
+      drawLine(g, points, wisp.color, wisp.width + 1.2, wisp.alpha * 0.22);
+      drawLine(g, points, wisp.color, wisp.width, wisp.alpha);
+    }
   }
 
   private drawTorchFlame(g: Phaser.GameObjects.Graphics, center: Point, elapsedMs: number): void {

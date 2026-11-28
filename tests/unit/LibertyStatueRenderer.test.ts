@@ -62,21 +62,34 @@ function getThumbIcon(calls: GraphicsCall[]): Array<{ x: number; y: number }> | 
 }
 
 describe('LibertyStatueRenderer', () => {
-  it('draws a compact octopus with a lit torch, eight tentacles and a punk-spiked crown', () => {
+  it('draws a compact octopus with a smoking inactive torch, eight tentacles and a punk-spiked crown', () => {
     const harness = createHarness();
     const renderer = new LibertyStatueRenderer(harness.scene);
 
     renderer.create('statue-a', 400, 900);
 
     const bodyPaths = getFilledPaths(harness.calls, 0);
-    const flamePaths = getFilledPaths(harness.calls, 1);
+    const initialTorchPaths = getFilledPaths(harness.calls, 1);
+    expect(initialTorchPaths).toHaveLength(0);
+    const smokeStrokes = harness.calls.filter((call) => call.objectId === 1 && call.name === 'strokePath');
+    expect(smokeStrokes.length).toBeGreaterThan(0);
+    const initialTorchColors = harness.calls
+      .filter((call) => call.objectId === 1 && call.name === 'fillStyle')
+      .map((call) => call.args[0]);
+    expect(initialTorchColors).not.toContain(0xff922f);
+
     // Six lower tentacles, one torch-holding tentacle and one tiny gesture-side tentacle.
     const tentacleRibbons = bodyPaths.filter((path) => path.length === 26);
     expect(tentacleRibbons).toHaveLength(8);
 
-    // The torch flame uses the checkpoint's orange / golden / pale-hot palette.
-    const flameColors = harness.calls
-      .filter((call) => call.objectId === 1 && call.name === 'fillStyle')
+    // Activation immediately replaces the smoke with the same checkpoint-style flame.
+    expect(renderer.activate('statue-a')).toBe(true);
+    const torchCalls = harness.calls.filter((call) => call.objectId === 1);
+    const lastTorchDrawStart = torchCalls.map((call) => call.name).lastIndexOf('clear');
+    const activeTorchCalls = torchCalls.slice(lastTorchDrawStart);
+    const flamePaths = getFilledPaths(activeTorchCalls, 1);
+    const flameColors = activeTorchCalls
+      .filter((call) => call.name === 'fillStyle')
       .map((call) => call.args[0]);
     expect(flameColors).toContain(0xff922f);
     expect(flameColors).toContain(0xffd95e);
@@ -96,7 +109,6 @@ describe('LibertyStatueRenderer', () => {
 
     const thumbIcon = getThumbIcon(harness.calls);
     expect(thumbIcon).toBeDefined();
-    expect(renderer.activate('statue-a')).toBe(true);
     expect(renderer.activate('statue-a')).toBe(false);
     renderer.destroy();
   });
@@ -139,19 +151,51 @@ describe('LibertyStatueRenderer', () => {
     renderer.destroy();
   });
 
-  it('flickers only the torch layer while the rest of the statue remains static', () => {
+  it('keeps the torch smoking before activation and lights it immediately after activation', () => {
+    const harness = createHarness();
+    const renderer = new LibertyStatueRenderer(harness.scene);
+    renderer.create('statue-a', 400, 900);
+
+    const inactiveCalls = harness.calls.filter((call) => call.objectId === 1);
+    expect(inactiveCalls.some((call) => call.name === 'strokePath')).toBe(true);
+    expect(getFilledPaths(inactiveCalls, 1)).toHaveLength(0);
+    expect(inactiveCalls.some((call) => call.name === 'fillStyle' && call.args[0] === 0xff922f)).toBe(false);
+
+    renderer.update(480);
+    const smokeCallsAfterUpdate = harness.calls.filter((call) => call.objectId === 1);
+    expect(smokeCallsAfterUpdate.some((call) => call.name === 'strokePath')).toBe(true);
+    expect(getFilledPaths(smokeCallsAfterUpdate, 1)).toHaveLength(0);
+    expect(smokeCallsAfterUpdate.some((call) => call.name === 'fillStyle' && call.args[0] === 0xff922f)).toBe(false);
+
+    expect(renderer.activate('statue-a')).toBe(true);
+    const activeCalls = harness.calls.filter((call) => call.objectId === 1);
+    const lastDrawStart = activeCalls.map((call) => call.name).lastIndexOf('clear');
+    const flameCalls = activeCalls.slice(lastDrawStart);
+    expect(getFilledPaths(flameCalls, 1).length).toBeGreaterThan(0);
+    expect(flameCalls.some((call) => call.name === 'fillStyle' && call.args[0] === 0xff922f)).toBe(true);
+    const activeTorchDraws = harness.calls.filter((call) => call.objectId === 1 && call.name === 'clear').length;
+    renderer.update(160);
+    expect(harness.calls.filter((call) => call.objectId === 1 && call.name === 'clear'))
+      .toHaveLength(activeTorchDraws + 1);
+    const updatedFlameCalls = harness.calls.filter((call) => call.objectId === 1);
+    expect(getFilledPaths(updatedFlameCalls, 1).length).toBeGreaterThan(0);
+    expect(renderer.activate('statue-a')).toBe(false);
+    renderer.destroy();
+  });
+
+  it('animates only the inactive smoke layer while the rest of the statue remains static', () => {
     const harness = createHarness();
     const renderer = new LibertyStatueRenderer(harness.scene);
     renderer.create('statue-a', 400, 900);
 
     const bodyDrawsBefore = harness.calls.filter((call) => call.objectId === 0 && call.name === 'clear').length;
-    const flameDrawsBefore = harness.calls.filter((call) => call.objectId === 1 && call.name === 'clear').length;
+    const torchDrawsBefore = harness.calls.filter((call) => call.objectId === 1 && call.name === 'clear').length;
     const faceDrawsBefore = harness.calls.filter((call) => call.objectId === 2 && call.name === 'clear').length;
     renderer.update(160);
     expect(harness.calls.filter((call) => call.objectId === 0 && call.name === 'clear'))
       .toHaveLength(bodyDrawsBefore);
     expect(harness.calls.filter((call) => call.objectId === 1 && call.name === 'clear'))
-      .toHaveLength(flameDrawsBefore + 1);
+      .toHaveLength(torchDrawsBefore + 1);
     expect(harness.calls.filter((call) => call.objectId === 2 && call.name === 'clear'))
       .toHaveLength(faceDrawsBefore + 1);
     renderer.destroy();
